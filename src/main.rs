@@ -22,13 +22,17 @@ fn main() -> Result<()> {
         if event::poll(Duration::from_millis(16))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
+                    let mut moved = false;
                     match key.code {
                         KeyCode::Char('q') => app.exit = true,
-                        KeyCode::Left | KeyCode::Char('h') => app.move_player(-1, 0),
-                        KeyCode::Right | KeyCode::Char('l') => app.move_player(1, 0),
-                        KeyCode::Up | KeyCode::Char('k') => app.move_player(0, -1),
-                        KeyCode::Down | KeyCode::Char('j') => app.move_player(0, 1),
+                        KeyCode::Left | KeyCode::Char('h') => { app.move_player(-1, 0); moved = true; },
+                        KeyCode::Right | KeyCode::Char('l') => { app.move_player(1, 0); moved = true; },
+                        KeyCode::Up | KeyCode::Char('k') => { app.move_player(0, -1); moved = true; },
+                        KeyCode::Down | KeyCode::Char('j') => { app.move_player(0, 1); moved = true; },
                         _ => {}
+                    }
+                    if moved && !app.death {
+                        app.monster_turn();
                     }
                 }
             }

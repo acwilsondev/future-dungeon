@@ -223,6 +223,78 @@ impl App {
         }
     }
 
+    pub fn monster_turn(&mut self) {
+        let (player_pos, player_id) = {
+            let mut player_query = self.world.query::<(&Position, &Player)>();
+            let (id, (pos, _)) = player_query.iter().next().expect("Player not found");
+            (*pos, id)
+        };
+
+        let mut actions = Vec::new();
+
+        for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
+            let idx = (pos.y * self.map.width + pos.x) as usize;
+            if !self.map.visible[idx] { continue; }
+
+            let distance = (((pos.x as i32 - player_pos.x as i32).pow(2) + (pos.y as i32 - player_pos.y as i32).pow(2)) as f32).sqrt();
+
+            if distance < 1.5 {
+                actions.push((id, None));
+            } else {
+                let mut dx = 0;
+                let mut dy = 0;
+                if pos.x < player_pos.x { dx = 1; } else if pos.x > player_pos.x { dx = -1; }
+                if pos.y < player_pos.y { dy = 1; } else if pos.y > player_pos.y { dy = -1; }
+                actions.push((id, Some((dx, dy))));
+            }
+        }
+
+        // Collect all current monster positions to avoid nested world queries
+        let mut occupied_positions: std::collections::HashSet<(u16, u16)> = self.world
+            .query::<(&Position, &Monster)>()
+            .iter()
+            .map(|(_, (p, _))| (p.x, p.y))
+            .collect();
+        occupied_positions.insert((player_pos.x, player_pos.y));
+
+        for (id, action) in actions {
+            if let Some((dx, dy)) = action {
+                let (new_x, new_y) = {
+                    let pos = self.world.get::<&Position>(id).unwrap();
+                    ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16)
+                };
+
+                if !occupied_positions.contains(&(new_x, new_y)) && self.map.get_tile(new_x, new_y) == TileType::Floor {
+                    // Update the set and the component
+                    let mut pos = self.world.get::<&mut Position>(id).unwrap();
+                    occupied_positions.remove(&(pos.x, pos.y));
+                    pos.x = new_x;
+                    pos.y = new_y;
+                    occupied_positions.insert((new_x, new_y));
+                }
+            } else {
+                // Attack Player
+                let (monster_name, monster_power) = {
+                    let stats = self.world.get::<&CombatStats>(id).unwrap();
+                    let name = self.world.get::<&Name>(id).unwrap();
+                    (name.0.clone(), stats.power)
+                };
+
+                let player_defense = self.world.get::<&CombatStats>(player_id).unwrap().defense;
+                let damage = (monster_power - player_defense).max(0);
+                
+                let mut player_stats = self.world.get::<&mut CombatStats>(player_id).unwrap();
+                player_stats.hp -= damage;
+                self.log.push(format!("{} hits you for {} damage!", monster_name, damage));
+
+                if player_stats.hp <= 0 {
+                    self.log.push("You are dead!".to_string());
+                    self.death = true;
+                }
+            }
+        }
+    }
+
     pub fn render(&self, frame: &mut Frame) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
