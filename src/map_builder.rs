@@ -67,8 +67,78 @@ impl MapBuilder {
         }
 
         match self.theme {
-            LevelTheme::Rooms => self.build_rooms(),
+            LevelTheme::Rooms => {
+                self.build_rooms();
+                self.place_doors();
+            }
             LevelTheme::Caves => self.build_caves(),
+        }
+    }
+
+    fn is_legal_door(&self, x: u16, y: u16) -> bool {
+        if x == 0 || x >= self.map.width - 1 || y == 0 || y >= self.map.height - 1 {
+            return false;
+        }
+
+        // Must be a floor tile (from tunnel)
+        if self.map.get_tile(x, y) != TileType::Floor {
+            return false;
+        }
+
+        let left = self.map.get_tile(x - 1, y);
+        let right = self.map.get_tile(x + 1, y);
+        let up = self.map.get_tile(x, y - 1);
+        let down = self.map.get_tile(x, y + 1);
+
+        // Rule: 2 orthogonal wall tiles AND 2 orthogonal floor tiles
+        // Specifically, they must be opposite to be a door in a wall.
+        if (left == TileType::Wall && right == TileType::Wall && up == TileType::Floor && down == TileType::Floor) ||
+           (left == TileType::Floor && right == TileType::Floor && up == TileType::Wall && down == TileType::Wall) {
+            return true;
+        }
+
+        false
+    }
+
+    fn place_doors(&mut self) {
+        let mut rng = rand::thread_rng();
+        let mut candidates = Vec::new();
+
+        for room in &self.rooms {
+            // Check boundaries of the room for potential door spots
+            // Top wall
+            for x in room.x1..room.x2 {
+                if self.is_legal_door(x as u16, (room.y1 - 1) as u16) {
+                    candidates.push((x as u16, (room.y1 - 1) as u16));
+                }
+            }
+            // Bottom wall
+            for x in room.x1..room.x2 {
+                if self.is_legal_door(x as u16, room.y2 as u16) {
+                    candidates.push((x as u16, room.y2 as u16));
+                }
+            }
+            // Left wall
+            for y in room.y1..room.y2 {
+                if self.is_legal_door((room.x1 - 1) as u16, y as u16) {
+                    candidates.push(((room.x1 - 1) as u16, y as u16));
+                }
+            }
+            // Right wall
+            for y in room.y1..room.y2 {
+                if self.is_legal_door(room.x2 as u16, y as u16) {
+                    candidates.push((room.x2 as u16, y as u16));
+                }
+            }
+        }
+
+        candidates.sort();
+        candidates.dedup();
+
+        for (x, y) in candidates {
+            if rng.gen_bool(0.7) {
+                self.door_spawns.push((x, y));
+            }
         }
     }
 
@@ -110,11 +180,6 @@ impl MapBuilder {
                     } else {
                         self.apply_vertical_tunnel(prev_y, new_y, prev_x);
                         self.apply_horizontal_tunnel(prev_x, new_x, new_y);
-                    }
-                    
-                    // Add doors at room boundaries
-                    if rng.gen_bool(0.7) {
-                        self.door_spawns.push((new_x as u16, new_room.y1 as u16));
                     }
 
                     let center = new_room.center();
@@ -267,5 +332,17 @@ mod tests {
         let r3 = Rect::new(11, 11, 5, 5);
         assert!(r1.intersects(&r2));
         assert!(!r1.intersects(&r3));
+    }
+
+    #[test]
+    fn test_door_placement_legality() {
+        let mut mb = MapBuilder::new(80, 50);
+        mb.build(1); // Ensure Rooms theme
+        if matches!(mb.theme, LevelTheme::Rooms) {
+            for (x, y) in &mb.door_spawns {
+                assert!(mb.is_legal_door(*x, *y), 
+                    "Door at ({}, {}) does not meet legality criteria", x, y);
+            }
+        }
     }
 }

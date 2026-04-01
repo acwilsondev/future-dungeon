@@ -513,6 +513,7 @@ impl App {
             self.log.push("You open the door.".to_string());
             drop(door); drop(render);
             self.update_blocked_and_opaque();
+            self.update_fov();
             self.state = RunState::MonsterTurn;
             return;
         }
