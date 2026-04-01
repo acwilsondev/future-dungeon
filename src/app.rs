@@ -47,6 +47,8 @@ pub struct Map {
     pub blocked: Vec<bool>,
     #[serde(skip)]
     pub opaque: Vec<bool>,
+    #[serde(skip)]
+    pub light: Vec<f32>,
 }
 
 impl Map {
@@ -59,6 +61,7 @@ impl Map {
             visible: vec![false; (width * height) as usize],
             blocked: vec![false; (width * height) as usize],
             opaque: vec![false; (width * height) as usize],
+            light: vec![0.0; (width * height) as usize],
         }
     }
 
@@ -180,6 +183,8 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub perks: Option<Perks>,
     #[serde(default)]
+    pub light_source: Option<LightSource>,
+    #[serde(default)]
     pub gold: Option<Gold>,
     #[serde(default)]
     pub item_value: Option<ItemValue>,
@@ -195,6 +200,8 @@ pub struct EntitySnapshot {
     pub in_backpack: bool,
     pub is_player: bool,
     pub is_monster: bool,
+    #[serde(default)]
+    pub is_wisp: bool,
     #[serde(default)]
     pub is_item: bool,
     #[serde(default)]
@@ -257,6 +264,27 @@ pub struct App {
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
+
+fn apply_lighting(color: Color, intensity: f32) -> Color {
+    match color {
+        Color::Rgb(r, g, b) => {
+            Color::Rgb(
+                (r as f32 * intensity).clamp(0.0, 255.0) as u8,
+                (g as f32 * intensity).clamp(0.0, 255.0) as u8,
+                (b as f32 * intensity).clamp(0.0, 255.0) as u8,
+            )
+        }
+        Color::Indexed(i) => {
+            if intensity < 0.2 { Color::Indexed(232) }
+            else if intensity < 0.4 { Color::Indexed(236) }
+            else if intensity < 0.6 { Color::Indexed(240) }
+            else if intensity < 0.8 { Color::Indexed(244) }
+            else if intensity < 1.0 { Color::Indexed(248) }
+            else { Color::Indexed(i) }
+        }
+        _ => color,
+    }
+}
 
 impl App {
     pub fn new() -> Self {
@@ -338,12 +366,36 @@ impl App {
             Player,
             Faction(FactionKind::Player),
             Viewshed { visible_tiles: 8 },
+            LightSource { range: 6, color: (255, 255, 200) },
             Name("Player".to_string()),
             CombatStats { max_hp: 30, hp: 30, defense: 2, power: 5 },
             Experience { level: 1, xp: 0, next_level_xp: 50, xp_reward: 0 },
             Perks { traits: Vec::new() },
             Gold { amount: 0 },
         ));
+
+        // Spawn ambient light sources (Glowing Crystals) in some rooms
+        for (i, room) in mb.rooms.iter().enumerate().skip(1) {
+            if i % 3 == 0 {
+                let center = room.center();
+                self.world.spawn((
+                    Position { x: center.0 as u16, y: center.1 as u16 },
+                    Renderable { glyph: '*', fg: Color::Rgb(100, 149, 237) }, // Cornflower Blue
+                    LightSource { range: 4, color: (100, 149, 237) },
+                    Name("Glowing Crystal".to_string()),
+                ));
+            }
+            if i % 5 == 0 {
+                let center = room.center();
+                self.world.spawn((
+                    Position { x: center.0 as u16, y: center.1 as u16 },
+                    Renderable { glyph: '*', fg: Color::Cyan },
+                    LightSource { range: 4, color: (0, 255, 255) },
+                    Wisp,
+                    Name("Dungeon Wisp".to_string()),
+                ));
+            }
+        }
 
         self.world.spawn((
             Position { x: mb.stairs_down.0, y: mb.stairs_down.1 },
@@ -606,24 +658,55 @@ impl App {
         self.log.push(format!("You ascend to level {}.", self.dungeon_level));
     }
 
+    pub fn update_lighting(&mut self) {
+        for l in self.map.light.iter_mut() { *l = 0.0; }
+
+        let mut light_sources = Vec::new();
+        for (_id, (pos, light)) in self.world.query::<(&Position, &LightSource)>().iter() {
+            light_sources.push((*pos, *light));
+        }
+
+        for (pos, light) in light_sources {
+            let idx_source = pos.y as usize * self.map.width as usize + pos.x as usize;
+            self.map.light[idx_source] = (self.map.light[idx_source] + 1.0).min(1.5);
+
+            let fov = field_of_view(Point::new(pos.x, pos.y), light.range, &self.map);
+            for p in fov {
+                if p.x >= 0 && p.x < self.map.width as i32 && p.y >= 0 && p.y < self.map.height as i32 {
+                    let idx = p.y as usize * self.map.width as usize + p.x as usize;
+                    let dist = (((p.x as f32 - pos.x as f32).powi(2) + (p.y as f32 - pos.y as f32).powi(2))).sqrt();
+                    let intensity = 1.0 - (dist / light.range as f32);
+                    self.map.light[idx] = (self.map.light[idx] + intensity).min(1.5); // Can be slightly over-bright
+                }
+            }
+        }
+    }
+
     pub fn update_fov(&mut self) {
+        self.update_lighting();
         let (pos, range) = {
             let mut player_query = self.world.query::<(&Position, &Player)>();
             let (id, (pos, _)) = player_query.iter().next().expect("Player not found");
             let range = self.world.get::<&Viewshed>(id).map(|v| v.visible_tiles).unwrap_or(8);
             (*pos, range)
         };
-        
-        let fov = field_of_view(Point::new(pos.x, pos.y), range, &self.map);
-        
+
+        // Calculate broad LOS (max 20 tiles)
+        let fov = field_of_view(Point::new(pos.x, pos.y), 25, &self.map);
         for v in &mut self.map.visible { *v = false; }
         for p in fov {
             if p.x >= 0 && p.x < self.map.width as i32 && p.y >= 0 && p.y < self.map.height as i32 {
                 let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
-                self.map.visible[idx] = true;
-                self.map.revealed[idx] = true;
+                let dist = (((p.x as f32 - pos.x as f32).powi(2) + (p.y as f32 - pos.y as f32).powi(2))).sqrt();
+
+                // Visible if within player's sight range OR if the tile is lit
+                if dist <= range as f32 || self.map.light[idx] > 0.1 {
+                    self.map.visible[idx] = true;
+                    self.map.revealed[idx] = true;
+                }
             }
         }
+
 
         // Record encountered monsters
         for (_id, (pos, name, _)) in self.world.query::<(&Position, &Name, &Monster)>().iter() {
@@ -657,13 +740,14 @@ impl App {
             let personality = self.world.get::<&AIPersonality>(id).ok().map(|p| *p);
             let experience = self.world.get::<&Experience>(id).ok().map(|e| *e);
             let perks = self.world.get::<&Perks>(id).ok().map(|p| (*p).clone());
+            let light_source = self.world.get::<&LightSource>(id).ok().map(|l| *l);
             let gold = self.world.get::<&Gold>(id).ok().map(|g| *g);
             let item_value = self.world.get::<&ItemValue>(id).ok().map(|v| *v);
             
             self.entities.push(EntitySnapshot {
                 pos, render: *render, name, stats, potion, weapon, armor, door, trap, ranged, 
                 ranged_weapon, aoe, confusion, poison, strength, speed,
-                faction, viewshed, personality, experience, perks, gold, item_value,
+                faction, viewshed, personality, experience, perks, light_source, gold, item_value,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
                 ammo: self.world.get::<&Ammunition>(id).is_ok(),
@@ -671,6 +755,7 @@ impl App {
                 in_backpack: self.world.get::<&InBackpack>(id).is_ok(),
                 is_player: self.world.get::<&Player>(id).is_ok(),
                 is_monster: self.world.get::<&Monster>(id).is_ok(),
+                is_wisp: self.world.get::<&Wisp>(id).is_ok(),
                 is_item: self.world.get::<&Item>(id).is_ok(),
                 is_down_stairs: self.world.get::<&DownStairs>(id).is_ok(),
                 is_up_stairs: self.world.get::<&UpStairs>(id).is_ok(),
@@ -706,6 +791,7 @@ impl App {
             if let Some(personality) = e.personality { cb.add(personality); }
             if let Some(experience) = e.experience { cb.add(experience); }
             if let Some(perks) = e.perks.clone() { cb.add(perks); }
+            if let Some(light_source) = e.light_source { cb.add(light_source); }
             if let Some(gold) = e.gold { cb.add(gold); }
             if let Some(item_value) = e.item_value { cb.add(item_value); }
             if e.last_hit_by_player { cb.add(LastHitByPlayer); }
@@ -714,6 +800,7 @@ impl App {
             if e.consumable { cb.add(Consumable); }
             if e.is_player { cb.add(Player); }
             if e.is_monster { cb.add(Monster); }
+            if e.is_wisp { cb.add(Wisp); }
             if e.is_item { cb.add(Item); }
             if e.is_down_stairs { cb.add(DownStairs); }
             if e.is_up_stairs { cb.add(UpStairs); }
@@ -984,6 +1071,13 @@ impl App {
              handled = true;
         }
 
+        if item_name == "Torch" {
+            self.world.insert_one(player_id, LightSource { range: 10, color: (255, 255, 100) }).unwrap();
+            self.log.push("You light a torch. The shadows retreat.".to_string());
+            handled = true;
+        }
+
+
         if self.world.get::<&Ranged>(item_id).is_ok() || self.world.get::<&RangedWeapon>(item_id).is_ok() {
             if self.world.get::<&RangedWeapon>(item_id).is_ok() {
                 // Check for ammo
@@ -1252,6 +1346,12 @@ impl App {
         let mut actions = Vec::new();
         let mut actors: Vec<hecs::Entity> = self.world.query::<&Monster>().iter().map(|(id, _)| id).collect();
         for (id, _) in self.world.query::<&Merchant>().iter() { actors.push(id); }
+        
+        let mut wisp_moves = Vec::new();
+        for (id, _) in self.world.query::<&Wisp>().iter() {
+            let mut rng = rand::thread_rng();
+            wisp_moves.push((id, rng.gen_range(-1..=1), rng.gen_range(-1..=1)));
+        }
 
         for id in actors {
             let is_merchant = self.world.get::<&Merchant>(id).is_ok();
@@ -1285,6 +1385,7 @@ impl App {
             // Check other monsters
             for (other_id, (other_pos, other_faction)) in self.world.query::<(&Position, &Faction)>().iter() {
                 if id == other_id { continue; }
+                if self.world.get::<&Wisp>(other_id).is_ok() { continue; } // Don't target wisps
                 if faction.0 != other_faction.0 {
                     let dist = (((pos.x as f32 - other_pos.x as f32).powi(2) + (pos.y as f32 - other_pos.y as f32).powi(2))).sqrt();
                     if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((other_id, *other_pos)); }
@@ -1457,6 +1558,17 @@ impl App {
             self.add_player_xp(total_xp);
         }
 
+        for (id, dx, dy) in wisp_moves {
+            let (new_x, new_y) = {
+                let pos = self.world.get::<&Position>(id).unwrap();
+                ((pos.x as i16 + dx).clamp(0, self.map.width as i16 - 1) as u16, (pos.y as i16 + dy).clamp(0, self.map.height as i16 - 1) as u16)
+            };
+            if !self.map.blocked[new_y as usize * self.map.width as usize + new_x as usize] {
+                let mut pos = self.world.get::<&mut Position>(id).unwrap();
+                pos.x = new_x; pos.y = new_y;
+            }
+        }
+
         if self.state != RunState::Dead && self.state != RunState::LevelUp { self.state = RunState::AwaitingInput; }
     }
 
@@ -1486,21 +1598,37 @@ impl App {
                 if map_x < 0 || map_x >= self.map.width as i32 { continue; }
                 let idx = map_y as usize * self.map.width as usize + map_x as usize;
                 if !self.map.revealed[idx] { continue; }
-                let (char, color) = match self.map.tiles[idx] {
-                    TileType::Wall => ("#", if self.map.visible[idx] { Color::Indexed(252) } else { Color::Indexed(238) }),
-                    TileType::Floor => (".", if self.map.visible[idx] { Color::Indexed(242) } else { Color::Indexed(234) }),
+                
+                let light = self.map.light[idx];
+                let is_visible = self.map.visible[idx];
+                
+                let (char, mut color) = match self.map.tiles[idx] {
+                    TileType::Wall => ("#", if is_visible { Color::Indexed(252) } else { Color::Indexed(238) }),
+                    TileType::Floor => (".", if is_visible { Color::Indexed(242) } else { Color::Indexed(234) }),
                 };
+
+                if is_visible {
+                    color = apply_lighting(color, light.max(0.2)); // Minimum ambient light when in FOV
+                } else {
+                    color = apply_lighting(color, 0.1); // Very dim for revealed but not in FOV
+                }
+
                 buffer.get_mut(inner_map.x + x as u16, inner_map.y + y as u16).set_symbol(char).set_fg(color);
             }
         }
 
         for (id, (pos, render)) in self.world.query::<(&Position, &Renderable)>().iter() {
-            let idx = (pos.y * self.map.width + pos.x) as usize;
+            let idx = pos.y as usize * self.map.width as usize + pos.x as usize;
             if !self.map.visible[idx] { continue; }
+            
+            let light = self.map.light[idx];
+            if light < 0.1 && self.world.get::<&Player>(id).is_err() { continue; } // Hide monsters in total darkness
+
             if let Ok(trap) = self.world.get::<&Trap>(id) { if !trap.revealed { continue; } }
             let screen_x = pos.x as i32 - camera_x; let screen_y = pos.y as i32 - camera_y;
             if screen_x >= 0 && screen_x < view_w && screen_y >= 0 && screen_y < view_h {
-                let mut style = Style::default().fg(render.fg);
+                let color = apply_lighting(render.fg, light.max(0.3));
+                let mut style = Style::default().fg(color);
                 if self.world.get::<&Player>(id).is_ok() { style = style.add_modifier(Modifier::BOLD); }
                 buffer.get_mut(inner_map.x + screen_x as u16, inner_map.y + screen_y as u16).set_symbol(&render.glyph.to_string()).set_style(style);
             }

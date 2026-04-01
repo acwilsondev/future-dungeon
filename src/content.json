@@ -255,6 +255,25 @@
       "spawn_chance": 0.3,
       "min_floor": 1,
       "max_floor": 10
+    },
+    {
+      "name": "Torch",
+      "glyph": "(",
+      "color": [255, 165, 0],
+      "price": 5,
+      "potion": null,
+      "weapon": null,
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": true,
+      "spawn_chance": 0.4,
+      "min_floor": 1,
+      "max_floor": 999
     }
   ]
 }

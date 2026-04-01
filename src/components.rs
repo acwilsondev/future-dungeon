@@ -137,6 +137,15 @@ pub struct Viewshed {
     pub visible_tiles: i32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LightSource {
+    pub range: i32,
+    pub color: (u8, u8, u8),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Wisp;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Name(pub String);
 
