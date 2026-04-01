@@ -1,30 +1,33 @@
-# Epics Overview: RustLike
+# Epics Overview: RustLike v0.2 - "The Deep Descent"
 
-This document outlines the high-level epics for the development of "RustLike", a simple Unicode/256-color dungeon crawler roguelike.
+This document outlines the high-level epics for the second major iteration of RustLike, focusing on depth, variety, and mechanical complexity.
 
-## 1. Engine & Rendering [DONE]
-Implement the core game loop and a terminal-based rendering system capable of displaying Unicode characters and 256-color palettes.
+## 1. Multi-level Dungeon Depth
+Implement stairs (up/down) and a system for generating and persisting multiple dungeon levels. Scaled difficulty based on current depth.
 
-## 2. Game Persistence [DONE]
-Implement saving and loading functionality to allow players to resume their progress between sessions. Baking this in early ensures the game state is serializable from the start.
+## 2. Advanced Map Features
+Enhance procedural generation with "vaults" (pre-designed rooms), thematic levels (e.g., caves vs. halls), and interactive terrain (doors, traps).
 
-## 3. Procedural Dungeon Generation [DONE]
-Develop algorithms to generate varied and interesting dungeon layouts, including rooms, corridors, and multi-level transitions (stairs).
+## 3. Combat 2.0: Ranged & Magic
+Introduce ranged weapons (bows/throwing knives) and a magic system (spells/scrolls) with a dedicated targeting sub-state.
 
-## 4. Entity Component System (ECS) [DONE]
-Establish a robust system for managing game entities (player, monsters, items) and their behaviors/properties.
+## 4. Status Effects & Temporal Mechanics
+Implement duration-based buffs and debuffs (e.g., Poison, Haste, Confusion) and a more robust turn-tick system.
 
-## 5. Movement & Exploration [DONE]
-Implement turn-based movement, field-of-view (FOV) calculations, and a "fog of war" mechanic to encourage exploration.
+## 5. Monster AI 2.0: Personality & Factions
+Expand monster behaviors to include fleeing, kiting, and teamwork. Introduce monster factions (e.g., Goblins vs. Undead).
 
-## 6. Combat & Stats System [DONE]
-Create a turn-based combat system with attributes (HP, Strength, etc.), damage calculations, and experience/leveling mechanics.
+## 6. Experience & Progression
+Create an XP system where defeating monsters leads to level-ups, allowing players to choose stat increases or new perks.
 
-## 7. Monster AI [DONE]
-Implement basic to intermediate AI for different monster types, ranging from simple "chase the player" to more complex behaviors.
+## 7. Economy: Wealth & Shops
+Introduce Gold as a currency and spawn periodic "shops" where players can buy and sell items through a trade interface.
 
-## 8. Item & Inventory System [DONE]
-Design a system for discovering, picking up, and using items, including consumables (potions/food) and equippable gear (weapons/armor).
+## 8. Visual Polish & Feedback
+Add simple animations for hits, projectiles, and screen shakes to make combat feel more impactful.
 
-## 9. User Interface (UI) [DONE]
-Build an in-game UI that displays the map, a scrolling message log for events, and a status sidebar for player information.
+## 9. Knowledge Base & Extended UI
+Implement a scrollable message history, a monster bestiary, and detailed item tooltips to help players understand the world.
+
+## 10. Data-Driven Content Pipeline
+Externalize monster and item definitions into data files (YAML or JSON) to allow for rapid content creation and balancing without recompiling.
