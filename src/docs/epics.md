@@ -2,7 +2,7 @@
 
 This document outlines the high-level epics for the development of "RustLike", a simple Unicode/256-color dungeon crawler roguelike.
 
-## 1. Engine & Rendering
+## 1. Engine & Rendering [DONE]
 Implement the core game loop and a terminal-based rendering system capable of displaying Unicode characters and 256-color palettes.
 
 ## 2. Game Persistence
