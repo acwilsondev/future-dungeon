@@ -33,6 +33,7 @@ fn main() -> Result<()> {
                                 KeyCode::Char('g') => app.pick_up_item(),
                                 KeyCode::Char('i') => app.state = RunState::ShowInventory,
                                 KeyCode::Char('?') | KeyCode::Char('/') => app.state = RunState::ShowHelp,
+                                KeyCode::Enter => app.try_level_transition(),
                                 _ => {}
                             }
                         }
@@ -59,6 +60,17 @@ fn main() -> Result<()> {
                                         app.inventory_cursor = 0;
                                     }
                                 }
+                                _ => {}
+                            }
+                        }
+                        RunState::ShowTargeting => {
+                            match key.code {
+                                KeyCode::Esc => app.state = RunState::AwaitingInput,
+                                KeyCode::Left | KeyCode::Char('h') => { if app.targeting_cursor.0 > 0 { app.targeting_cursor.0 -= 1; } }
+                                KeyCode::Right | KeyCode::Char('l') => { if app.targeting_cursor.0 < app.map.width - 1 { app.targeting_cursor.0 += 1; } }
+                                KeyCode::Up | KeyCode::Char('k') => { if app.targeting_cursor.1 > 0 { app.targeting_cursor.1 -= 1; } }
+                                KeyCode::Down | KeyCode::Char('j') => { if app.targeting_cursor.1 < app.map.height - 1 { app.targeting_cursor.1 += 1; } }
+                                KeyCode::Enter => app.fire_targeting_item(),
                                 _ => {}
                             }
                         }
