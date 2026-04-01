@@ -28,12 +28,13 @@ pub struct MapBuilder {
     pub map: Map,
     pub rooms: Vec<Rect>,
     pub player_start: (u16, u16),
+    pub monster_spawns: Vec<(u16, u16)>,
 }
 
 impl MapBuilder {
     pub fn new(width: u16, height: u16) -> Self {
         let map = Map::new(width, height);
-        Self { map, rooms: Vec::new(), player_start: (0, 0) }
+        Self { map, rooms: Vec::new(), player_start: (0, 0), monster_spawns: Vec::new() }
     }
 
     pub fn build(&mut self) {
@@ -69,13 +70,17 @@ impl MapBuilder {
                         self.apply_vertical_tunnel(prev_y, new_y, prev_x);
                         self.apply_horizontal_tunnel(prev_x, new_x, new_y);
                     }
+                    
+                    // Spawn a monster in the room
+                    let center = new_room.center();
+                    self.monster_spawns.push((center.0 as u16, center.1 as u16));
+                } else {
+                    let start = new_room.center();
+                    self.player_start = (start.0 as u16, start.1 as u16);
                 }
                 self.rooms.push(new_room);
             }
         }
-
-        let start = self.rooms[0].center();
-        self.player_start = (start.0 as u16, start.1 as u16);
     }
 
     fn apply_room_to_map(&mut self, room: &Rect) {
@@ -103,5 +108,35 @@ impl MapBuilder {
                 self.map.tiles[idx] = TileType::Floor;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_map_builder_rooms() {
+        let mut mb = MapBuilder::new(80, 50);
+        mb.build();
+        assert!(!mb.rooms.is_empty(), "MapBuilder should generate at least one room");
+    }
+
+    #[test]
+    fn test_player_start_on_floor() {
+        let mut mb = MapBuilder::new(80, 50);
+        mb.build();
+        let (x, y) = mb.player_start;
+        let idx = (y * mb.map.width + x) as usize;
+        assert_eq!(mb.map.tiles[idx], TileType::Floor, "Player should start on a floor tile");
+    }
+
+    #[test]
+    fn test_rect_intersects() {
+        let r1 = Rect::new(0, 0, 10, 10);
+        let r2 = Rect::new(5, 5, 10, 10);
+        let r3 = Rect::new(11, 11, 5, 5);
+        assert!(r1.intersects(&r2));
+        assert!(!r1.intersects(&r3));
     }
 }
