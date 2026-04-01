@@ -23,6 +23,7 @@ pub enum RunState {
     ShowHelp,
     ShowTargeting,
     LevelUp,
+    ShowShop,
     Dead,
 }
 
@@ -129,7 +130,13 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub perks: Option<Perks>,
     #[serde(default)]
+    pub gold: Option<Gold>,
+    #[serde(default)]
+    pub item_value: Option<ItemValue>,
+    #[serde(default)]
     pub last_hit_by_player: bool,
+    #[serde(default)]
+    pub is_merchant: bool,
     #[serde(default)]
     pub ammo: bool,
     #[serde(default)]
@@ -177,6 +184,12 @@ pub struct App {
     pub speed_toggle: bool,
     #[serde(skip)]
     pub level_up_cursor: usize,
+    #[serde(skip)]
+    pub shop_cursor: usize,
+    #[serde(skip)]
+    pub active_merchant: Option<hecs::Entity>,
+    #[serde(skip)]
+    pub shop_mode: usize, // 0 = Buy, 1 = Sell
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -202,6 +215,9 @@ impl App {
             targeting_item: None,
             speed_toggle: true,
             level_up_cursor: 0,
+            shop_cursor: 0,
+            active_merchant: None,
+            shop_mode: 0,
         };
         app.generate_level();
         app
@@ -224,6 +240,7 @@ impl App {
             CombatStats { max_hp: 30, hp: 30, defense: 2, power: 5 },
             Experience { level: 1, xp: 0, next_level_xp: 50, xp_reward: 0 },
             Perks { traits: Vec::new() },
+            Gold { amount: 0 },
         ));
 
         self.world.spawn((
@@ -238,6 +255,38 @@ impl App {
             UpStairs,
             Name("Up Stairs".to_string()),
         ));
+
+        // Spawn a Merchant in a random room (usually the second one)
+        if mb.rooms.len() > 1 {
+            let room = &mb.rooms[1];
+            let center = room.center();
+            let merchant = self.world.spawn((
+                Position { x: center.0 as u16, y: center.1 as u16 },
+                Renderable { glyph: 'M', fg: Color::Rgb(255, 165, 0) },
+                Merchant,
+                Name("Merchant".to_string()),
+                CombatStats { max_hp: 100, hp: 100, defense: 10, power: 10 },
+                Faction(FactionKind::Player),
+            ));
+            
+            // Give merchant some items
+            self.world.spawn((
+                Item, Name("Health Potion".to_string()), Potion { heal_amount: 8 }, Consumable,
+                Renderable { glyph: '!', fg: Color::Magenta },
+                InBackpack { owner: merchant }, ItemValue { price: 10 }
+            ));
+            self.world.spawn((
+                Item, Name("Magic Missile Scroll".to_string()), Ranged { range: 6 }, Consumable,
+                Renderable { glyph: ')', fg: Color::Yellow },
+                CombatStats { max_hp: 0, hp: 0, defense: 0, power: 10 },
+                InBackpack { owner: merchant }, ItemValue { price: 15 }
+            ));
+            self.world.spawn((
+                Item, Name("Shortbow".to_string()), RangedWeapon { range: 8, damage_bonus: 4 },
+                Renderable { glyph: ')', fg: Color::Yellow },
+                InBackpack { owner: merchant }, ItemValue { price: 25 }
+            ));
+        }
 
         for pos in &mb.door_spawns {
             self.world.spawn((
@@ -319,7 +368,7 @@ impl App {
         }
 
         for spawn in &mb.item_spawns {
-            let roll = rng.gen_range(0..10);
+            let roll = rng.gen_range(0..12);
             match roll {
                 0 => {
                     self.world.spawn((
@@ -329,6 +378,7 @@ impl App {
                         Consumable,
                         Name("Health Potion".to_string()),
                         Potion { heal_amount: 8 },
+                        ItemValue { price: 10 },
                     ));
                 }
                 1 => {
@@ -338,6 +388,7 @@ impl App {
                         Item,
                         Name("Dagger".to_string()),
                         Weapon { power_bonus: 2 },
+                        ItemValue { price: 5 },
                     ));
                 }
                 2 => {
@@ -349,6 +400,7 @@ impl App {
                         Name("Magic Missile Scroll".to_string()),
                         Ranged { range: 6 },
                         CombatStats { max_hp: 0, hp: 0, defense: 0, power: 10 },
+                        ItemValue { price: 15 },
                     ));
                 }
                 3 => {
@@ -361,6 +413,7 @@ impl App {
                         Ranged { range: 6 },
                         AreaOfEffect { radius: 3 },
                         CombatStats { max_hp: 0, hp: 0, defense: 0, power: 15 },
+                        ItemValue { price: 20 },
                     ));
                 }
                 4 => {
@@ -371,6 +424,7 @@ impl App {
                         Consumable,
                         Name("Potion of Strength".to_string()),
                         Strength { amount: 3, turns: 10 },
+                        ItemValue { price: 15 },
                     ));
                 }
                 5 => {
@@ -381,6 +435,7 @@ impl App {
                         Consumable,
                         Name("Potion of Speed".to_string()),
                         Speed { turns: 10 },
+                        ItemValue { price: 20 },
                     ));
                 }
                 6 => {
@@ -392,6 +447,7 @@ impl App {
                         Name("Poison Scroll".to_string()),
                         Ranged { range: 6 },
                         Poison { damage: 2, turns: 6 },
+                        ItemValue { price: 15 },
                     ));
                 }
                 7 => {
@@ -401,6 +457,7 @@ impl App {
                         Item,
                         Name("Shortbow".to_string()),
                         RangedWeapon { range: 8, damage_bonus: 4 },
+                        ItemValue { price: 25 },
                     ));
                 }
                 8 => {
@@ -411,6 +468,16 @@ impl App {
                         Consumable,
                         Name("Arrows".to_string()),
                         Ammunition,
+                        ItemValue { price: 2 },
+                    ));
+                }
+                9 | 10 => {
+                    let amount = rng.gen_range(5..25);
+                    self.world.spawn((
+                        Position { x: spawn.0, y: spawn.1 },
+                        Renderable { glyph: '*', fg: Color::Yellow },
+                        Name(format!("{} Gold", amount)),
+                        Gold { amount },
                     ));
                 }
                 _ => {
@@ -420,6 +487,7 @@ impl App {
                         Item,
                         Name("Leather Armor".to_string()),
                         Armor { defense_bonus: 1 },
+                        ItemValue { price: 15 },
                     ));
                 }
             }
@@ -467,7 +535,7 @@ impl App {
                 up_stairs_pos = (pos.x, pos.y);
             }
             let mut player_query = self.world.query::<(&mut Position, &Player)>();
-            let (_, (pos, _)) = player_query.iter().next().unwrap();
+            let (_, (pos, _)) = player_query.iter().next().expect("Player not found after transition");
             pos.x = up_stairs_pos.0;
             pos.y = up_stairs_pos.1;
         } else {
@@ -505,7 +573,7 @@ impl App {
             down_stairs_pos = (pos.x, pos.y);
         }
         let mut player_query = self.world.query::<(&mut Position, &Player)>();
-        let (_, (pos, _)) = player_query.iter().next().unwrap();
+        let (_, (pos, _)) = player_query.iter().next().expect("Player not found after transition up");
         pos.x = down_stairs_pos.0;
         pos.y = down_stairs_pos.1;
 
@@ -513,10 +581,14 @@ impl App {
     }
 
     pub fn update_fov(&mut self) {
-        let mut player_query = self.world.query::<(&Position, &Player)>();
-        let (_, (pos, _)) = player_query.iter().next().expect("Player not found");
+        let (pos, range) = {
+            let mut player_query = self.world.query::<(&Position, &Player)>();
+            let (id, (pos, _)) = player_query.iter().next().expect("Player not found");
+            let range = self.world.get::<&Viewshed>(id).map(|v| v.visible_tiles).unwrap_or(8);
+            (*pos, range)
+        };
         
-        let fov = field_of_view(Point::new(pos.x, pos.y), 8, &self.map);
+        let fov = field_of_view(Point::new(pos.x, pos.y), range, &self.map);
         
         for v in &mut self.map.visible { *v = false; }
         for p in fov {
@@ -551,12 +623,15 @@ impl App {
             let personality = self.world.get::<&AIPersonality>(id).ok().map(|p| *p);
             let experience = self.world.get::<&Experience>(id).ok().map(|e| *e);
             let perks = self.world.get::<&Perks>(id).ok().map(|p| (*p).clone());
+            let gold = self.world.get::<&Gold>(id).ok().map(|g| *g);
+            let item_value = self.world.get::<&ItemValue>(id).ok().map(|v| *v);
             
             self.entities.push(EntitySnapshot {
                 pos, render: *render, name, stats, potion, weapon, armor, door, trap, ranged, 
                 ranged_weapon, aoe, confusion, poison, strength, speed,
-                faction, viewshed, personality, experience, perks,
+                faction, viewshed, personality, experience, perks, gold, item_value,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
+                is_merchant: self.world.get::<&Merchant>(id).is_ok(),
                 ammo: self.world.get::<&Ammunition>(id).is_ok(),
                 consumable: self.world.get::<&Consumable>(id).is_ok(),
                 in_backpack: self.world.get::<&InBackpack>(id).is_ok(),
@@ -597,7 +672,10 @@ impl App {
             if let Some(personality) = e.personality { cb.add(personality); }
             if let Some(experience) = e.experience { cb.add(experience); }
             if let Some(perks) = e.perks.clone() { cb.add(perks); }
+            if let Some(gold) = e.gold { cb.add(gold); }
+            if let Some(item_value) = e.item_value { cb.add(item_value); }
             if e.last_hit_by_player { cb.add(LastHitByPlayer); }
+            if e.is_merchant { cb.add(Merchant); }
             if e.ammo { cb.add(Ammunition); }
             if e.consumable { cb.add(Consumable); }
             if e.is_player { cb.add(Player); }
@@ -651,33 +729,47 @@ impl App {
             ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16, player_stats.power)
         };
 
-        let mut target_monster = None;
-        for (id, (m_pos, _, _)) in self.world.query::<(&Position, &Monster, &CombatStats)>().iter() {
-            if m_pos.x == new_x && m_pos.y == new_y { target_monster = Some(id); break; }
+        let mut target_interactable = None;
+        for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
+            if pos.x == new_x && pos.y == new_y { target_interactable = Some(id); break; }
+        }
+        if target_interactable.is_none() {
+            for (id, (pos, _)) in self.world.query::<(&Position, &Merchant)>().iter() {
+                if pos.x == new_x && pos.y == new_y { target_interactable = Some(id); break; }
+            }
         }
 
-        if let Some(monster_id) = target_monster {
+        if let Some(target_id) = target_interactable {
+            // Check if it's a Merchant
+            if self.world.get::<&Merchant>(target_id).is_ok() {
+                self.active_merchant = Some(target_id);
+                self.state = RunState::ShowShop;
+                self.shop_cursor = 0;
+                self.log.push("You talk to the Merchant.".to_string());
+                return;
+            }
+
             let mut dead = false;
-            let monster_name = self.world.get::<&Name>(monster_id).unwrap().0.clone();
+            let monster_name = self.world.get::<&Name>(target_id).unwrap().0.clone();
             let mut xp_reward = 0;
             {
-                let mut monster_stats = self.world.get::<&mut CombatStats>(monster_id).unwrap();
+                let mut monster_stats = self.world.get::<&mut CombatStats>(target_id).unwrap();
                 let damage = (player_power - monster_stats.defense).max(0);
                 monster_stats.hp -= damage;
                 self.log.push(format!("You hit {} for {} damage!", monster_name, damage));
                 if monster_stats.hp <= 0 { 
                     dead = true; 
-                    if let Ok(exp) = self.world.get::<&Experience>(monster_id) {
+                    if let Ok(exp) = self.world.get::<&Experience>(target_id) {
                         xp_reward = exp.xp_reward;
                     }
                 }
             }
             if !dead {
-                self.world.insert_one(monster_id, LastHitByPlayer).unwrap();
+                self.world.insert_one(target_id, LastHitByPlayer).unwrap();
             }
             if dead {
                 self.log.push(format!("{} dies!", monster_name));
-                self.world.despawn(monster_id).unwrap();
+                self.world.despawn(target_id).unwrap();
                 self.add_player_xp(xp_reward);
             }
             if self.state != RunState::LevelUp {
@@ -706,9 +798,25 @@ impl App {
 
         if !self.map.blocked[(new_y as u16 * self.map.width + new_x as u16) as usize] {
             let mut player_query = self.world.query::<(&mut Position, &Player)>();
-            let (_, (pos, _)) = player_query.iter().next().expect("Player not found");
+            let (player_id, (pos, _)) = player_query.iter().next().expect("Player not found");
             pos.x = new_x; pos.y = new_y;
             drop(player_query);
+
+            // Gold pickup - ensure we don't pick up the player!
+            let mut gold_to_pick = Vec::new();
+            for (id, (g_pos, gold)) in self.world.query::<(&Position, &Gold)>().iter() {
+                if id != player_id && g_pos.x == new_x && g_pos.y == new_y {
+                    gold_to_pick.push((id, gold.amount));
+                }
+            }
+            
+            for (id, amount) in gold_to_pick {
+                if let Ok(mut player_gold) = self.world.get::<&mut Gold>(player_id) {
+                    player_gold.amount += amount;
+                    self.log.push(format!("You pick up {} gold.", amount));
+                }
+                self.world.despawn(id).unwrap();
+            }
 
             let mut total_damage = 0;
             let mut triggered_traps = Vec::new();
@@ -761,6 +869,45 @@ impl App {
             self.log.push(format!("You pick up the {}.", item_name));
             self.state = RunState::MonsterTurn;
         } else { self.log.push("There is nothing here to pick up.".to_string()); }
+    }
+
+    pub fn buy_item(&mut self, item_id: hecs::Entity) {
+        let player_id = self.world.query::<&Player>().iter().next().map(|(id, _)| id).expect("Player not found");
+        let price = self.world.get::<&ItemValue>(item_id).map(|v| v.price).unwrap_or(0);
+        
+        let can_afford = {
+            let player_gold = self.world.get::<&Gold>(player_id).expect("Player has no gold component");
+            player_gold.amount >= price
+        };
+
+        if can_afford {
+            {
+                let mut player_gold = self.world.get::<&mut Gold>(player_id).unwrap();
+                player_gold.amount -= price;
+            }
+            let item_name = self.world.get::<&Name>(item_id).unwrap().0.clone();
+            self.log.push(format!("You buy the {} for {} gold.", item_name, price));
+            
+            // Transfer item
+            self.world.insert_one(item_id, InBackpack { owner: player_id }).unwrap();
+        } else {
+            self.log.push("You cannot afford that!".to_string());
+        }
+    }
+
+    pub fn sell_item(&mut self, item_id: hecs::Entity) {
+        let player_id = self.world.query::<&Player>().iter().next().map(|(id, _)| id).expect("Player not found");
+        let price = self.world.get::<&ItemValue>(item_id).map(|v| v.price / 2).unwrap_or(1); // Sell for half price
+        
+        {
+            let mut player_gold = self.world.get::<&mut Gold>(player_id).expect("Player has no gold component");
+            player_gold.amount += price;
+        }
+        
+        let item_name = self.world.get::<&Name>(item_id).unwrap().0.clone();
+        self.log.push(format!("You sell the {} for {} gold.", item_name, price));
+        
+        self.world.despawn(item_id).unwrap();
     }
 
     pub fn use_item(&mut self, item_id: hecs::Entity) {
@@ -1056,7 +1203,7 @@ impl App {
         self.speed_toggle = true;
 
         let mut actions = Vec::new();
-        let mut monster_ids: Vec<hecs::Entity> = self.world.query::<&Monster>().iter().map(|(id, _)| id).collect();
+        let monster_ids: Vec<hecs::Entity> = self.world.query::<&Monster>().iter().map(|(id, _)| id).collect();
 
         for id in monster_ids {
             let (pos, faction, personality, stats, viewshed) = {
@@ -1153,6 +1300,7 @@ impl App {
         }
 
         let mut occupied_positions: std::collections::HashSet<(u16, u16)> = self.world.query::<(&Position, &Monster)>().iter().map(|(_, (p, _))| (p.x, p.y)).collect();
+        for (_, (p, _)) in self.world.query::<(&Position, &Merchant)>().iter() { occupied_positions.insert((p.x, p.y)); }
         let p_pos = *self.world.get::<&Position>(player_id).unwrap();
         occupied_positions.insert((p_pos.x, p_pos.y));
 
@@ -1331,8 +1479,11 @@ impl App {
 
         frame.render_widget(Paragraph::new(format!("Level: {}  XP: {}/{}", level, xp, next_xp)), sidebar_layout[2]);
         
-        // Status Effects
+        // Status Effects / Gold
         let mut status_lines = Vec::new();
+        let gold_amount = self.world.get::<&Gold>(player_id).map(|g| g.amount).unwrap_or(0);
+        status_lines.push(Line::from(Span::styled(format!("Gold: {}", gold_amount), Style::default().fg(Color::Yellow))));
+        
         if let Ok(poison) = self.world.get::<&Poison>(player_id) {
             status_lines.push(Line::from(Span::styled(format!("Poisoned ({})", poison.turns), Style::default().fg(Color::Green))));
         }
@@ -1373,6 +1524,55 @@ impl App {
         else if self.state == RunState::ShowHelp { self.render_help(frame); }
         else if self.state == RunState::Dead { self.render_death_screen(frame); }
         else if self.state == RunState::LevelUp { self.render_level_up(frame); }
+        else if self.state == RunState::ShowShop { self.render_shop(frame); }
+    }
+
+    fn render_shop(&self, frame: &mut Frame) {
+        let area = centered_rect(70, 70, frame.size());
+        frame.render_widget(Clear, area);
+        
+        let player_id = self.world.query::<&Player>().iter().next().map(|(id, _)| id).unwrap();
+        let player_gold = self.world.get::<&Gold>(player_id).map(|g| g.amount).unwrap_or(0);
+        
+        let title = if self.shop_mode == 0 { format!(" Merchant Shop (Buy) - Your Gold: {} ", player_gold) } else { format!(" Merchant Shop (Sell) - Your Gold: {} ", player_gold) };
+        let block = Block::default().borders(Borders::ALL).title(title);
+        
+        let items: Vec<(hecs::Entity, String, i32)> = if self.shop_mode == 0 {
+            // Buy: Merchant's backpack
+            if let Some(merchant_id) = self.active_merchant {
+                self.world.query::<(&Item, &InBackpack, &Name, &ItemValue)>().iter()
+                    .filter(|(_, (_, backpack, _, _))| backpack.owner == merchant_id)
+                    .map(|(id, (_, _, name, value))| (id, name.0.clone(), value.price))
+                    .collect()
+            } else { Vec::new() }
+        } else {
+            // Sell: Player's backpack
+            self.world.query::<(&Item, &InBackpack, &Name, &ItemValue)>().iter()
+                .filter(|(_, (_, backpack, _, _))| backpack.owner == player_id)
+                .map(|(id, (_, _, name, value))| (id, name.0.clone(), value.price / 2))
+                .collect()
+        };
+
+        if items.is_empty() {
+            frame.render_widget(Paragraph::new("Nothing here. (TAB to switch mode)").block(block), area);
+        } else {
+            let list_items: Vec<ListItem> = items.iter()
+                .map(|(_, name, price)| ListItem::new(format!("{}: {}g", name, price)))
+                .collect();
+            
+            let mut state = ListState::default();
+            state.select(Some(self.shop_cursor));
+            
+            let footer = " [UP/DOWN] Select, [ENTER] Confirm, [TAB] Buy/Sell, [ESC] Leave ";
+            frame.render_stateful_widget(
+                List::new(list_items)
+                    .block(block.title_bottom(Line::from(footer).alignment(Alignment::Right)))
+                    .highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black))
+                    .highlight_symbol(">> "), 
+                area, 
+                &mut state
+            );
+        }
     }
 
     fn render_level_up(&self, frame: &mut Frame) {

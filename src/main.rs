@@ -14,7 +14,10 @@ fn main() -> Result<()> {
     let mut engine = Engine::new()?;
     
     // Try to load an existing game, otherwise start a new one
-    let mut app = persistence::load_game()?.unwrap_or_else(App::new);
+    let mut app = match persistence::load_game() {
+        Ok(Some(app)) => app,
+        _ => App::new(),
+    };
 
     while !app.exit {
         engine.draw(|f| app.render(f))?;
@@ -132,6 +135,61 @@ fn main() -> Result<()> {
                                     }
                                     
                                     app.state = RunState::MonsterTurn;
+                                }
+                                _ => {}
+                            }
+                        }
+                        RunState::ShowShop => {
+                            match key.code {
+                                KeyCode::Esc => app.state = RunState::AwaitingInput,
+                                KeyCode::Tab => {
+                                    app.shop_mode = (app.shop_mode + 1) % 2;
+                                    app.shop_cursor = 0;
+                                }
+                                KeyCode::Up | KeyCode::Char('k') => {
+                                    if app.shop_cursor > 0 { app.shop_cursor -= 1; }
+                                }
+                                KeyCode::Down | KeyCode::Char('j') => {
+                                    let player_id = app.world.query::<(&crate::components::Player,)>().iter().next().unwrap().0;
+                                    let count = if app.shop_mode == 0 {
+                                        if let Some(m_id) = app.active_merchant {
+                                            app.world.query::<(&crate::components::InBackpack,)>().iter()
+                                                .filter(|(_, (backpack,))| backpack.owner == m_id)
+                                                .count()
+                                        } else { 0 }
+                                    } else {
+                                        app.world.query::<(&crate::components::InBackpack,)>().iter()
+                                            .filter(|(_, (backpack,))| backpack.owner == player_id)
+                                            .count()
+                                    };
+                                    if count > 0 && app.shop_cursor < count - 1 {
+                                        app.shop_cursor += 1;
+                                    }
+                                }
+                                KeyCode::Enter => {
+                                    let player_id = app.world.query::<(&crate::components::Player,)>().iter().next().unwrap().0;
+                                    let item_to_trade = if app.shop_mode == 0 {
+                                        if let Some(m_id) = app.active_merchant {
+                                            app.world.query::<(&crate::components::InBackpack,)>().iter()
+                                                .filter(|(_, (backpack,))| backpack.owner == m_id)
+                                                .nth(app.shop_cursor)
+                                                .map(|(id, _)| id)
+                                        } else { None }
+                                    } else {
+                                        app.world.query::<(&crate::components::InBackpack,)>().iter()
+                                            .filter(|(_, (backpack,))| backpack.owner == player_id)
+                                            .nth(app.shop_cursor)
+                                            .map(|(id, _)| id)
+                                    };
+                                    
+                                    if let Some(id) = item_to_trade {
+                                        if app.shop_mode == 0 {
+                                            app.buy_item(id);
+                                        } else {
+                                            app.sell_item(id);
+                                        }
+                                        app.shop_cursor = 0;
+                                    }
                                 }
                                 _ => {}
                             }
