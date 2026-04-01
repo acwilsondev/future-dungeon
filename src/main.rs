@@ -1,5 +1,6 @@
 mod app;
 mod engine;
+mod persistence;
 
 use anyhow::Result;
 use app::App;
@@ -9,7 +10,9 @@ use std::time::Duration;
 
 fn main() -> Result<()> {
     let mut engine = Engine::new()?;
-    let mut app = App::new();
+    
+    // Try to load an existing game, otherwise start a new one
+    let mut app = persistence::load_game()?.unwrap_or_else(App::new);
 
     while !app.exit {
         engine.draw(|f| app.render(f))?;
@@ -28,6 +31,16 @@ fn main() -> Result<()> {
                 }
             }
         }
+
+        if app.death {
+            persistence::delete_save();
+            break;
+        }
+    }
+
+    // Save game on exit if the player is still alive
+    if !app.death && app.exit {
+        persistence::save_game(&app)?;
     }
 
     Ok(())

@@ -1,12 +1,14 @@
 use ratatui::prelude::*;
 use ratatui::widgets::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TileType {
     Wall,
     Floor,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Map {
     pub width: u16,
     pub height: u16,
@@ -43,8 +45,12 @@ impl Map {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct App {
+    #[serde(skip)]
     pub exit: bool,
+    #[serde(skip)]
+    pub death: bool,
     pub player_pos: (u16, u16),
     pub map: Map,
 }
@@ -53,6 +59,7 @@ impl App {
     pub fn new() -> Self {
         Self {
             exit: false,
+            death: false,
             player_pos: (5, 5),
             map: Map::new(40, 20),
         }
