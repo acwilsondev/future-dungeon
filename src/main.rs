@@ -2,6 +2,7 @@ mod app;
 mod engine;
 mod persistence;
 mod map_builder;
+mod components;
 
 use anyhow::Result;
 use app::App;
@@ -41,7 +42,7 @@ fn main() -> Result<()> {
 
     // Save game on exit if the player is still alive
     if !app.death && app.exit {
-        persistence::save_game(&app)?;
+        persistence::save_game(app)?;
     }
 
     Ok(())

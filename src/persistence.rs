@@ -5,8 +5,9 @@ use std::path::Path;
 
 const SAVE_FILE: &str = "savegame.json";
 
-pub fn save_game(app: &App) -> Result<()> {
-    let json = serde_json::to_string(app)?;
+pub fn save_game(mut app: App) -> Result<()> {
+    app.pack_entities();
+    let json = serde_json::to_string(&app)?;
     fs::write(SAVE_FILE, json)?;
     Ok(())
 }
@@ -18,9 +19,9 @@ pub fn load_game() -> Result<Option<App>> {
     }
 
     let json = fs::read_to_string(path)?;
-    let app: App = serde_json::from_str(&json)?;
+    let mut app: App = serde_json::from_str(&json)?;
+    app.unpack_entities();
     
-    // Enforce permadeath: delete the save file as soon as it's loaded
     delete_save();
     
     Ok(Some(app))
