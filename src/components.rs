@@ -20,6 +20,29 @@ pub struct Player;
 pub struct Monster;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Item;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Potion {
+    pub heal_amount: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Weapon {
+    pub power_bonus: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Armor {
+    pub defense_bonus: i32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InBackpack {
+    pub owner: hecs::Entity,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CombatStats {
     pub max_hp: i32,
     pub hp: i32,

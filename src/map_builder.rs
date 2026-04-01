@@ -29,12 +29,13 @@ pub struct MapBuilder {
     pub rooms: Vec<Rect>,
     pub player_start: (u16, u16),
     pub monster_spawns: Vec<(u16, u16)>,
+    pub item_spawns: Vec<(u16, u16)>,
 }
 
 impl MapBuilder {
     pub fn new(width: u16, height: u16) -> Self {
         let map = Map::new(width, height);
-        Self { map, rooms: Vec::new(), player_start: (0, 0), monster_spawns: Vec::new() }
+        Self { map, rooms: Vec::new(), player_start: (0, 0), monster_spawns: Vec::new(), item_spawns: Vec::new() }
     }
 
     pub fn build(&mut self) {
@@ -71,9 +72,17 @@ impl MapBuilder {
                         self.apply_horizontal_tunnel(prev_x, new_x, new_y);
                     }
                     
-                    // Spawn a monster in the room
+                    // Spawn a monster and an item in the room
                     let center = new_room.center();
-                    self.monster_spawns.push((center.0 as u16, center.1 as u16));
+                    if rng.gen_bool(0.7) {
+                        self.monster_spawns.push((center.0 as u16, center.1 as u16));
+                    }
+                    if rng.gen_bool(0.5) {
+                        // Random offset for item
+                        let item_x = rng.gen_range(new_room.x1..new_room.x2) as u16;
+                        let item_y = rng.gen_range(new_room.y1..new_room.y2) as u16;
+                        self.item_spawns.push((item_x, item_y));
+                    }
                 } else {
                     let start = new_room.center();
                     self.player_start = (start.0 as u16, start.1 as u16);
