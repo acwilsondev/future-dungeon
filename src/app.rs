@@ -93,6 +93,51 @@ impl BaseMap for Map {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawMonster {
+    pub name: String,
+    pub glyph: char,
+    pub color: (u8, u8, u8),
+    pub hp: i32,
+    pub defense: i32,
+    pub power: i32,
+    pub faction: FactionKind,
+    pub personality: Personality,
+    pub viewshed: i32,
+    pub xp_reward: i32,
+    pub ranged: Option<i32>,
+    pub spawn_chance: f32,
+    pub min_floor: u32,
+    pub max_floor: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawItem {
+    pub name: String,
+    pub glyph: char,
+    pub color: (u8, u8, u8),
+    pub price: i32,
+    pub potion: Option<i32>,
+    pub weapon: Option<i32>,
+    pub armor: Option<i32>,
+    pub ranged: Option<i32>,
+    pub ranged_weapon: Option<(i32, i32)>, // range, damage
+    pub aoe: Option<i32>,
+    pub confusion: Option<i32>,
+    pub poison: Option<(i32, i32)>, // damage, turns
+    pub ammo: bool,
+    pub consumable: bool,
+    pub spawn_chance: f32,
+    pub min_floor: u32,
+    pub max_floor: u32,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone)]
+pub struct Content {
+    pub monsters: Vec<RawMonster>,
+    pub items: Vec<RawItem>,
+}
+
 /// A snapshot of an entity for serialization
 #[derive(Serialize, Deserialize, Clone)]
 pub struct EntitySnapshot {
@@ -208,6 +253,7 @@ pub struct App {
     pub encountered_monsters: std::collections::HashSet<String>,
     #[serde(skip)]
     pub bestiary_cursor: usize,
+    pub content: Content,
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -240,9 +286,22 @@ impl App {
             log_cursor: 0,
             encountered_monsters: std::collections::HashSet::new(),
             bestiary_cursor: 0,
+            content: Self::load_content(),
         };
         app.generate_level();
         app
+    }
+
+    fn load_content() -> Content {
+        let path = std::path::Path::new("content.json");
+        if path.exists() {
+            if let Ok(json) = std::fs::read_to_string(path) {
+                if let Ok(content) = serde_json::from_str(&json) {
+                    return content;
+                }
+            }
+        }
+        Content::default()
     }
 
     pub fn on_tick(&mut self) {
@@ -299,8 +358,12 @@ impl App {
             Name("Up Stairs".to_string()),
         ));
 
+        let available_items: Vec<&RawItem> = self.content.items.iter()
+            .filter(|i| self.dungeon_level >= i.min_floor && self.dungeon_level <= i.max_floor)
+            .collect();
+
         // Spawn a Merchant in a random room (usually the second one)
-        if mb.rooms.len() > 1 {
+        if mb.rooms.len() > 1 && !available_items.is_empty() {
             let room = &mb.rooms[1];
             let center = room.center();
             let merchant = self.world.spawn((
@@ -310,25 +373,44 @@ impl App {
                 Name("Merchant".to_string()),
                 CombatStats { max_hp: 100, hp: 100, defense: 10, power: 10 },
                 Faction(FactionKind::Player),
+                Viewshed { visible_tiles: 8 },
+                AIPersonality(Personality::Tactical),
             ));
             
-            // Give merchant some items
-            self.world.spawn((
-                Item, Name("Health Potion".to_string()), Potion { heal_amount: 8 }, Consumable,
-                Renderable { glyph: '!', fg: Color::Magenta },
-                InBackpack { owner: merchant }, ItemValue { price: 10 }
-            ));
-            self.world.spawn((
-                Item, Name("Magic Missile Scroll".to_string()), Ranged { range: 6 }, Consumable,
-                Renderable { glyph: ')', fg: Color::Yellow },
-                CombatStats { max_hp: 0, hp: 0, defense: 0, power: 10 },
-                InBackpack { owner: merchant }, ItemValue { price: 15 }
-            ));
-            self.world.spawn((
-                Item, Name("Shortbow".to_string()), RangedWeapon { range: 8, damage_bonus: 4 },
-                Renderable { glyph: ')', fg: Color::Yellow },
-                InBackpack { owner: merchant }, ItemValue { price: 25 }
-            ));
+            // Give merchant 3 random items from available items
+            for _ in 0..3 {
+                let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
+                let mut roll = rng.gen_range(0.0..total_chance);
+                let mut selected_item = available_items[0];
+                for item in &available_items {
+                    if roll < item.spawn_chance {
+                        selected_item = item;
+                        break;
+                    }
+                    roll -= item.spawn_chance;
+                }
+
+                let raw = selected_item;
+                let mut cb = hecs::EntityBuilder::new();
+                cb.add(Item);
+                cb.add(Name(raw.name.clone()));
+                cb.add(Renderable { glyph: raw.glyph, fg: Color::Rgb(raw.color.0, raw.color.1, raw.color.2) });
+                cb.add(InBackpack { owner: merchant });
+                cb.add(ItemValue { price: raw.price });
+                
+                if let Some(h) = raw.potion { cb.add(Potion { heal_amount: h }); }
+                if let Some(p) = raw.weapon { cb.add(Weapon { power_bonus: p }); }
+                if let Some(d) = raw.armor { cb.add(Armor { defense_bonus: d }); }
+                if let Some(r) = raw.ranged { cb.add(Ranged { range: r }); }
+                if let Some((r, d)) = raw.ranged_weapon { cb.add(RangedWeapon { range: r, damage_bonus: d }); }
+                if let Some(r) = raw.aoe { cb.add(AreaOfEffect { radius: r }); }
+                if let Some(t) = raw.confusion { cb.add(Confusion { turns: t }); }
+                if let Some((d, t)) = raw.poison { cb.add(Poison { damage: d, turns: t }); }
+                if raw.ammo { cb.add(Ammunition); }
+                if raw.consumable { cb.add(Consumable); }
+                
+                self.world.spawn(cb.build());
+            }
         }
 
         for pos in &mb.door_spawns {
@@ -349,191 +431,92 @@ impl App {
             ));
         }
 
+        let available_monsters: Vec<&RawMonster> = self.content.monsters.iter()
+            .filter(|m| self.dungeon_level >= m.min_floor && self.dungeon_level <= m.max_floor)
+            .collect();
+
         for spawn in &mb.monster_spawns {
-            let hp = 10 + (self.dungeon_level as i32 * 2);
-            let power = 3 + (self.dungeon_level as i32 / 2);
-            let roll = rng.gen_range(0..4);
-            match roll {
-                0 => { // Orc - Brave, Orc Faction
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: 'o', fg: Color::Red },
-                        Monster,
-                        Faction(FactionKind::Orcs),
-                        AIPersonality(Personality::Brave),
-                        Viewshed { visible_tiles: 8 },
-                        Name("Orc".to_string()),
-                        CombatStats { max_hp: hp, hp, defense: 1, power },
-                        Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: 10 + (self.dungeon_level as i32 * 5) },
-                    ));
+            if available_monsters.is_empty() { break; }
+            
+            // weighted selection
+            let total_chance: f32 = available_monsters.iter().map(|m| m.spawn_chance).sum();
+            let mut roll = rng.gen_range(0.0..total_chance);
+            let mut selected_monster = available_monsters[0];
+            for m in &available_monsters {
+                if roll < m.spawn_chance {
+                    selected_monster = m;
+                    break;
                 }
-                1 => { // Goblin - Cowardly, Goblins Faction
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: 'g', fg: Color::Green },
-                        Monster,
-                        Faction(FactionKind::Goblins),
-                        AIPersonality(Personality::Cowardly),
-                        Viewshed { visible_tiles: 8 },
-                        Name("Goblin".to_string()),
-                        CombatStats { max_hp: hp - 2, hp: hp - 2, defense: 0, power: power - 1 },
-                        Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: 8 + (self.dungeon_level as i32 * 4) },
-                    ));
-                }
-                2 => { // Archer - Tactical, Goblins Faction
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: 'a', fg: Color::Cyan },
-                        Monster,
-                        Faction(FactionKind::Goblins),
-                        AIPersonality(Personality::Tactical),
-                        Viewshed { visible_tiles: 10 },
-                        Name("Goblin Archer".to_string()),
-                        CombatStats { max_hp: hp - 4, hp: hp - 4, defense: 0, power: power },
-                        RangedWeapon { range: 8, damage_bonus: power },
-                        Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: 12 + (self.dungeon_level as i32 * 5) },
-                    ));
-                }
-                _ => { // Spider - Brave, Animals Faction
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: 's', fg: Color::Indexed(208) }, // Orange
-                        Monster,
-                        Faction(FactionKind::Animals),
-                        AIPersonality(Personality::Brave),
-                        Viewshed { visible_tiles: 6 },
-                        Name("Spider".to_string()),
-                        CombatStats { max_hp: hp - 5, hp: hp - 5, defense: 0, power: power + 2 },
-                        Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: 15 + (self.dungeon_level as i32 * 6) },
-                    ));
-                }
+                roll -= m.spawn_chance;
             }
+            
+            let raw = selected_monster;
+            let hp = raw.hp + (self.dungeon_level as i32 * 2);
+            let power = raw.power + (self.dungeon_level as i32 / 2);
+            
+            let mut cb = hecs::EntityBuilder::new();
+            cb.add(Position { x: spawn.0, y: spawn.1 });
+            cb.add(Renderable { glyph: raw.glyph, fg: Color::Rgb(raw.color.0, raw.color.1, raw.color.2) });
+            cb.add(Monster);
+            cb.add(Faction(raw.faction));
+            cb.add(AIPersonality(raw.personality));
+            cb.add(Viewshed { visible_tiles: raw.viewshed });
+            cb.add(Name(raw.name.clone()));
+            cb.add(CombatStats { max_hp: hp, hp, defense: raw.defense, power });
+            cb.add(Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: raw.xp_reward + (self.dungeon_level as i32 * 5) });
+            
+            if let Some(r) = raw.ranged {
+                cb.add(RangedWeapon { range: r as i32, damage_bonus: power });
+            }
+            
+            self.world.spawn(cb.build());
         }
 
         for spawn in &mb.item_spawns {
-            let roll = rng.gen_range(0..12);
-            match roll {
-                0 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: '!', fg: Color::Magenta },
-                        Item,
-                        Consumable,
-                        Name("Health Potion".to_string()),
-                        Potion { heal_amount: 8 },
-                        ItemValue { price: 10 },
-                    ));
-                }
-                1 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: '/', fg: Color::Cyan },
-                        Item,
-                        Name("Dagger".to_string()),
-                        Weapon { power_bonus: 2 },
-                        ItemValue { price: 5 },
-                    ));
-                }
-                2 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: ')', fg: Color::Yellow },
-                        Item,
-                        Consumable,
-                        Name("Magic Missile Scroll".to_string()),
-                        Ranged { range: 6 },
-                        CombatStats { max_hp: 0, hp: 0, defense: 0, power: 10 },
-                        ItemValue { price: 15 },
-                    ));
-                }
-                3 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: ')', fg: Color::Red },
-                        Item,
-                        Consumable,
-                        Name("Fire Scroll".to_string()),
-                        Ranged { range: 6 },
-                        AreaOfEffect { radius: 3 },
-                        CombatStats { max_hp: 0, hp: 0, defense: 0, power: 15 },
-                        ItemValue { price: 20 },
-                    ));
-                }
-                4 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: '!', fg: Color::Yellow },
-                        Item,
-                        Consumable,
-                        Name("Potion of Strength".to_string()),
-                        Strength { amount: 3, turns: 10 },
-                        ItemValue { price: 15 },
-                    ));
-                }
-                5 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: '!', fg: Color::Cyan },
-                        Item,
-                        Consumable,
-                        Name("Potion of Speed".to_string()),
-                        Speed { turns: 10 },
-                        ItemValue { price: 20 },
-                    ));
-                }
-                6 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: ')', fg: Color::Green },
-                        Item,
-                        Consumable,
-                        Name("Poison Scroll".to_string()),
-                        Ranged { range: 6 },
-                        Poison { damage: 2, turns: 6 },
-                        ItemValue { price: 15 },
-                    ));
-                }
-                7 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: ')', fg: Color::Yellow },
-                        Item,
-                        Name("Shortbow".to_string()),
-                        RangedWeapon { range: 8, damage_bonus: 4 },
-                        ItemValue { price: 25 },
-                    ));
-                }
-                8 => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: '`', fg: Color::Indexed(245) },
-                        Item,
-                        Consumable,
-                        Name("Arrows".to_string()),
-                        Ammunition,
-                        ItemValue { price: 2 },
-                    ));
-                }
-                9 | 10 => {
-                    let amount = rng.gen_range(5..25);
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: '*', fg: Color::Yellow },
-                        Name(format!("{} Gold", amount)),
-                        Gold { amount },
-                    ));
-                }
-                _ => {
-                    self.world.spawn((
-                        Position { x: spawn.0, y: spawn.1 },
-                        Renderable { glyph: '[', fg: Color::Green },
-                        Item,
-                        Name("Leather Armor".to_string()),
-                        Armor { defense_bonus: 1 },
-                        ItemValue { price: 15 },
-                    ));
-                }
+            // 20% chance for gold, otherwise pick item
+            if available_items.is_empty() || rng.gen_bool(0.2) {
+                let amount = rng.gen_range(5..25);
+                self.world.spawn((
+                    Position { x: spawn.0, y: spawn.1 },
+                    Renderable { glyph: '*', fg: Color::Yellow },
+                    Name(format!("{} Gold", amount)),
+                    Gold { amount },
+                ));
+                continue;
             }
+
+            // weighted selection
+            let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
+            let mut roll = rng.gen_range(0.0..total_chance);
+            let mut selected_item = available_items[0];
+            for item in &available_items {
+                if roll < item.spawn_chance {
+                    selected_item = item;
+                    break;
+                }
+                roll -= item.spawn_chance;
+            }
+
+            let raw = selected_item;
+            let mut cb = hecs::EntityBuilder::new();
+            cb.add(Position { x: spawn.0, y: spawn.1 });
+            cb.add(Renderable { glyph: raw.glyph, fg: Color::Rgb(raw.color.0, raw.color.1, raw.color.2) });
+            cb.add(Item);
+            cb.add(Name(raw.name.clone()));
+            cb.add(ItemValue { price: raw.price });
+            
+            if let Some(h) = raw.potion { cb.add(Potion { heal_amount: h }); }
+            if let Some(p) = raw.weapon { cb.add(Weapon { power_bonus: p }); }
+            if let Some(d) = raw.armor { cb.add(Armor { defense_bonus: d }); }
+            if let Some(r) = raw.ranged { cb.add(Ranged { range: r }); }
+            if let Some((r, d)) = raw.ranged_weapon { cb.add(RangedWeapon { range: r, damage_bonus: d }); }
+            if let Some(r) = raw.aoe { cb.add(AreaOfEffect { radius: r }); }
+            if let Some(t) = raw.confusion { cb.add(Confusion { turns: t }); }
+            if let Some((d, t)) = raw.poison { cb.add(Poison { damage: d, turns: t }); }
+            if raw.ammo { cb.add(Ammunition); }
+            if raw.consumable { cb.add(Consumable); }
+            
+            self.world.spawn(cb.build());
         }
         
         self.update_blocked_and_opaque();
@@ -1050,9 +1033,9 @@ impl App {
             let mut actual_target = self.targeting_cursor;
             for p in line.iter().skip(1) {
                 let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
-                if self.map.tiles[idx] == TileType::Wall {
+                if self.map.blocked[idx] {
                     actual_target = (p.x as u16, p.y as u16);
-                    self.log.push(format!("The {} hits a wall!", item_name));
+                    self.log.push(format!("The {} is blocked!", item_name));
                     break;
                 }
             }
@@ -1267,9 +1250,11 @@ impl App {
         self.speed_toggle = true;
 
         let mut actions = Vec::new();
-        let monster_ids: Vec<hecs::Entity> = self.world.query::<&Monster>().iter().map(|(id, _)| id).collect();
+        let mut actors: Vec<hecs::Entity> = self.world.query::<&Monster>().iter().map(|(id, _)| id).collect();
+        for (id, _) in self.world.query::<&Merchant>().iter() { actors.push(id); }
 
-        for id in monster_ids {
+        for id in actors {
+            let is_merchant = self.world.get::<&Merchant>(id).is_ok();
             let (pos, faction, personality, stats, viewshed) = {
                 let p = self.world.get::<&Position>(id).unwrap();
                 let f = self.world.get::<&Faction>(id).unwrap();
@@ -1311,13 +1296,13 @@ impl App {
                 let mut move_vec = None;
                 let mut attack = false;
 
-                if personality.0 == Personality::Cowardly && stats.hp < stats.max_hp / 2 {
+                if personality.0 == Personality::Cowardly && stats.hp < stats.max_hp / 2 && !is_merchant {
                     // Flee!
                     let mut dx = 0; let mut dy = 0;
                     if pos.x < target_pos.x { dx = -1; } else if pos.x > target_pos.x { dx = 1; }
                     if pos.y < target_pos.y { dy = -1; } else if pos.y > target_pos.y { dy = 1; }
                     move_vec = Some((dx, dy));
-                } else if personality.0 == Personality::Tactical && min_dist < 4.0 {
+                } else if personality.0 == Personality::Tactical && min_dist < 4.0 && !is_merchant {
                     // Try to maintain distance if too close
                     let mut dx = 0; let mut dy = 0;
                     if pos.x < target_pos.x { dx = -1; } else if pos.x > target_pos.x { dx = 1; }
@@ -1325,7 +1310,7 @@ impl App {
                     move_vec = Some((dx, dy));
                 } else if min_dist < 1.5 {
                     attack = true;
-                } else {
+                } else if !is_merchant {
                     let mut dx = 0; let mut dy = 0;
                     if pos.x < target_pos.x { dx = 1; } else if pos.x > target_pos.x { dx = -1; }
                     if pos.y < target_pos.y { dy = 1; } else if pos.y > target_pos.y { dy = -1; }
@@ -1350,7 +1335,7 @@ impl App {
                         let mut blocked = false;
                         for p in line.iter().skip(1).take(line.len() - 2) { // Skip own tile and target tile
                             let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
-                            if self.map.tiles[idx] == TileType::Wall {
+                            if self.map.blocked[idx] {
                                 blocked = true;
                                 break;
                             }
@@ -1525,6 +1510,8 @@ impl App {
         for effect in &self.effects {
             match effect {
                 VisualEffect::Flash { x, y, glyph, fg, bg, .. } => {
+                    let idx = *y as usize * self.map.width as usize + *x as usize;
+                    if !self.map.visible[idx] { continue; }
                     let sx = *x as i32 - camera_x;
                     let sy = *y as i32 - camera_y;
                     if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
@@ -1536,6 +1523,8 @@ impl App {
                 VisualEffect::Projectile { path, glyph, fg, frame, speed } => {
                     let path_idx = (*frame / *speed) as usize;
                     if let Some(pos) = path.get(path_idx) {
+                        let idx = pos.1 as usize * self.map.width as usize + pos.0 as usize;
+                        if !self.map.visible[idx] { continue; }
                         let sx = pos.0 as i32 - camera_x;
                         let sy = pos.1 as i32 - camera_y;
                         if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
