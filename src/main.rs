@@ -79,6 +79,63 @@ fn main() -> Result<()> {
                                 app.state = RunState::AwaitingInput;
                             }
                         }
+                        RunState::LevelUp => {
+                            match key.code {
+                                KeyCode::Up | KeyCode::Char('k') => {
+                                    if app.level_up_cursor > 0 { app.level_up_cursor -= 1; }
+                                }
+                                KeyCode::Down | KeyCode::Char('j') => {
+                                    if app.level_up_cursor < 3 { app.level_up_cursor += 1; }
+                                }
+                                KeyCode::Enter => {
+                                    let player_id = app.world.query::<(&crate::components::Player,)>().iter().next().unwrap().0;
+                                    
+                                    match app.level_up_cursor {
+                                        0 => {
+                                            if let Ok(mut stats) = app.world.get::<&mut crate::components::CombatStats>(player_id) {
+                                                stats.max_hp += 10;
+                                                stats.hp += 10;
+                                            }
+                                            if let Ok(mut perks) = app.world.get::<&mut crate::components::Perks>(player_id) {
+                                                perks.traits.push(crate::components::Perk::Toughness);
+                                            }
+                                            app.log.push("You chose Toughness! Max HP increased.".to_string());
+                                        }
+                                        1 => {
+                                            if let Ok(mut viewshed) = app.world.get::<&mut crate::components::Viewshed>(player_id) {
+                                                viewshed.visible_tiles += 2;
+                                            }
+                                            if let Ok(mut perks) = app.world.get::<&mut crate::components::Perks>(player_id) {
+                                                perks.traits.push(crate::components::Perk::EagleEye);
+                                            }
+                                            app.log.push("You chose Eagle Eye! FOV increased.".to_string());
+                                        }
+                                        2 => {
+                                            if let Ok(mut stats) = app.world.get::<&mut crate::components::CombatStats>(player_id) {
+                                                stats.power += 2;
+                                            }
+                                            if let Ok(mut perks) = app.world.get::<&mut crate::components::Perks>(player_id) {
+                                                perks.traits.push(crate::components::Perk::Strong);
+                                            }
+                                            app.log.push("You chose Strong! Power increased.".to_string());
+                                        }
+                                        3 => {
+                                            if let Ok(mut stats) = app.world.get::<&mut crate::components::CombatStats>(player_id) {
+                                                stats.defense += 1;
+                                            }
+                                            if let Ok(mut perks) = app.world.get::<&mut crate::components::Perks>(player_id) {
+                                                perks.traits.push(crate::components::Perk::ThickSkin);
+                                            }
+                                            app.log.push("You chose Thick Skin! Defense increased.".to_string());
+                                        }
+                                        _ => {}
+                                    }
+                                    
+                                    app.state = RunState::MonsterTurn;
+                                }
+                                _ => {}
+                            }
+                        }
                         RunState::Dead => {
                             if let KeyCode::Char('q') | KeyCode::Esc = key.code {
                                 app.exit = true;

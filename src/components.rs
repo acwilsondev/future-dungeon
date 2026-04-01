@@ -139,3 +139,27 @@ pub struct Viewshed {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Name(pub String);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Experience {
+    pub level: i32,
+    pub xp: i32,
+    pub next_level_xp: i32,
+    pub xp_reward: i32, // How much XP this entity gives when killed
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Perk {
+    Toughness, // +Max HP
+    EagleEye,  // +FOV
+    Strong,    // +Power
+    ThickSkin, // +Defense
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Perks {
+    pub traits: Vec<Perk>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LastHitByPlayer;

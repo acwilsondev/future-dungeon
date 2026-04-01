@@ -22,6 +22,7 @@ pub enum RunState {
     ShowInventory,
     ShowHelp,
     ShowTargeting,
+    LevelUp,
     Dead,
 }
 
@@ -124,6 +125,12 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub personality: Option<AIPersonality>,
     #[serde(default)]
+    pub experience: Option<Experience>,
+    #[serde(default)]
+    pub perks: Option<Perks>,
+    #[serde(default)]
+    pub last_hit_by_player: bool,
+    #[serde(default)]
     pub ammo: bool,
     #[serde(default)]
     pub consumable: bool,
@@ -168,6 +175,8 @@ pub struct App {
     pub targeting_item: Option<hecs::Entity>,
     #[serde(skip)]
     pub speed_toggle: bool,
+    #[serde(skip)]
+    pub level_up_cursor: usize,
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -192,6 +201,7 @@ impl App {
             targeting_cursor: (0, 0),
             targeting_item: None,
             speed_toggle: true,
+            level_up_cursor: 0,
         };
         app.generate_level();
         app
@@ -212,6 +222,8 @@ impl App {
             Viewshed { visible_tiles: 8 },
             Name("Player".to_string()),
             CombatStats { max_hp: 30, hp: 30, defense: 2, power: 5 },
+            Experience { level: 1, xp: 0, next_level_xp: 50, xp_reward: 0 },
+            Perks { traits: Vec::new() },
         ));
 
         self.world.spawn((
@@ -260,6 +272,7 @@ impl App {
                         Viewshed { visible_tiles: 8 },
                         Name("Orc".to_string()),
                         CombatStats { max_hp: hp, hp, defense: 1, power },
+                        Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: 10 + (self.dungeon_level as i32 * 5) },
                     ));
                 }
                 1 => { // Goblin - Cowardly, Goblins Faction
@@ -272,6 +285,7 @@ impl App {
                         Viewshed { visible_tiles: 8 },
                         Name("Goblin".to_string()),
                         CombatStats { max_hp: hp - 2, hp: hp - 2, defense: 0, power: power - 1 },
+                        Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: 8 + (self.dungeon_level as i32 * 4) },
                     ));
                 }
                 2 => { // Archer - Tactical, Goblins Faction
@@ -285,6 +299,7 @@ impl App {
                         Name("Goblin Archer".to_string()),
                         CombatStats { max_hp: hp - 4, hp: hp - 4, defense: 0, power: power },
                         RangedWeapon { range: 8, damage_bonus: power },
+                        Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: 12 + (self.dungeon_level as i32 * 5) },
                     ));
                 }
                 _ => { // Spider - Brave, Animals Faction
@@ -297,6 +312,7 @@ impl App {
                         Viewshed { visible_tiles: 6 },
                         Name("Spider".to_string()),
                         CombatStats { max_hp: hp - 5, hp: hp - 5, defense: 0, power: power + 2 },
+                        Experience { level: self.dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: 15 + (self.dungeon_level as i32 * 6) },
                     ));
                 }
             }
@@ -533,11 +549,14 @@ impl App {
             let faction = self.world.get::<&Faction>(id).ok().map(|f| *f);
             let viewshed = self.world.get::<&Viewshed>(id).ok().map(|v| *v);
             let personality = self.world.get::<&AIPersonality>(id).ok().map(|p| *p);
+            let experience = self.world.get::<&Experience>(id).ok().map(|e| *e);
+            let perks = self.world.get::<&Perks>(id).ok().map(|p| (*p).clone());
             
             self.entities.push(EntitySnapshot {
                 pos, render: *render, name, stats, potion, weapon, armor, door, trap, ranged, 
                 ranged_weapon, aoe, confusion, poison, strength, speed,
-                faction, viewshed, personality,
+                faction, viewshed, personality, experience, perks,
+                last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 ammo: self.world.get::<&Ammunition>(id).is_ok(),
                 consumable: self.world.get::<&Consumable>(id).is_ok(),
                 in_backpack: self.world.get::<&InBackpack>(id).is_ok(),
@@ -576,6 +595,9 @@ impl App {
             if let Some(faction) = e.faction { cb.add(faction); }
             if let Some(viewshed) = e.viewshed { cb.add(viewshed); }
             if let Some(personality) = e.personality { cb.add(personality); }
+            if let Some(experience) = e.experience { cb.add(experience); }
+            if let Some(perks) = e.perks.clone() { cb.add(perks); }
+            if e.last_hit_by_player { cb.add(LastHitByPlayer); }
             if e.ammo { cb.add(Ammunition); }
             if e.consumable { cb.add(Consumable); }
             if e.is_player { cb.add(Player); }
@@ -599,6 +621,29 @@ impl App {
         self.update_fov();
     }
 
+    pub fn add_player_xp(&mut self, xp: i32) {
+        let player_id = self.world.query::<&Player>().iter().next().map(|(id, _)| id).unwrap();
+        let mut level_up = false;
+        
+        if let Ok(mut exp) = self.world.get::<&mut Experience>(player_id) {
+            exp.xp += xp;
+            self.log.push(format!("You gained {} XP.", xp));
+            
+            if exp.xp >= exp.next_level_xp {
+                exp.level += 1;
+                exp.xp -= exp.next_level_xp;
+                exp.next_level_xp = (exp.next_level_xp as f32 * 1.5) as i32;
+                level_up = true;
+            }
+        }
+        
+        if level_up {
+            self.state = RunState::LevelUp;
+            self.level_up_cursor = 0;
+            self.log.push("You leveled up!".to_string());
+        }
+    }
+
     pub fn move_player(&mut self, dx: i16, dy: i16) {
         let (new_x, new_y, player_power) = {
             let mut player_query = self.world.query::<(&Position, &Player, &CombatStats)>();
@@ -614,18 +659,30 @@ impl App {
         if let Some(monster_id) = target_monster {
             let mut dead = false;
             let monster_name = self.world.get::<&Name>(monster_id).unwrap().0.clone();
+            let mut xp_reward = 0;
             {
                 let mut monster_stats = self.world.get::<&mut CombatStats>(monster_id).unwrap();
                 let damage = (player_power - monster_stats.defense).max(0);
                 monster_stats.hp -= damage;
                 self.log.push(format!("You hit {} for {} damage!", monster_name, damage));
-                if monster_stats.hp <= 0 { dead = true; }
+                if monster_stats.hp <= 0 { 
+                    dead = true; 
+                    if let Ok(exp) = self.world.get::<&Experience>(monster_id) {
+                        xp_reward = exp.xp_reward;
+                    }
+                }
+            }
+            if !dead {
+                self.world.insert_one(monster_id, LastHitByPlayer).unwrap();
             }
             if dead {
                 self.log.push(format!("{} dies!", monster_name));
                 self.world.despawn(monster_id).unwrap();
+                self.add_player_xp(xp_reward);
             }
-            self.state = RunState::MonsterTurn;
+            if self.state != RunState::LevelUp {
+                self.state = RunState::MonsterTurn;
+            }
             return;
         }
 
@@ -831,6 +888,7 @@ impl App {
                 self.log.push(format!("The {} explodes!", item_name));
                 for target_id in targets {
                     if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) { stats.hp -= power; }
+                    self.world.insert_one(target_id, LastHitByPlayer).unwrap();
                 }
             } else if let Some(turns) = confusion_turns {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
@@ -839,6 +897,7 @@ impl App {
                 for target_id in targets {
                     self.log.push(format!("The monster is confused by the {}!", item_name));
                     self.world.insert_one(target_id, Confusion { turns }).unwrap();
+                    // Not damage, but maybe player caused it? Not needed for XP though.
                 }
             } else if let Some(poison) = poison_effect {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
@@ -847,6 +906,7 @@ impl App {
                 for target_id in targets {
                     self.log.push(format!("The monster is poisoned by the {}!", item_name));
                     self.world.insert_one(target_id, poison).unwrap();
+                    self.world.insert_one(target_id, LastHitByPlayer).unwrap();
                 }
             } else {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
@@ -856,17 +916,33 @@ impl App {
                     if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) {
                         stats.hp -= power; self.log.push(format!("The {} hits for {} damage!", item_name, power));
                     }
+                    self.world.insert_one(target_id, LastHitByPlayer).unwrap();
                 }
             }
 
             let mut to_despawn = Vec::new();
-            for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() { if stats.hp <= 0 { to_despawn.push(id); } }
+            let mut total_xp = 0;
+            for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() { 
+                if stats.hp <= 0 { 
+                    to_despawn.push(id); 
+                    if let Ok(exp) = self.world.get::<&Experience>(id) {
+                        total_xp += exp.xp_reward;
+                    }
+                } 
+            }
             for id in to_despawn { self.world.despawn(id).unwrap(); }
+            
+            if total_xp > 0 {
+                self.add_player_xp(total_xp);
+            }
             
             if is_ranged_weapon.is_none() {
                 self.world.despawn(item_id).unwrap();
             }
-            self.targeting_item = None; self.state = RunState::MonsterTurn;
+            if self.state != RunState::LevelUp {
+                self.state = RunState::MonsterTurn;
+            }
+            self.targeting_item = None;
         }
     }
 
@@ -941,13 +1017,25 @@ impl App {
         
         // Despawn dead monsters from poison
         let mut to_despawn = Vec::new();
+        let mut total_xp = 0;
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
-            if stats.hp <= 0 { to_despawn.push(id); }
+            if stats.hp <= 0 { 
+                to_despawn.push(id); 
+                if self.world.get::<&LastHitByPlayer>(id).is_ok() {
+                    if let Ok(exp) = self.world.get::<&Experience>(id) {
+                        total_xp += exp.xp_reward;
+                    }
+                }
+            }
         }
         for id in to_despawn { 
             let name = self.world.get::<&Name>(id).unwrap().0.clone();
             self.log.push(format!("{} dies from poison!", name));
             self.world.despawn(id).unwrap(); 
+        }
+        
+        if total_xp > 0 {
+            self.add_player_xp(total_xp);
         }
     }
 
@@ -1042,7 +1130,23 @@ impl App {
                 // Ranged attack check (even if moving or fleeing, if tactical)
                 if personality.0 == Personality::Tactical && min_dist > 1.5 && min_dist < 8.0 {
                     if self.world.get::<&RangedWeapon>(id).is_ok() {
-                        actions.push((id, MonsterAction::RangedAttack(target_id)));
+                        // Check LOS
+                        let line = line2d(
+                            LineAlg::Bresenham,
+                            Point::new(pos.x, pos.y),
+                            Point::new(target_pos.x, target_pos.y)
+                        );
+                        let mut blocked = false;
+                        for p in line.iter().skip(1).take(line.len() - 2) { // Skip own tile and target tile
+                            let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
+                            if self.map.tiles[idx] == TileType::Wall {
+                                blocked = true;
+                                break;
+                            }
+                        }
+                        if !blocked {
+                            actions.push((id, MonsterAction::RangedAttack(target_id)));
+                        }
                     }
                 }
             }
@@ -1076,15 +1180,19 @@ impl App {
                     let target_defense = self.world.get::<&CombatStats>(target_id).unwrap().defense;
                     let damage = (monster_power - target_defense).max(0);
                     
-                    let mut target_stats = self.world.get::<&mut CombatStats>(target_id).unwrap();
-                    target_stats.hp -= damage;
+                    let target_hp = {
+                        let mut target_stats = self.world.get::<&mut CombatStats>(target_id).unwrap();
+                        target_stats.hp -= damage;
+                        target_stats.hp
+                    };
                     
                     if target_id == player_id {
                         self.log.push(format!("{} hits you for {} damage!", monster_name, damage));
-                        if target_stats.hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
+                        if target_hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
                     } else {
                         self.log.push(format!("{} hits {} for {} damage!", monster_name, target_name, damage));
-                        if target_stats.hp <= 0 {
+                        self.world.remove_one::<LastHitByPlayer>(target_id).ok(); // ok() because it might not be there
+                        if target_hp <= 0 {
                             self.log.push(format!("{} dies!", target_name));
                             // We can't despawn here easily without affecting the loop, so we'll check later
                         }
@@ -1100,15 +1208,19 @@ impl App {
                     let target_defense = self.world.get::<&CombatStats>(target_id).unwrap().defense;
                     let damage = (rw.damage_bonus - target_defense).max(0);
 
-                    let mut target_stats = self.world.get::<&mut CombatStats>(target_id).unwrap();
-                    target_stats.hp -= damage;
+                    let target_hp = {
+                        let mut target_stats = self.world.get::<&mut CombatStats>(target_id).unwrap();
+                        target_stats.hp -= damage;
+                        target_stats.hp
+                    };
 
                     if target_id == player_id {
                         self.log.push(format!("{} fires at you for {} damage!", monster_name, damage));
-                        if target_stats.hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
+                        if target_hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
                     } else {
                         self.log.push(format!("{} fires at {} for {} damage!", monster_name, target_name, damage));
-                        if target_stats.hp <= 0 {
+                        self.world.remove_one::<LastHitByPlayer>(target_id).ok();
+                        if target_hp <= 0 {
                             self.log.push(format!("{} dies!", target_name));
                         }
                     }
@@ -1118,12 +1230,24 @@ impl App {
 
         // Cleanup dead entities
         let mut to_despawn = Vec::new();
+        let mut total_xp = 0;
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
-            if stats.hp <= 0 { to_despawn.push(id); }
+            if stats.hp <= 0 { 
+                to_despawn.push(id); 
+                if self.world.get::<&LastHitByPlayer>(id).is_ok() {
+                    if let Ok(exp) = self.world.get::<&Experience>(id) {
+                        total_xp += exp.xp_reward;
+                    }
+                }
+            }
         }
         for id in to_despawn { self.world.despawn(id).unwrap(); }
 
-        if self.state != RunState::Dead { self.state = RunState::AwaitingInput; }
+        if total_xp > 0 {
+            self.add_player_xp(total_xp);
+        }
+
+        if self.state != RunState::Dead && self.state != RunState::LevelUp { self.state = RunState::AwaitingInput; }
     }
 
     pub fn render(&self, frame: &mut Frame) {
@@ -1199,11 +1323,16 @@ impl App {
         let sidebar_layout = Layout::default().direction(Direction::Vertical).constraints([Constraint::Length(3), Constraint::Length(1), Constraint::Length(1), Constraint::Min(0)]).split(sidebar_area.inner(&Margin { vertical: 1, horizontal: 1 }));
         frame.render_widget(Gauge::default().block(Block::default().title("HP")).gauge_style(Style::default().fg(hp_color).bg(Color::Indexed(233))).percent(hp_percent).label(format!("{}/{}", player_stats.hp, player_stats.max_hp)), sidebar_layout[0]);
         frame.render_widget(Paragraph::new(format!("ATK: {}  DEF: {}", player_stats.power, player_stats.defense)), sidebar_layout[1]);
-        frame.render_widget(Paragraph::new(format!("Depth: Level {}", self.dungeon_level)), sidebar_layout[2]);
+        
+        let player_id = self.world.query::<&Player>().iter().next().map(|(id, _)| id).unwrap();
+        let (level, xp, next_xp) = if let Ok(exp) = self.world.get::<&Experience>(player_id) {
+            (exp.level, exp.xp, exp.next_level_xp)
+        } else { (1, 0, 50) };
+
+        frame.render_widget(Paragraph::new(format!("Level: {}  XP: {}/{}", level, xp, next_xp)), sidebar_layout[2]);
         
         // Status Effects
         let mut status_lines = Vec::new();
-        let player_id = self.world.query::<&Player>().iter().next().map(|(id, _)| id).unwrap();
         if let Ok(poison) = self.world.get::<&Poison>(player_id) {
             status_lines.push(Line::from(Span::styled(format!("Poisoned ({})", poison.turns), Style::default().fg(Color::Green))));
         }
@@ -1217,9 +1346,21 @@ impl App {
             status_lines.push(Line::from(Span::styled(format!("Confused ({})", confusion.turns), Style::default().fg(Color::Magenta))));
         }
         
+        if let Ok(perks) = self.world.get::<&Perks>(player_id) {
+            for perk in &perks.traits {
+                let name = match perk {
+                    Perk::Toughness => "Toughness",
+                    Perk::EagleEye => "Eagle Eye",
+                    Perk::Strong => "Strong",
+                    Perk::ThickSkin => "Thick Skin",
+                };
+                status_lines.push(Line::from(Span::styled(format!("* {}", name), Style::default().fg(Color::LightBlue))));
+            }
+        }
+        
         if !status_lines.is_empty() {
              let status_area = sidebar_layout[3];
-             frame.render_widget(Paragraph::new(status_lines).block(Block::default().title(" Status ")), status_area);
+             frame.render_widget(Paragraph::new(status_lines).block(Block::default().title(" Status/Perks ")), status_area);
         }
 
         frame.render_widget(sidebar, sidebar_area);
@@ -1231,6 +1372,23 @@ impl App {
         if self.state == RunState::ShowInventory { self.render_inventory(frame); }
         else if self.state == RunState::ShowHelp { self.render_help(frame); }
         else if self.state == RunState::Dead { self.render_death_screen(frame); }
+        else if self.state == RunState::LevelUp { self.render_level_up(frame); }
+    }
+
+    fn render_level_up(&self, frame: &mut Frame) {
+        let area = centered_rect(50, 50, frame.size());
+        frame.render_widget(Clear, area);
+        let block = Block::default().borders(Borders::ALL).title(" Level Up! Choose a Perk ");
+        
+        let options = vec![
+            ListItem::new("Toughness (+10 Max HP)"),
+            ListItem::new("Eagle Eye (+2 FOV)"),
+            ListItem::new("Strong (+2 Power)"),
+            ListItem::new("Thick Skin (+1 Defense)"),
+        ];
+
+        let mut state = ListState::default(); state.select(Some(self.level_up_cursor));
+        frame.render_stateful_widget(List::new(options).block(block).highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black)).highlight_symbol(">> "), area, &mut state);
     }
 
     fn render_inventory(&self, frame: &mut Frame) {
