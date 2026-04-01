@@ -24,6 +24,8 @@ pub enum RunState {
     ShowTargeting,
     LevelUp,
     ShowShop,
+    ShowLogHistory,
+    ShowBestiary,
     Dead,
 }
 
@@ -68,6 +70,9 @@ impl Map {
     }
 
     pub fn populate_blocked_and_opaque(&mut self) {
+        let size = self.width as usize * self.height as usize;
+        self.blocked = vec![false; size];
+        self.opaque = vec![false; size];
         for (i, tile) in self.tiles.iter().enumerate() {
             self.blocked[i] = *tile == TileType::Wall;
             self.opaque[i] = *tile == TileType::Wall;
@@ -198,6 +203,11 @@ pub struct App {
     pub shop_mode: usize, // 0 = Buy, 1 = Sell
     #[serde(skip)]
     pub effects: Vec<VisualEffect>,
+    #[serde(skip)]
+    pub log_cursor: usize,
+    pub encountered_monsters: std::collections::HashSet<String>,
+    #[serde(skip)]
+    pub bestiary_cursor: usize,
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -227,6 +237,9 @@ impl App {
             active_merchant: None,
             shop_mode: 0,
             effects: Vec::new(),
+            log_cursor: 0,
+            encountered_monsters: std::collections::HashSet::new(),
+            bestiary_cursor: 0,
         };
         app.generate_level();
         app
@@ -626,6 +639,14 @@ impl App {
                 let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
                 self.map.visible[idx] = true;
                 self.map.revealed[idx] = true;
+            }
+        }
+
+        // Record encountered monsters
+        for (_id, (pos, name, _)) in self.world.query::<(&Position, &Name, &Monster)>().iter() {
+            let idx = (pos.y as u16 * self.map.width + pos.x as u16) as usize;
+            if self.map.visible[idx] {
+                self.encountered_monsters.insert(name.0.clone());
             }
         }
     }
@@ -1621,6 +1642,84 @@ impl App {
         else if self.state == RunState::Dead { self.render_death_screen(frame); }
         else if self.state == RunState::LevelUp { self.render_level_up(frame); }
         else if self.state == RunState::ShowShop { self.render_shop(frame); }
+        else if self.state == RunState::ShowLogHistory { self.render_log_history(frame); }
+        else if self.state == RunState::ShowBestiary { self.render_bestiary(frame); }
+    }
+
+    fn render_log_history(&self, frame: &mut Frame) {
+        let area = centered_rect(80, 80, frame.size());
+        frame.render_widget(Clear, area);
+        let block = Block::default().borders(Borders::ALL).title(" Message History ");
+        
+        let log_items: Vec<ListItem> = self.log.iter().enumerate().map(|(i, s)| {
+            let mut fg = Color::Indexed(245);
+            if s.contains("damage") || s.contains("dies") || s.contains("dead") { fg = Color::Red; }
+            else if s.contains("gold") || s.contains("buy") { fg = Color::Yellow; }
+            else if s.contains("level") { fg = Color::Magenta; }
+            else if s.contains("health") || s.contains("heal") { fg = Color::Green; }
+
+            ListItem::new(Span::styled(format!("{}: {}", i + 1, s), Style::default().fg(fg)))
+        }).collect();
+
+        let mut state = ListState::default();
+        let scroll_pos = if self.log.len() > area.height as usize - 2 {
+            self.log_cursor
+        } else { 0 };
+        state.select(Some(scroll_pos));
+
+        frame.render_stateful_widget(
+            List::new(log_items)
+                .block(block.title_bottom(Line::from(" [UP/DOWN] Scroll, [ESC] Close ").alignment(Alignment::Right)))
+                .highlight_style(Style::default().bg(Color::Indexed(236)))
+                .highlight_symbol("> "),
+            area,
+            &mut state
+        );
+    }
+
+    fn render_bestiary(&self, frame: &mut Frame) {
+        let area = centered_rect(80, 80, frame.size());
+        frame.render_widget(Clear, area);
+        let block = Block::default().borders(Borders::ALL).title(" Bestiary ");
+        
+        let mut encountered: Vec<String> = self.encountered_monsters.iter().cloned().collect();
+        encountered.sort();
+
+        if encountered.is_empty() {
+            frame.render_widget(Paragraph::new("You haven't encountered any monsters yet.").block(block), area);
+            return;
+        }
+
+        let list_items: Vec<ListItem> = encountered.iter().map(|name| ListItem::new(name.clone())).collect();
+        let mut state = ListState::default();
+        state.select(Some(self.bestiary_cursor));
+
+        let layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+            .split(area.inner(&Margin { vertical: 1, horizontal: 1 }));
+
+        frame.render_stateful_widget(
+            List::new(list_items)
+                .block(Block::default().borders(Borders::RIGHT))
+                .highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black)),
+            layout[0],
+            &mut state
+        );
+
+        // Details side
+        if let Some(selected_name) = encountered.get(self.bestiary_cursor) {
+            let details = match selected_name.as_str() {
+                "Orc" => "A common dungeon dweller. Fierce and aggressive. They tend to charge directly at you.",
+                "Goblin" => "Small, weak, and cowardly. They often flee when their health is low.",
+                "Goblin Archer" => "Keeps their distance and fires arrows. Try to corner them!",
+                "Spider" => "Fast and dangerous. Their bites can be painful.",
+                _ => "A mysterious inhabitant of the deep."
+            };
+            frame.render_widget(Paragraph::new(details).wrap(Wrap { trim: true }).block(Block::default().title(format!(" {} ", selected_name))), layout[1]);
+        }
+
+        frame.render_widget(block, area);
     }
 
     fn render_shop(&self, frame: &mut Frame) {
@@ -1688,23 +1787,87 @@ impl App {
     }
 
     fn render_inventory(&self, frame: &mut Frame) {
-        let area = centered_rect(60, 60, frame.size());
+        let area = centered_rect(70, 70, frame.size());
         frame.render_widget(Clear, area);
         let block = Block::default().borders(Borders::ALL).title(" Inventory ");
-        let items: Vec<ListItem> = self.world.query::<(&Item, &InBackpack, &Name)>().iter().map(|(_, (_, _, name))| ListItem::new(name.0.clone())).collect();
-        if items.is_empty() { frame.render_widget(Paragraph::new("Your backpack is empty.").block(block), area); }
-        else {
-            let mut state = ListState::default(); state.select(Some(self.inventory_cursor));
-            frame.render_stateful_widget(List::new(items).block(block).highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black)).highlight_symbol(">> "), area, &mut state);
+        
+        let player_id = self.world.query::<&Player>().iter().next().map(|(id, _)| id).unwrap();
+        let items: Vec<(hecs::Entity, String)> = self.world.query::<(&Item, &InBackpack, &Name)>().iter()
+            .filter(|(_, (_, backpack, _))| backpack.owner == player_id)
+            .map(|(id, (_, _, name))| (id, name.0.clone()))
+            .collect();
+
+        if items.is_empty() {
+            frame.render_widget(Paragraph::new("Your backpack is empty.").block(block), area);
+        } else {
+            let list_items: Vec<ListItem> = items.iter().map(|(_, name)| ListItem::new(name.clone())).collect();
+            let mut state = ListState::default();
+            state.select(Some(self.inventory_cursor));
+
+            let layout = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+                .split(area.inner(&Margin { vertical: 1, horizontal: 1 }));
+
+            frame.render_stateful_widget(
+                List::new(list_items)
+                    .block(Block::default().borders(Borders::RIGHT))
+                    .highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black)),
+                layout[0],
+                &mut state
+            );
+
+            // Item Details / Tooltip
+            if let Some((item_id, _)) = items.get(self.inventory_cursor) {
+                let mut tooltip = Vec::new();
+                
+                if let Ok(potion) = self.world.get::<&Potion>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Potion")]));
+                    tooltip.push(Line::from(vec![Span::styled("Effect: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("Heals {} HP", potion.heal_amount), Style::default().fg(Color::Green))]));
+                }
+                if let Ok(weapon) = self.world.get::<&Weapon>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Melee Weapon")]));
+                    tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Power", weapon.power_bonus), Style::default().fg(Color::Red))]));
+                }
+                if let Ok(armor) = self.world.get::<&Armor>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Armor")]));
+                    tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Defense", armor.defense_bonus), Style::default().fg(Color::Blue))]));
+                }
+                if let Ok(ranged) = self.world.get::<&Ranged>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Consumable Ranged")]));
+                    tooltip.push(Line::from(vec![Span::styled("Range: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw(format!("{}", ranged.range))]));
+                }
+                if let Ok(rw) = self.world.get::<&RangedWeapon>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Ranged Weapon")]));
+                    tooltip.push(Line::from(vec![Span::styled("Range: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw(format!("{}", rw.range))]));
+                    tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Damage", rw.damage_bonus), Style::default().fg(Color::Red))]));
+                }
+                if self.world.get::<&Ammunition>(*item_id).is_ok() {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Ammunition")]));
+                    tooltip.push(Line::from("Required for bows."));
+                }
+                if let Ok(aoe) = self.world.get::<&AreaOfEffect>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("AoE Radius: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("{}", aoe.radius), Style::default().fg(Color::Yellow))]));
+                }
+                if let Ok(poison) = self.world.get::<&Poison>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Poison: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("{} damage for {} turns", poison.damage, poison.turns), Style::default().fg(Color::Green))]));
+                }
+
+                frame.render_widget(Paragraph::new(tooltip).block(Block::default().title(" Item Details ")), layout[1]);
+            }
+
+            frame.render_widget(block, area);
         }
     }
 
     fn render_help(&self, frame: &mut Frame) {
-        let area = centered_rect(50, 50, frame.size()); frame.render_widget(Clear, area);
+        let area = centered_rect(50, 60, frame.size()); frame.render_widget(Clear, area);
         let text = vec![
             Line::from(vec![Span::styled("Move:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" Arrows/HJKL")]),
             Line::from(vec![Span::styled("Pick Up:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" G")]),
             Line::from(vec![Span::styled("Inventory:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" I")]),
+            Line::from(vec![Span::styled("Log History:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" M")]),
+            Line::from(vec![Span::styled("Bestiary:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" B")]),
             Line::from(vec![Span::styled("Targeting:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" Arrows/HJKL + Enter")]),
             Line::from(vec![Span::styled("Help:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" ? or /")]),
             Line::from(vec![Span::styled("Quit:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" Q")]),

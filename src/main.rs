@@ -37,7 +37,38 @@ fn main() -> Result<()> {
                                 KeyCode::Char('g') => app.pick_up_item(),
                                 KeyCode::Char('i') => app.state = RunState::ShowInventory,
                                 KeyCode::Char('?') | KeyCode::Char('/') => app.state = RunState::ShowHelp,
+                                KeyCode::Char('m') => { app.state = RunState::ShowLogHistory; app.log_cursor = app.log.len().saturating_sub(1); }
+                                KeyCode::Char('b') => { app.state = RunState::ShowBestiary; app.bestiary_cursor = 0; }
                                 KeyCode::Enter => app.try_level_transition(),
+                                _ => {}
+                            }
+                        }
+                        RunState::ShowLogHistory => {
+                            match key.code {
+                                KeyCode::Esc | KeyCode::Char('m') => app.state = RunState::AwaitingInput,
+                                KeyCode::Up | KeyCode::Char('k') => {
+                                    if app.log_cursor > 0 { app.log_cursor -= 1; }
+                                }
+                                KeyCode::Down | KeyCode::Char('j') => {
+                                    if app.log_cursor < app.log.len().saturating_sub(1) {
+                                        app.log_cursor += 1;
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        RunState::ShowBestiary => {
+                            match key.code {
+                                KeyCode::Esc | KeyCode::Char('b') => app.state = RunState::AwaitingInput,
+                                KeyCode::Up | KeyCode::Char('k') => {
+                                    if app.bestiary_cursor > 0 { app.bestiary_cursor -= 1; }
+                                }
+                                KeyCode::Down | KeyCode::Char('j') => {
+                                    let count = app.encountered_monsters.len();
+                                    if count > 0 && app.bestiary_cursor < count - 1 {
+                                        app.bestiary_cursor += 1;
+                                    }
+                                }
                                 _ => {}
                             }
                         }
