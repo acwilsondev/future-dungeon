@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::map_builder::MapBuilder;
 use crate::components::*;
 use hecs::World;
+use bracket_pathfinding::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TileType {
@@ -16,14 +17,43 @@ pub struct Map {
     pub width: u16,
     pub height: u16,
     pub tiles: Vec<TileType>,
+    pub revealed: Vec<bool>,
+    #[serde(skip)]
+    pub visible: Vec<bool>,
 }
 
 impl Map {
+    pub fn new(width: u16, height: u16) -> Self {
+        Self {
+            width,
+            height,
+            tiles: vec![TileType::Wall; (width * height) as usize],
+            revealed: vec![false; (width * height) as usize],
+            visible: vec![false; (width * height) as usize],
+        }
+    }
+
     pub fn get_tile(&self, x: u16, y: u16) -> TileType {
         if x >= self.width || y >= self.height {
             return TileType::Wall;
         }
         self.tiles[(y * self.width + x) as usize]
+    }
+
+    pub fn is_opaque(&self, idx: usize) -> bool {
+        self.tiles[idx] == TileType::Wall
+    }
+}
+
+impl Algorithm2D for Map {
+    fn dimensions(&self) -> Point {
+        Point::new(self.width, self.height)
+    }
+}
+
+impl BaseMap for Map {
+    fn is_opaque(&self, idx: usize) -> bool {
+        self.tiles[idx] == TileType::Wall
     }
 }
 
@@ -68,12 +98,30 @@ impl App {
             Name("Player".to_string()),
         ));
 
-        Self {
+        let mut app = Self {
             exit: false,
             death: false,
             world,
             map: mb.map,
             entities: Vec::new(),
+        };
+        app.update_fov();
+        app
+    }
+
+    pub fn update_fov(&mut self) {
+        let mut player_query = self.world.query::<(&Position, &Player)>();
+        let (_, (pos, _)) = player_query.iter().next().expect("Player not found");
+        
+        let fov = field_of_view(Point::new(pos.x, pos.y), 8, &self.map);
+        
+        for v in &mut self.map.visible { *v = false; }
+        for p in fov {
+            if p.x >= 0 && p.x < self.map.width as i32 && p.y >= 0 && p.y < self.map.height as i32 {
+                let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
+                self.map.visible[idx] = true;
+                self.map.revealed[idx] = true;
+            }
         }
     }
 
@@ -109,6 +157,8 @@ impl App {
             if e.is_monster { cb.add(Monster); }
             self.world.spawn(cb.build());
         }
+        self.map.visible = vec![false; (self.map.width * self.map.height) as usize];
+        self.update_fov();
     }
 
     pub fn move_player(&mut self, dx: i16, dy: i16) {
@@ -121,6 +171,8 @@ impl App {
         if self.map.get_tile(new_x, new_y) == TileType::Floor {
             pos.x = new_x;
             pos.y = new_y;
+            drop(player_query);
+            self.update_fov();
         }
     }
 
@@ -165,9 +217,12 @@ impl App {
                 let map_x = x + camera_x;
                 if map_x >= self.map.width as i32 { break; }
                 
-                let (char, color) = match self.map.get_tile(map_x as u16, map_y as u16) {
-                    TileType::Wall => ("#", Color::Indexed(242)),
-                    TileType::Floor => (".", Color::Indexed(237)),
+                let idx = (map_y as u16 * self.map.width + map_x as u16) as usize;
+                if !self.map.revealed[idx] { continue; }
+
+                let (char, color) = match self.map.tiles[idx] {
+                    TileType::Wall => ("#", if self.map.visible[idx] { Color::Indexed(252) } else { Color::Indexed(238) }),
+                    TileType::Floor => (".", if self.map.visible[idx] { Color::Indexed(242) } else { Color::Indexed(234) }),
                 };
 
                 buffer.get_mut(inner_map.x + x as u16, inner_map.y + y as u16)
@@ -176,8 +231,11 @@ impl App {
             }
         }
 
-        // Render entities from ECS
-        for (_id, (pos, render)) in self.world.query::<(&Position, &Renderable)>().iter() {
+        // Render entities from ECS if visible
+        for (id, (pos, render)) in self.world.query::<(&Position, &Renderable)>().iter() {
+            let idx = (pos.y * self.map.width + pos.x) as usize;
+            if !self.map.visible[idx] { continue; }
+
             let screen_x = pos.x as i32 - camera_x;
             let screen_y = pos.y as i32 - camera_y;
 
@@ -185,7 +243,7 @@ impl App {
                 let x = inner_map.x + screen_x as u16;
                 let y = inner_map.y + screen_y as u16;
                 let mut style = Style::default().fg(render.fg);
-                if self.world.get::<&Player>(_id).is_ok() {
+                if self.world.get::<&Player>(id).is_ok() {
                     style = style.add_modifier(Modifier::BOLD);
                 }
                 buffer.get_mut(x, y)
@@ -195,8 +253,8 @@ impl App {
         }
 
         let status = Paragraph::new(format!(
-            " HP: 10/10 | Pos: ({}, {}) | Camera: ({}, {}) | Press 'q' to quit",
-            player_pos.x, player_pos.y, camera_x, camera_y
+            " HP: 10/10 | Pos: ({}, {}) | Press 'q' to quit",
+            player_pos.x, player_pos.y
         ))
         .style(Style::default().bg(Color::Indexed(235)).fg(Color::White));
         frame.render_widget(status, status_area);

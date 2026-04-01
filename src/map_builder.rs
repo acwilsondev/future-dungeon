@@ -32,11 +32,7 @@ pub struct MapBuilder {
 
 impl MapBuilder {
     pub fn new(width: u16, height: u16) -> Self {
-        let map = Map {
-            width,
-            height,
-            tiles: vec![TileType::Wall; (width * height) as usize],
-        };
+        let map = Map::new(width, height);
         Self { map, rooms: Vec::new(), player_start: (0, 0) }
     }
 
