@@ -32,6 +32,7 @@ fn main() -> Result<()> {
                                 KeyCode::Down | KeyCode::Char('j') => app.move_player(0, 1),
                                 KeyCode::Char('g') => app.pick_up_item(),
                                 KeyCode::Char('i') => app.state = RunState::ShowInventory,
+                                KeyCode::Char('?') | KeyCode::Char('/') => app.state = RunState::ShowHelp,
                                 _ => {}
                             }
                         }
@@ -59,6 +60,11 @@ fn main() -> Result<()> {
                                     }
                                 }
                                 _ => {}
+                            }
+                        }
+                        RunState::ShowHelp => {
+                            if let KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('/') = key.code {
+                                app.state = RunState::AwaitingInput;
                             }
                         }
                         RunState::Dead => {

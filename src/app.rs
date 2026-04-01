@@ -19,6 +19,7 @@ pub enum RunState {
     AwaitingInput,
     MonsterTurn,
     ShowInventory,
+    ShowHelp,
     Dead,
 }
 
@@ -95,6 +96,7 @@ pub struct App {
     pub map: Map,
     pub entities: Vec<EntitySnapshot>,
     pub log: Vec<String>,
+    pub dungeon_level: u32,
     #[serde(skip, default = "default_runstate")]
     pub state: RunState,
     #[serde(skip)]
@@ -175,6 +177,7 @@ impl App {
             map: mb.map,
             entities: Vec::new(),
             log: vec!["Welcome to RustLike!".to_string()],
+            dungeon_level: 1,
             state: RunState::AwaitingInput,
             inventory_cursor: 0,
         };
@@ -444,7 +447,7 @@ impl App {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Min(0),
-                Constraint::Length(5),
+                Constraint::Length(6),
             ])
             .split(frame.size());
 
@@ -452,7 +455,7 @@ impl App {
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Min(0),
-                Constraint::Length(25),
+                Constraint::Length(30),
             ])
             .split(chunks[0]);
 
@@ -463,7 +466,8 @@ impl App {
         // Map
         let map_block = Block::default()
             .borders(Borders::ALL)
-            .title(Span::styled(" Map ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+            .border_style(Style::default().fg(Color::Indexed(240)))
+            .title(Span::styled(" RustLike Dungeon ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
         frame.render_widget(map_block, map_area);
 
         let inner_map = map_area.inner(&Margin { vertical: 1, horizontal: 1 });
@@ -495,7 +499,7 @@ impl App {
             }
         }
 
-        // Render entities from ECS
+        // Render entities
         for (id, (pos, render)) in self.world.query::<(&Position, &Renderable)>().iter() {
             let idx = (pos.y * self.map.width + pos.x) as usize;
             if !self.map.visible[idx] { continue; }
@@ -511,45 +515,98 @@ impl App {
         }
 
         // Sidebar
-        let sidebar = Block::default().borders(Borders::ALL).title(" Status ");
-        let stats_text = vec![
-            Line::from(vec![Span::raw("HP: "), Span::styled(format!("{}/{}", player_stats.hp, player_stats.max_hp), Style::default().fg(Color::Red))]),
-            Line::from(format!("ATK: {}", player_stats.power)),
-            Line::from(format!("DEF: {}", player_stats.defense)),
-        ];
-        frame.render_widget(Paragraph::new(stats_text).block(sidebar), sidebar_area);
+        let sidebar = Block::default().borders(Borders::ALL).title(" Character ");
+        let hp_percent = (player_stats.hp as f32 / player_stats.max_hp as f32 * 100.0) as u16;
+        let hp_color = if hp_percent > 50 { Color::Green } else if hp_percent > 25 { Color::Yellow } else { Color::Red };
+        
+        let sidebar_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // HP bar
+                Constraint::Length(1), // ATK/DEF
+                Constraint::Length(1), // Level
+                Constraint::Min(0),
+            ])
+            .split(sidebar_area.inner(&Margin { vertical: 1, horizontal: 1 }));
+
+        let hp_gauge = Gauge::default()
+            .block(Block::default().title("HP"))
+            .gauge_style(Style::default().fg(hp_color).bg(Color::Indexed(233)))
+            .percent(hp_percent)
+            .label(format!("{}/{}", player_stats.hp, player_stats.max_hp));
+        frame.render_widget(hp_gauge, sidebar_layout[0]);
+
+        frame.render_widget(Paragraph::new(format!("ATK: {}  DEF: {}", player_stats.power, player_stats.defense)), sidebar_layout[1]);
+        frame.render_widget(Paragraph::new(format!("Depth: Level {}", self.dungeon_level)), sidebar_layout[2]);
+        frame.render_widget(sidebar, sidebar_area);
 
         // Log
-        let log_block = Block::default().borders(Borders::ALL).title(" Log ");
-        let log_items: Vec<ListItem> = self.log.iter().rev().take(4).map(|s| ListItem::new(s.clone())).collect();
+        let log_block = Block::default().borders(Borders::ALL).title(" Message Log ");
+        let log_items: Vec<ListItem> = self.log.iter().rev().take(5).map(|s| ListItem::new(s.clone())).collect();
         frame.render_widget(List::new(log_items).block(log_block), log_area);
 
-        // Inventory Overlay
+        // Overlays
         if self.state == RunState::ShowInventory {
-            let area = centered_rect(60, 60, frame.size());
-            frame.render_widget(Clear, area);
-            let block = Block::default().borders(Borders::ALL).title(" Inventory ");
-            
-            let items: Vec<ListItem> = self.world.query::<(&Item, &InBackpack, &Name)>()
-                .iter()
-                .map(|(_, (_, _, name))| ListItem::new(name.0.clone()))
-                .collect();
-
-            if items.is_empty() {
-                frame.render_widget(Paragraph::new("Your backpack is empty.").block(block), area);
-            } else {
-                let mut state = ListState::default();
-                state.select(Some(self.inventory_cursor));
-                frame.render_stateful_widget(
-                    List::new(items)
-                        .block(block)
-                        .highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black))
-                        .highlight_symbol(">> "),
-                    area,
-                    &mut state
-                );
-            }
+            self.render_inventory(frame);
+        } else if self.state == RunState::ShowHelp {
+            self.render_help(frame);
+        } else if self.state == RunState::Dead {
+            self.render_death_screen(frame);
         }
+    }
+
+    fn render_inventory(&self, frame: &mut Frame) {
+        let area = centered_rect(60, 60, frame.size());
+        frame.render_widget(Clear, area);
+        let block = Block::default().borders(Borders::ALL).title(" Inventory (Enter to Use, Esc to Exit) ");
+        
+        let items: Vec<ListItem> = self.world.query::<(&Item, &InBackpack, &Name)>()
+            .iter()
+            .map(|(_, (_, _, name))| ListItem::new(name.0.clone()))
+            .collect();
+
+        if items.is_empty() {
+            frame.render_widget(Paragraph::new("Your backpack is empty.").block(block), area);
+        } else {
+            let mut state = ListState::default();
+            state.select(Some(self.inventory_cursor));
+            frame.render_stateful_widget(
+                List::new(items)
+                    .block(block)
+                    .highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black))
+                    .highlight_symbol(">> "),
+                area,
+                &mut state
+            );
+        }
+    }
+
+    fn render_help(&self, frame: &mut Frame) {
+        let area = centered_rect(50, 50, frame.size());
+        frame.render_widget(Clear, area);
+        let block = Block::default().borders(Borders::ALL).title(" Controls ");
+        let text = vec![
+            Line::from(vec![Span::styled("Move:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" Arrow Keys or HJKL")]),
+            Line::from(vec![Span::styled("Pick Up Item:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" G")]),
+            Line::from(vec![Span::styled("Inventory:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" I")]),
+            Line::from(vec![Span::styled("Help:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" ? or /")]),
+            Line::from(vec![Span::styled("Quit:", Style::default().add_modifier(Modifier::BOLD)), Span::raw(" Q")]),
+            Line::from(""),
+            Line::from("Bump into monsters to attack them."),
+        ];
+        frame.render_widget(Paragraph::new(text).block(block).alignment(Alignment::Center), area);
+    }
+
+    fn render_death_screen(&self, frame: &mut Frame) {
+        let area = centered_rect(40, 20, frame.size());
+        frame.render_widget(Clear, area);
+        let block = Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Red));
+        let text = vec![
+            Line::from(Span::styled("YOU HAVE PERISHED", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))),
+            Line::from(""),
+            Line::from("Press Q or Esc to exit."),
+        ];
+        frame.render_widget(Paragraph::new(text).block(block).alignment(Alignment::Center), area);
     }
 }
 
@@ -571,4 +628,59 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: RatatuiRect) -> RatatuiRect 
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_map_get_tile() {
+        let mut map = Map::new(10, 10);
+        map.tiles[0] = TileType::Wall;
+        map.tiles[1] = TileType::Floor;
+        assert_eq!(map.get_tile(0, 0), TileType::Wall);
+        assert_eq!(map.get_tile(1, 0), TileType::Floor);
+        assert_eq!(map.get_tile(10, 10), TileType::Wall);
+    }
+
+    #[test]
+    fn test_app_move_player() {
+        let mut app = App::new_random();
+        let (x, y) = {
+            let mut player_query = app.world.query::<(&Position, &Player, &CombatStats)>();
+            let (_, (pos, _, _)) = player_query.iter().next().unwrap();
+            (pos.x, pos.y)
+        };
+        
+        let mut dx = 0;
+        let mut dy = 0;
+        if app.map.get_tile(x + 1, y) == TileType::Floor { dx = 1; }
+        else if app.map.get_tile(x - 1, y) == TileType::Floor { dx = -1; }
+        else if app.map.get_tile(x, y + 1) == TileType::Floor { dy = 1; }
+        else if app.map.get_tile(x, y - 1) == TileType::Floor { dy = -1; }
+
+        if dx != 0 || dy != 0 {
+            let target_x = x + dx as u16;
+            let target_y = y + dy as u16;
+            app.move_player(dx, dy);
+            let mut player_query = app.world.query::<(&Position, &Player, &CombatStats)>();
+            let (_, (pos, _, _)) = player_query.iter().next().unwrap();
+            assert_eq!(pos.x, target_x);
+            assert_eq!(pos.y, target_y);
+        }
+    }
+
+    #[test]
+    fn test_fov() {
+        let mut app = App::new_random();
+        let (x, y) = {
+            let mut player_query = app.world.query::<(&Position, &Player, &CombatStats)>();
+            let (_, (pos, _, _)) = player_query.iter().next().unwrap();
+            (pos.x, pos.y)
+        };
+        let idx = (y * app.map.width + x) as usize;
+        assert!(app.map.visible[idx]);
+        assert!(app.map.revealed[idx]);
+    }
 }
