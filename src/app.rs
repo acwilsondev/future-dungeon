@@ -100,9 +100,13 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub ranged: Option<Ranged>,
     #[serde(default)]
+    pub ranged_weapon: Option<RangedWeapon>,
+    #[serde(default)]
     pub aoe: Option<AreaOfEffect>,
     #[serde(default)]
     pub confusion: Option<Confusion>,
+    #[serde(default)]
+    pub ammo: bool,
     #[serde(default)]
     pub consumable: bool,
     #[serde(default)]
@@ -231,7 +235,7 @@ impl App {
         }
 
         for spawn in &mb.item_spawns {
-            let roll = rng.gen_range(0..6);
+            let roll = rng.gen_range(0..8);
             match roll {
                 0 => {
                     self.world.spawn((
@@ -284,6 +288,36 @@ impl App {
                         Name("Confusion Scroll".to_string()),
                         Ranged { range: 6 },
                         Confusion { turns: 4 },
+                    ));
+                }
+                5 => {
+                    self.world.spawn((
+                        Position { x: spawn.0, y: spawn.1 },
+                        Renderable { glyph: ')', fg: Color::Yellow },
+                        Item,
+                        Name("Shortbow".to_string()),
+                        RangedWeapon { range: 8, damage_bonus: 4 },
+                    ));
+                }
+                6 => {
+                    self.world.spawn((
+                        Position { x: spawn.0, y: spawn.1 },
+                        Renderable { glyph: '`', fg: Color::Indexed(245) },
+                        Item,
+                        Consumable,
+                        Name("Arrows".to_string()),
+                        Ammunition,
+                    ));
+                }
+                7 => {
+                    self.world.spawn((
+                        Position { x: spawn.0, y: spawn.1 },
+                        Renderable { glyph: '/', fg: Color::Indexed(250) },
+                        Item,
+                        Consumable,
+                        Name("Throwing Dagger".to_string()),
+                        Ranged { range: 6 },
+                        CombatStats { max_hp: 0, hp: 0, defense: 0, power: 8 },
                     ));
                 }
                 _ => {
@@ -413,11 +447,14 @@ impl App {
             let door = self.world.get::<&Door>(id).ok().map(|d| *d);
             let trap = self.world.get::<&Trap>(id).ok().map(|t| *t);
             let ranged = self.world.get::<&Ranged>(id).ok().map(|r| *r);
+            let ranged_weapon = self.world.get::<&RangedWeapon>(id).ok().map(|rw| *rw);
             let aoe = self.world.get::<&AreaOfEffect>(id).ok().map(|a| *a);
             let confusion = self.world.get::<&Confusion>(id).ok().map(|c| *c);
             
             self.entities.push(EntitySnapshot {
-                pos, render: *render, name, stats, potion, weapon, armor, door, trap, ranged, aoe, confusion,
+                pos, render: *render, name, stats, potion, weapon, armor, door, trap, ranged, 
+                ranged_weapon, aoe, confusion,
+                ammo: self.world.get::<&Ammunition>(id).is_ok(),
                 consumable: self.world.get::<&Consumable>(id).is_ok(),
                 in_backpack: self.world.get::<&InBackpack>(id).is_ok(),
                 is_player: self.world.get::<&Player>(id).is_ok(),
@@ -446,8 +483,10 @@ impl App {
             if let Some(door) = e.door { cb.add(door); }
             if let Some(trap) = e.trap { cb.add(trap); }
             if let Some(ranged) = e.ranged { cb.add(ranged); }
+            if let Some(ranged_weapon) = e.ranged_weapon { cb.add(ranged_weapon); }
             if let Some(aoe) = e.aoe { cb.add(aoe); }
             if let Some(confusion) = e.confusion { cb.add(confusion); }
+            if e.ammo { cb.add(Ammunition); }
             if e.consumable { cb.add(Consumable); }
             if e.is_player { cb.add(Player); }
             if e.is_monster { cb.add(Monster); }
@@ -591,7 +630,15 @@ impl App {
             stats.hp = (stats.hp + potion.heal_amount).min(stats.max_hp);
             self.log.push(format!("You drink the {}, healing for {} HP.", item_name, potion.heal_amount));
             handled = true;
-        } else if self.world.get::<&Ranged>(item_id).is_ok() {
+        } else if self.world.get::<&Ranged>(item_id).is_ok() || self.world.get::<&RangedWeapon>(item_id).is_ok() {
+            if self.world.get::<&RangedWeapon>(item_id).is_ok() {
+                // Check for ammo
+                let has_ammo = self.world.query::<(&Ammunition, &InBackpack)>().iter().any(|(_, (_, backpack))| backpack.owner == player_id);
+                if !has_ammo {
+                    self.log.push("You have no ammunition for this weapon!".to_string());
+                    return;
+                }
+            }
             let player_pos = self.world.get::<&Position>(player_id).unwrap();
             self.targeting_cursor = (player_pos.x, player_pos.y);
             self.targeting_item = Some(item_id);
@@ -616,16 +663,53 @@ impl App {
     pub fn fire_targeting_item(&mut self) {
         if let Some(item_id) = self.targeting_item {
             let item_name = self.world.get::<&Name>(item_id).unwrap().0.clone();
+            
+            let (player_pos, player_id) = {
+                let mut query = self.world.query::<(&Position, &Player)>();
+                let (id, (pos, _)) = query.iter().next().expect("Player not found");
+                (*pos, id)
+            };
+
+            let line = line2d(
+                LineAlg::Bresenham,
+                Point::new(player_pos.x, player_pos.y),
+                Point::new(self.targeting_cursor.0, self.targeting_cursor.1)
+            );
+
+            let mut actual_target = self.targeting_cursor;
+            for p in line.iter().skip(1) {
+                let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
+                if self.map.tiles[idx] == TileType::Wall {
+                    actual_target = (p.x as u16, p.y as u16);
+                    self.log.push(format!("The {} hits a wall!", item_name));
+                    break;
+                }
+            }
+
             let mut targets = Vec::new();
             
             // Collect info before mutations
             let aoe_radius = self.world.get::<&AreaOfEffect>(item_id).ok().map(|a| a.radius);
             let confusion_turns = self.world.get::<&Confusion>(item_id).ok().map(|c| c.turns);
-            let power = self.world.get::<&CombatStats>(item_id).map(|s| s.power).unwrap_or(10);
+            let mut power = self.world.get::<&CombatStats>(item_id).map(|s| s.power).unwrap_or(10);
+            let is_ranged_weapon = self.world.get::<&RangedWeapon>(item_id).ok().map(|rw| *rw);
+
+            if let Some(rw) = is_ranged_weapon {
+                power = rw.damage_bonus;
+                // Consume ammo
+                let ammo_id = self.world.query::<(&Ammunition, &InBackpack)>()
+                    .iter()
+                    .filter(|(_, (_, backpack))| backpack.owner == player_id)
+                    .map(|(id, _)| id)
+                    .next();
+                if let Some(aid) = ammo_id {
+                    self.world.despawn(aid).unwrap();
+                }
+            }
 
             if let Some(radius) = aoe_radius {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
-                    let dist = (((pos.x as i32 - self.targeting_cursor.0 as i32).pow(2) + (pos.y as i32 - self.targeting_cursor.1 as i32).pow(2)) as f32).sqrt();
+                    let dist = (((pos.x as i32 - actual_target.0 as i32).pow(2) + (pos.y as i32 - actual_target.1 as i32).pow(2)) as f32).sqrt();
                     if dist <= radius as f32 { targets.push(id); }
                 }
                 self.log.push(format!("The {} explodes!", item_name));
@@ -634,7 +718,7 @@ impl App {
                 }
             } else if let Some(turns) = confusion_turns {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
-                    if pos.x == self.targeting_cursor.0 && pos.y == self.targeting_cursor.1 { targets.push(id); }
+                    if pos.x == actual_target.0 && pos.y == actual_target.1 { targets.push(id); }
                 }
                 for target_id in targets {
                     self.log.push(format!("The monster is confused by the {}!", item_name));
@@ -642,7 +726,7 @@ impl App {
                 }
             } else {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
-                    if pos.x == self.targeting_cursor.0 && pos.y == self.targeting_cursor.1 { targets.push(id); }
+                    if pos.x == actual_target.0 && pos.y == actual_target.1 { targets.push(id); }
                 }
                 for target_id in targets {
                     if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) {
@@ -654,7 +738,10 @@ impl App {
             let mut to_despawn = Vec::new();
             for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() { if stats.hp <= 0 { to_despawn.push(id); } }
             for id in to_despawn { self.world.despawn(id).unwrap(); }
-            self.world.despawn(item_id).unwrap();
+            
+            if is_ranged_weapon.is_none() {
+                self.world.despawn(item_id).unwrap();
+            }
             self.targeting_item = None; self.state = RunState::MonsterTurn;
         }
     }
@@ -753,9 +840,26 @@ impl App {
         }
 
         if self.state == RunState::ShowTargeting {
-            let screen_x = self.targeting_cursor.0 as i32 - camera_x; let screen_y = self.targeting_cursor.1 as i32 - camera_y;
-            if screen_x >= 0 && screen_x < view_w && screen_y >= 0 && screen_y < view_h {
-                buffer.get_mut(inner_map.x + screen_x as u16, inner_map.y + screen_y as u16).set_bg(Color::Cyan).set_fg(Color::Black);
+            // Draw line from player to target
+            let line = line2d(
+                LineAlg::Bresenham, 
+                Point::new(player_pos.x, player_pos.y), 
+                Point::new(self.targeting_cursor.0, self.targeting_cursor.1)
+            );
+
+            for (i, p) in line.iter().enumerate() {
+                let sx = p.x - camera_x;
+                let sy = p.y - camera_y;
+                if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
+                    let cell = buffer.get_mut(inner_map.x + sx as u16, inner_map.y + sy as u16);
+                    if i == 0 {
+                        // Player position, don't change it much
+                    } else if i == line.len() - 1 {
+                        cell.set_bg(Color::Cyan).set_fg(Color::Black);
+                    } else {
+                        cell.set_bg(Color::Indexed(236));
+                    }
+                }
             }
         }
 
