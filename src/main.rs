@@ -1,6 +1,7 @@
 mod app;
 mod engine;
 mod persistence;
+mod map_builder;
 
 use anyhow::Result;
 use app::App;

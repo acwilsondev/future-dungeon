@@ -8,7 +8,7 @@ Implement the core game loop and a terminal-based rendering system capable of di
 ## 2. Game Persistence
 Implement saving and loading functionality to allow players to resume their progress between sessions. Baking this in early ensures the game state is serializable from the start.
 
-## 3. Procedural Dungeon Generation
+## 3. Procedural Dungeon Generation [DONE]
 Develop algorithms to generate varied and interesting dungeon layouts, including rooms, corridors, and multi-level transitions (stairs).
 
 ## 4. Entity Component System (ECS)
