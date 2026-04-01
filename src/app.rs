@@ -159,6 +159,12 @@ pub struct LevelData {
     pub entities: Vec<EntitySnapshot>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum VisualEffect {
+    Flash { x: u16, y: u16, glyph: char, fg: Color, bg: Option<Color>, duration: u32 },
+    Projectile { path: Vec<(u16, u16)>, glyph: char, fg: Color, frame: u32, speed: u32 },
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct App {
     #[serde(skip)]
@@ -190,6 +196,8 @@ pub struct App {
     pub active_merchant: Option<hecs::Entity>,
     #[serde(skip)]
     pub shop_mode: usize, // 0 = Buy, 1 = Sell
+    #[serde(skip)]
+    pub effects: Vec<VisualEffect>,
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -218,9 +226,31 @@ impl App {
             shop_cursor: 0,
             active_merchant: None,
             shop_mode: 0,
+            effects: Vec::new(),
         };
         app.generate_level();
         app
+    }
+
+    pub fn on_tick(&mut self) {
+        let mut still_active = Vec::new();
+
+        for effect in self.effects.drain(..) {
+            match effect {
+                VisualEffect::Flash { x, y, glyph, fg, bg, duration } => {
+                    if duration > 1 {
+                        still_active.push(VisualEffect::Flash { x, y, glyph, fg, bg, duration: duration - 1 });
+                    }
+                }
+                VisualEffect::Projectile { path, glyph, fg, frame, speed } => {
+                    let new_frame = frame + 1;
+                    if new_frame < (path.len() as u32 * speed) {
+                        still_active.push(VisualEffect::Projectile { path, glyph, fg, frame: new_frame, speed });
+                    }
+                }
+            }
+        }
+        self.effects = still_active;
     }
 
     pub fn generate_level(&mut self) {
@@ -710,7 +740,7 @@ impl App {
             if exp.xp >= exp.next_level_xp {
                 exp.level += 1;
                 exp.xp -= exp.next_level_xp;
-                exp.next_level_xp = (exp.next_level_xp as f32 * 1.5) as i32;
+                exp.next_level_xp = exp.next_level_xp.saturating_add(exp.next_level_xp / 2);
                 level_up = true;
             }
         }
@@ -757,6 +787,7 @@ impl App {
                 let damage = (player_power - monster_stats.defense).max(0);
                 monster_stats.hp -= damage;
                 self.log.push(format!("You hit {} for {} damage!", monster_name, damage));
+                self.effects.push(VisualEffect::Flash { x: new_x, y: new_y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
                 if monster_stats.hp <= 0 { 
                     dead = true; 
                     if let Ok(exp) = self.world.get::<&Experience>(target_id) {
@@ -1005,6 +1036,14 @@ impl App {
                 }
             }
 
+            // Add projectile animation
+            let path: Vec<(u16, u16)> = line.iter()
+                .take_while(|p| (p.x as u16, p.y as u16) != actual_target)
+                .map(|p| (p.x as u16, p.y as u16))
+                .chain(std::iter::once(actual_target))
+                .collect();
+            self.effects.push(VisualEffect::Projectile { path, glyph: '*', fg: Color::Yellow, frame: 0, speed: 1 });
+
             let mut targets = Vec::new();
             
             // Collect info before mutations
@@ -1029,12 +1068,14 @@ impl App {
 
             if let Some(radius) = aoe_radius {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
-                    let dist = (((pos.x as i32 - actual_target.0 as i32).pow(2) + (pos.y as i32 - actual_target.1 as i32).pow(2)) as f32).sqrt();
+                    let dist = (((pos.x as f32 - actual_target.0 as f32).powi(2) + (pos.y as f32 - actual_target.1 as f32).powi(2))).sqrt();
                     if dist <= radius as f32 { targets.push(id); }
                 }
                 self.log.push(format!("The {} explodes!", item_name));
                 for target_id in targets {
                     if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) { stats.hp -= power; }
+                    let t_pos = *self.world.get::<&Position>(target_id).unwrap();
+                    self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Indexed(208), bg: None, duration: 10 });
                     self.world.insert_one(target_id, LastHitByPlayer).unwrap();
                 }
             } else if let Some(turns) = confusion_turns {
@@ -1063,17 +1104,19 @@ impl App {
                     if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) {
                         stats.hp -= power; self.log.push(format!("The {} hits for {} damage!", item_name, power));
                     }
+                    let t_pos = *self.world.get::<&Position>(target_id).unwrap();
+                    self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
                     self.world.insert_one(target_id, LastHitByPlayer).unwrap();
                 }
             }
 
             let mut to_despawn = Vec::new();
-            let mut total_xp = 0;
+            let mut total_xp: i32 = 0;
             for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() { 
                 if stats.hp <= 0 { 
                     to_despawn.push(id); 
                     if let Ok(exp) = self.world.get::<&Experience>(id) {
-                        total_xp += exp.xp_reward;
+                        total_xp = total_xp.saturating_add(exp.xp_reward);
                     }
                 } 
             }
@@ -1164,13 +1207,13 @@ impl App {
         
         // Despawn dead monsters from poison
         let mut to_despawn = Vec::new();
-        let mut total_xp = 0;
+        let mut total_xp: i32 = 0;
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
             if stats.hp <= 0 { 
                 to_despawn.push(id); 
                 if self.world.get::<&LastHitByPlayer>(id).is_ok() {
                     if let Ok(exp) = self.world.get::<&Experience>(id) {
-                        total_xp += exp.xp_reward;
+                        total_xp = total_xp.saturating_add(exp.xp_reward);
                     }
                 }
             }
@@ -1229,7 +1272,7 @@ impl App {
             let p_pos = *self.world.get::<&Position>(player_id).unwrap();
             let p_faction = *self.world.get::<&Faction>(player_id).unwrap();
             if faction.0 != p_faction.0 {
-                let dist = (((pos.x as i32 - p_pos.x as i32).pow(2) + (pos.y as i32 - p_pos.y as i32).pow(2)) as f32).sqrt();
+                let dist = (((pos.x as f32 - p_pos.x as f32).powi(2) + (pos.y as f32 - p_pos.y as f32).powi(2))).sqrt();
                 if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((player_id, p_pos)); }
             }
 
@@ -1237,7 +1280,7 @@ impl App {
             for (other_id, (other_pos, other_faction)) in self.world.query::<(&Position, &Faction)>().iter() {
                 if id == other_id { continue; }
                 if faction.0 != other_faction.0 {
-                    let dist = (((pos.x as i32 - other_pos.x as i32).pow(2) + (pos.y as i32 - other_pos.y as i32).pow(2)) as f32).sqrt();
+                    let dist = (((pos.x as f32 - other_pos.x as f32).powi(2) + (pos.y as f32 - other_pos.y as f32).powi(2))).sqrt();
                     if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((other_id, *other_pos)); }
                 }
             }
@@ -1336,9 +1379,12 @@ impl App {
                     
                     if target_id == player_id {
                         self.log.push(format!("{} hits you for {} damage!", monster_name, damage));
+                        self.effects.push(VisualEffect::Flash { x: p_pos.x, y: p_pos.y, glyph: '!', fg: Color::Red, bg: Some(Color::Indexed(232)), duration: 5 });
                         if target_hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
                     } else {
                         self.log.push(format!("{} hits {} for {} damage!", monster_name, target_name, damage));
+                        let t_pos = *self.world.get::<&Position>(target_id).unwrap();
+                        self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
                         self.world.remove_one::<LastHitByPlayer>(target_id).ok(); // ok() because it might not be there
                         if target_hp <= 0 {
                             self.log.push(format!("{} dies!", target_name));
@@ -1364,27 +1410,37 @@ impl App {
 
                     if target_id == player_id {
                         self.log.push(format!("{} fires at you for {} damage!", monster_name, damage));
+                        self.effects.push(VisualEffect::Flash { x: p_pos.x, y: p_pos.y, glyph: '!', fg: Color::Red, bg: Some(Color::Indexed(232)), duration: 5 });
                         if target_hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
                     } else {
                         self.log.push(format!("{} fires at {} for {} damage!", monster_name, target_name, damage));
+                        let t_pos = *self.world.get::<&Position>(target_id).unwrap();
+                        self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
                         self.world.remove_one::<LastHitByPlayer>(target_id).ok();
                         if target_hp <= 0 {
                             self.log.push(format!("{} dies!", target_name));
                         }
                     }
+                    
+                    // Add projectile animation
+                    let m_pos = *self.world.get::<&Position>(id).unwrap();
+                    let t_pos = *self.world.get::<&Position>(target_id).unwrap();
+                    let line = line2d(LineAlg::Bresenham, Point::new(m_pos.x, m_pos.y), Point::new(t_pos.x, t_pos.y));
+                    let path: Vec<(u16, u16)> = line.iter().map(|p| (p.x as u16, p.y as u16)).collect();
+                    self.effects.push(VisualEffect::Projectile { path, glyph: '*', fg: Color::Cyan, frame: 0, speed: 2 });
                 }
             }
         }
 
         // Cleanup dead entities
         let mut to_despawn = Vec::new();
-        let mut total_xp = 0;
+        let mut total_xp: i32 = 0;
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
             if stats.hp <= 0 { 
                 to_despawn.push(id); 
                 if self.world.get::<&LastHitByPlayer>(id).is_ok() {
                     if let Ok(exp) = self.world.get::<&Experience>(id) {
-                        total_xp += exp.xp_reward;
+                        total_xp = total_xp.saturating_add(exp.xp_reward);
                     }
                 }
             }
@@ -1413,13 +1469,16 @@ impl App {
 
         let view_w = inner_map.width as i32; let view_h = inner_map.height as i32;
         let mut camera_x = player_pos.x as i32 - view_w / 2; let mut camera_y = player_pos.y as i32 - view_h / 2;
-        camera_x = camera_x.clamp(0, (self.map.width as i32 - view_w).max(0)); camera_y = camera_y.clamp(0, (self.map.height as i32 - view_h).max(0));
+        camera_x = camera_x.clamp(0, (self.map.width as i32 - view_w).max(0)); 
+        camera_y = camera_y.clamp(0, (self.map.height as i32 - view_h).max(0));
 
         for y in 0..view_h {
-            let map_y = y + camera_y; if map_y >= self.map.height as i32 { break; }
+            let map_y = y + camera_y; 
+            if map_y < 0 || map_y >= self.map.height as i32 { continue; }
             for x in 0..view_w {
-                let map_x = x + camera_x; if map_x >= self.map.width as i32 { break; }
-                let idx = (map_y as u16 * self.map.width + map_x as u16) as usize;
+                let map_x = x + camera_x; 
+                if map_x < 0 || map_x >= self.map.width as i32 { continue; }
+                let idx = map_y as usize * self.map.width as usize + map_x as usize;
                 if !self.map.revealed[idx] { continue; }
                 let (char, color) = match self.map.tiles[idx] {
                     TileType::Wall => ("#", if self.map.visible[idx] { Color::Indexed(252) } else { Color::Indexed(238) }),
@@ -1438,6 +1497,31 @@ impl App {
                 let mut style = Style::default().fg(render.fg);
                 if self.world.get::<&Player>(id).is_ok() { style = style.add_modifier(Modifier::BOLD); }
                 buffer.get_mut(inner_map.x + screen_x as u16, inner_map.y + screen_y as u16).set_symbol(&render.glyph.to_string()).set_style(style);
+            }
+        }
+
+        // Render visual effects
+        for effect in &self.effects {
+            match effect {
+                VisualEffect::Flash { x, y, glyph, fg, bg, .. } => {
+                    let sx = *x as i32 - camera_x;
+                    let sy = *y as i32 - camera_y;
+                    if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
+                        let cell = buffer.get_mut(inner_map.x + sx as u16, inner_map.y + sy as u16);
+                        cell.set_symbol(&glyph.to_string()).set_fg(*fg);
+                        if let Some(bg_color) = bg { cell.set_bg(*bg_color); }
+                    }
+                }
+                VisualEffect::Projectile { path, glyph, fg, frame, speed } => {
+                    let path_idx = (*frame / *speed) as usize;
+                    if let Some(pos) = path.get(path_idx) {
+                        let sx = pos.0 as i32 - camera_x;
+                        let sy = pos.1 as i32 - camera_y;
+                        if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
+                            buffer.get_mut(inner_map.x + sx as u16, inner_map.y + sy as u16).set_symbol(&glyph.to_string()).set_fg(*fg);
+                        }
+                    }
+                }
             }
         }
 
@@ -1517,7 +1601,19 @@ impl App {
         frame.render_widget(sidebar, sidebar_area);
 
         let log_block = Block::default().borders(Borders::ALL).title(" Message Log ");
-        let log_items: Vec<ListItem> = self.log.iter().rev().take(5).map(|s| ListItem::new(s.clone())).collect();
+        let log_items: Vec<ListItem> = self.log.iter().rev().take(5).enumerate().map(|(i, s)| {
+            let mut style = Style::default();
+            if i == 0 { style = style.add_modifier(Modifier::BOLD).fg(Color::White); }
+            else { style = style.fg(Color::Indexed(245)); }
+            
+            let mut fg = style.fg.unwrap_or(Color::White);
+            if s.contains("damage") || s.contains("dies") || s.contains("dead") { fg = Color::Red; }
+            else if s.contains("gold") || s.contains("buy") { fg = Color::Yellow; }
+            else if s.contains("level") { fg = Color::Magenta; }
+            else if s.contains("health") || s.contains("heal") { fg = Color::Green; }
+
+            ListItem::new(Span::styled(s.clone(), Style::default().fg(fg).add_modifier(if i == 0 { Modifier::BOLD } else { Modifier::empty() })))
+        }).collect();
         frame.render_widget(List::new(log_items).block(log_block), log_area);
 
         if self.state == RunState::ShowInventory { self.render_inventory(frame); }

@@ -20,6 +20,7 @@ fn main() -> Result<()> {
     };
 
     while !app.exit {
+        app.on_tick();
         engine.draw(|f| app.render(f))?;
 
         if event::poll(Duration::from_millis(16))? {
