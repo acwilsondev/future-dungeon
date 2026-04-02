@@ -1,6 +1,23 @@
 use ratatui::prelude::Color;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AlertState {
+    Sleeping,
+    Curious { x: u16, y: u16 },
+    Aggressive,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Hearing {
+    pub range: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Noise {
+    pub amount: f32,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum RenderOrder {
     Map,

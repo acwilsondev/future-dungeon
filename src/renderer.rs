@@ -32,7 +32,11 @@ pub fn render(app: &App, frame: &mut Frame) {
     let top_chunks = Layout::default().direction(Direction::Horizontal).constraints([Constraint::Min(0), Constraint::Length(30)]).split(chunks[0]);
     let map_area = top_chunks[0]; let sidebar_area = top_chunks[1]; let log_area = chunks[1];
 
-    let map_block = Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Indexed(240))).title(Span::styled(" RustLike Dungeon ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+    let map_title = format!(" RustLike Dungeon - FPS: {:.1} ", app.fps);
+    let map_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Indexed(240)))
+        .title(Span::styled(map_title, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
     frame.render_widget(map_block, map_area);
     let inner_map = map_area.inner(&Margin { vertical: 1, horizontal: 1 });
     let buffer = frame.buffer_mut();
@@ -151,7 +155,16 @@ pub fn render(app: &App, frame: &mut Frame) {
     let sidebar = Block::default().borders(Borders::ALL).title(" Character ");
     let hp_percent = (player_stats.hp as f32 / player_stats.max_hp as f32 * 100.0) as u16;
     let hp_color = if hp_percent > 50 { Color::Green } else if hp_percent > 25 { Color::Yellow } else { Color::Red };
-    let sidebar_layout = Layout::default().direction(Direction::Vertical).constraints([Constraint::Length(3), Constraint::Length(1), Constraint::Length(1), Constraint::Min(0)]).split(sidebar_area.inner(&Margin { vertical: 1, horizontal: 1 }));
+    let sidebar_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // HP
+            Constraint::Length(1), // Stats
+            Constraint::Length(1), // XP
+            Constraint::Length(3), // Noise
+            Constraint::Min(0)     // Status/Perks
+        ])
+        .split(sidebar_area.inner(&Margin { vertical: 1, horizontal: 1 }));
     frame.render_widget(Gauge::default().block(Block::default().title("HP")).gauge_style(Style::default().fg(hp_color).bg(Color::Indexed(233))).percent(hp_percent).label(format!("{}/{}", player_stats.hp, player_stats.max_hp)), sidebar_layout[0]);
     frame.render_widget(Paragraph::new(format!("ATK: {}  DEF: {}", player_stats.power, player_stats.defense)), sidebar_layout[1]);
     
@@ -162,6 +175,22 @@ pub fn render(app: &App, frame: &mut Frame) {
 
     frame.render_widget(Paragraph::new(format!("Level: {}  XP: {}/{}", level, xp, next_xp)), sidebar_layout[2]);
     
+    // Noise Level
+    let player_idx = (player_pos.y as u16 * app.map.width + player_pos.x as u16) as usize;
+    let player_noise = app.map.sound[player_idx];
+    let noise_percent = (player_noise * 10.0).clamp(0.0, 100.0) as u16;
+    let noise_color = if noise_percent < 30 { Color::Cyan } else if noise_percent < 70 { Color::Yellow } else { Color::Red };
+    let noise_label = if noise_percent < 30 { "Quiet" } else if noise_percent < 70 { "Noisy" } else { "LOUD!" };
+    
+    frame.render_widget(
+        Gauge::default()
+            .block(Block::default().title("Noise"))
+            .gauge_style(Style::default().fg(noise_color).bg(Color::Indexed(233)))
+            .percent(noise_percent)
+            .label(noise_label),
+        sidebar_layout[3]
+    );
+
     // Status Effects / Gold
     let mut status_lines = Vec::new();
     let gold_amount = app.world.get::<&Gold>(player_id).map(|g| g.amount).unwrap_or(0);
@@ -193,7 +222,7 @@ pub fn render(app: &App, frame: &mut Frame) {
     }
     
     if !status_lines.is_empty() {
-         let status_area = sidebar_layout[3];
+         let status_area = sidebar_layout[4];
          frame.render_widget(Paragraph::new(status_lines).block(Block::default().title(" Status/Perks ")), status_area);
     }
 

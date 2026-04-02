@@ -7,7 +7,7 @@ use bracket_pathfinding::prelude::*;
 use rand::Rng;
 use std::collections::HashMap;
 
-use crate::map::Map;
+use crate::map::{Map, TileType};
 use crate::actions::Action;
 use crate::content::{Content, RawItem, RawMonster};
 
@@ -73,6 +73,10 @@ pub struct EntitySnapshot {
     pub experience: Option<Experience>,
     #[serde(default)]
     pub perks: Option<Perks>,
+    #[serde(default)]
+    pub alert_state: Option<AlertState>,
+    #[serde(default)]
+    pub hearing: Option<Hearing>,
     #[serde(default)]
     pub light_source: Option<LightSource>,
     #[serde(default)]
@@ -152,6 +156,8 @@ pub struct App {
     #[serde(skip)]
     pub bestiary_cursor: usize,
     pub content: Content,
+    #[serde(skip)]
+    pub fps: f32,
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -185,6 +191,7 @@ impl App {
             encountered_monsters: std::collections::HashSet::new(),
             bestiary_cursor: 0,
             content: Self::load_content(),
+            fps: 0.0,
         };
         app.generate_level();
         app
@@ -616,8 +623,66 @@ impl App {
         }
     }
 
+    pub fn update_sound(&mut self) {
+        for s in self.map.sound.iter_mut() { *s = 0.0; }
+
+        let mut noise_sources = Vec::new();
+        for (_id, (pos, noise)) in self.world.query::<(&Position, &Noise)>().iter() {
+            noise_sources.push((*pos, noise.amount));
+        }
+
+        for (pos, amount) in noise_sources {
+            // Sound propagation using Dijkstra-like approach to "bend" around corners
+            let mut dijkstra = DijkstraMap::new(self.map.width, self.map.height, &[], &self.map, 20.0);
+            dijkstra.map[self.map.point2d_to_index(Point::new(pos.x, pos.y))] = 0.0;
+            
+            // We need a custom Dijkstra that accounts for wall muffling
+            // But for now let's use a simpler approach or the built-in one if it fits.
+            // bracket-lib's DijkstraMap is more for pathfinding.
+            
+            // Let's use a BFS for sound propagation
+            let mut queue = std::collections::VecDeque::new();
+            queue.push_back((pos.x, pos.y, amount));
+            
+            let start_idx = (pos.y as u16 * self.map.width + pos.x as u16) as usize;
+            self.map.sound[start_idx] += amount;
+
+            let mut visited = std::collections::HashSet::new();
+            visited.insert((pos.x, pos.y));
+
+            while let Some((cx, cy, current_amount)) = queue.pop_front() {
+                if current_amount <= 0.1 { continue; }
+
+                for (dx, dy) in &[(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                    let nx = cx as i16 + dx;
+                    let ny = cy as i16 + dy;
+                    if nx >= 0 && nx < self.map.width as i16 && ny >= 0 && ny < self.map.height as i16 {
+                        let nux = nx as u16;
+                        let nuy = ny as u16;
+                        if visited.contains(&(nux, nuy)) { continue; }
+                        
+                        let idx = (nuy * self.map.width + nux) as usize;
+                        let attenuation = if self.map.tiles[idx] == TileType::Wall {
+                            4.0 // Walls muffle sound significantly
+                        } else {
+                            1.1 // Open air attenuation
+                        };
+
+                        let next_amount = current_amount - attenuation;
+                        if next_amount > 0.0 {
+                            self.map.sound[idx] += next_amount;
+                            visited.insert((nux, nuy));
+                            queue.push_back((nux, nuy, next_amount));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     pub fn update_fov(&mut self) {
         self.update_lighting();
+        self.update_sound();
         let (pos, range) = {
             let mut player_query = self.world.query::<(&Position, &Player)>();
             let (id, (pos, _)) = player_query.iter().next().expect("Player not found");
@@ -674,6 +739,8 @@ impl App {
             let personality = self.world.get::<&AIPersonality>(id).ok().map(|p| *p);
             let experience = self.world.get::<&Experience>(id).ok().map(|e| *e);
             let perks = self.world.get::<&Perks>(id).ok().map(|p| (*p).clone());
+            let alert_state = self.world.get::<&AlertState>(id).ok().map(|a| *a);
+            let hearing = self.world.get::<&Hearing>(id).ok().map(|h| *h);
             let light_source = self.world.get::<&LightSource>(id).ok().map(|l| *l);
             let gold = self.world.get::<&Gold>(id).ok().map(|g| *g);
             let item_value = self.world.get::<&ItemValue>(id).ok().map(|v| *v);
@@ -681,7 +748,7 @@ impl App {
             self.entities.push(EntitySnapshot {
                 pos, render: *render, render_order: *render_order, name, stats, potion, weapon, armor, door, trap, ranged, 
                 ranged_weapon, aoe, confusion, poison, strength, speed,
-                faction, viewshed, personality, experience, perks, light_source, gold, item_value,
+                faction, viewshed, personality, experience, perks, alert_state, hearing, light_source, gold, item_value,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
                 ammo: self.world.get::<&Ammunition>(id).is_ok(),
@@ -726,6 +793,8 @@ impl App {
             if let Some(personality) = e.personality { cb.add(personality); }
             if let Some(experience) = e.experience { cb.add(experience); }
             if let Some(perks) = e.perks.clone() { cb.add(perks); }
+            if let Some(alert_state) = e.alert_state { cb.add(alert_state); }
+            if let Some(hearing) = e.hearing { cb.add(hearing); }
             if let Some(light_source) = e.light_source { cb.add(light_source); }
             if let Some(gold) = e.gold { cb.add(gold); }
             if let Some(item_value) = e.item_value { cb.add(item_value); }
@@ -804,25 +873,45 @@ impl App {
                 return;
             }
 
-            let mut dead = false;
+            let mut monster_damaged = false;
+            let mut monster_died = false;
             let monster_name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Something".to_string());
             let mut xp_reward = 0;
-            if let Ok(mut monster_stats) = self.world.get::<&mut CombatStats>(target_id) {
-                let damage = (player_power - monster_stats.defense).max(0);
-                monster_stats.hp -= damage;
-                self.log.push(format!("You hit {} for {} damage!", monster_name, damage));
-                self.effects.push(VisualEffect::Flash { x: new_x, y: new_y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
-                if monster_stats.hp <= 0 { 
-                    dead = true; 
-                    if let Ok(exp) = self.world.get::<&Experience>(target_id) {
-                        xp_reward = exp.xp_reward;
+            
+            {
+                if let Ok(mut monster_stats) = self.world.get::<&mut CombatStats>(target_id) {
+                    let mut damage = (player_power - monster_stats.defense).max(0);
+                    
+                    // Sneak Attack?
+                    if let Ok(alert) = self.world.get::<&AlertState>(target_id) {
+                        if *alert != AlertState::Aggressive {
+                            damage *= 2;
+                            self.log.push(format!("Sneak Attack on {}!", monster_name));
+                        }
+                    }
+
+                    monster_stats.hp -= damage;
+                    self.log.push(format!("You hit {} for {} damage!", monster_name, damage));
+                    self.effects.push(VisualEffect::Flash { x: new_x, y: new_y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
+                    monster_damaged = true;
+
+                    if monster_stats.hp <= 0 { 
+                        monster_died = true; 
+                        if let Ok(exp) = self.world.get::<&Experience>(target_id) {
+                            xp_reward = exp.xp_reward;
+                        }
                     }
                 }
             }
-            if !dead {
-                self.world.insert_one(target_id, LastHitByPlayer).expect("Failed to insert LastHitByPlayer");
+            if monster_damaged {
+                self.generate_noise(new_x, new_y, 8.0); // Combat is loud
             }
-            if dead {
+
+            if !monster_died && monster_damaged {
+                self.world.insert_one(target_id, LastHitByPlayer).expect("Failed to insert LastHitByPlayer");
+                self.world.insert_one(target_id, AlertState::Aggressive).expect("Failed to alert monster");
+            }
+            if monster_died {
                 self.log.push(format!("{} dies!", monster_name));
                 self.world.despawn(target_id).expect("Failed to despawn monster");
                 self.add_player_xp(xp_reward);
@@ -846,6 +935,7 @@ impl App {
                 render.glyph = '/';
             }
             self.log.push("You open the door.".to_string());
+            self.generate_noise(new_x, new_y, 10.0); // Opening doors is very loud
             self.update_blocked_and_opaque();
             self.update_fov();
             self.state = RunState::MonsterTurn;
@@ -857,6 +947,7 @@ impl App {
             let (player_id, (pos, _)) = player_query.iter().next().expect("Player not found");
             pos.x = new_x; pos.y = new_y;
             drop(player_query);
+            self.generate_noise(new_x, new_y, 3.0); // Moving is quiet but not silent
 
             // Gold pickup - ensure we don't pick up the player!
             let mut gold_to_pick = Vec::new();
@@ -924,6 +1015,7 @@ impl App {
             self.world.remove_one::<Position>(item_id).expect("Failed to remove Position component");
             self.world.insert_one(item_id, InBackpack { owner: player_id }).expect("Failed to insert InBackpack component");
             self.log.push(format!("You pick up the {}.", item_name));
+            self.generate_noise(player_pos.x, player_pos.y, 2.0);
             self.state = RunState::MonsterTurn;
         } else { self.log.push("There is nothing here to pick up.".to_string()); }
     }
@@ -970,13 +1062,17 @@ impl App {
     pub fn use_item(&mut self, item_id: hecs::Entity) {
         let player_id = self.get_player_id().expect("Player not found");
         let item_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
-        
+        let player_pos = self.world.get::<&Position>(player_id).ok().map(|p| *p).unwrap_or(Position { x: 0, y: 0 });
+
         let mut handled = false;
-        if let Ok(potion) = self.world.get::<&Potion>(item_id) {
+        
+        let potion_heal = self.world.get::<&Potion>(item_id).ok().map(|p| p.heal_amount);
+        if let Some(heal_amount) = potion_heal {
             if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
-                stats.hp = (stats.hp + potion.heal_amount).min(stats.max_hp);
+                stats.hp = (stats.hp + heal_amount).min(stats.max_hp);
             }
-            self.log.push(format!("You drink the {}, healing for {} HP.", item_name, potion.heal_amount));
+            self.log.push(format!("You drink the {}, healing for {} HP.", item_name, heal_amount));
+            self.generate_noise(player_pos.x, player_pos.y, 1.0);
             handled = true;
         }
 
@@ -1007,6 +1103,7 @@ impl App {
         if item_name == "Torch" {
             self.world.insert_one(player_id, LightSource { range: 10, color: (255, 255, 100) }).expect("Failed to insert LightSource component");
             self.log.push("You light a torch. The shadows retreat.".to_string());
+            self.generate_noise(player_pos.x, player_pos.y, 2.0);
             handled = true;
         }
 
@@ -1106,34 +1203,41 @@ impl App {
                     if dist <= radius as f32 { targets.push(id); }
                 }
                 self.log.push(format!("The {} explodes!", item_name));
+                self.generate_noise(actual_target.0, actual_target.1, 15.0); // Explosions are very loud
                 for target_id in targets {
                     if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) { stats.hp -= power; }
                     if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
                         self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Indexed(208), bg: None, duration: 10 });
                     }
                     self.world.insert_one(target_id, LastHitByPlayer).expect("Failed to insert LastHitByPlayer");
+                    self.world.insert_one(target_id, AlertState::Aggressive).expect("Failed to alert monster");
                 }
             } else if let Some(turns) = confusion_turns {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
                     if pos.x == actual_target.0 && pos.y == actual_target.1 { targets.push(id); }
                 }
+                self.generate_noise(actual_target.0, actual_target.1, 4.0);
                 for target_id in targets {
                     self.log.push(format!("The monster is confused by the {}!", item_name));
                     self.world.insert_one(target_id, Confusion { turns }).expect("Failed to insert Confusion component");
+                    self.world.insert_one(target_id, AlertState::Aggressive).expect("Failed to alert monster");
                 }
             } else if let Some(poison) = poison_effect {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
                     if pos.x == actual_target.0 && pos.y == actual_target.1 { targets.push(id); }
                 }
+                self.generate_noise(actual_target.0, actual_target.1, 4.0);
                 for target_id in targets {
                     self.log.push(format!("The monster is poisoned by the {}!", item_name));
                     self.world.insert_one(target_id, poison).expect("Failed to insert Poison component");
                     self.world.insert_one(target_id, LastHitByPlayer).expect("Failed to insert LastHitByPlayer");
+                    self.world.insert_one(target_id, AlertState::Aggressive).expect("Failed to alert monster");
                 }
             } else {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
                     if pos.x == actual_target.0 && pos.y == actual_target.1 { targets.push(id); }
                 }
+                self.generate_noise(actual_target.0, actual_target.1, 6.0);
                 for target_id in targets {
                     if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) {
                         stats.hp -= power; self.log.push(format!("The {} hits for {} damage!", item_name, power));
@@ -1142,6 +1246,7 @@ impl App {
                         self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
                     }
                     self.world.insert_one(target_id, LastHitByPlayer).expect("Failed to insert LastHitByPlayer");
+                    self.world.insert_one(target_id, AlertState::Aggressive).expect("Failed to alert monster");
                 }
             }
 
@@ -1171,13 +1276,23 @@ impl App {
         }
     }
 
+    pub fn generate_noise(&mut self, x: u16, y: u16, amount: f32) {
+        self.world.spawn((Position { x, y }, Noise { amount }));
+    }
+
     pub fn on_turn_tick(&mut self) {
         let mut to_remove_confusion = Vec::new();
         let mut to_remove_poison = Vec::new();
         let mut to_remove_strength = Vec::new();
         let mut to_remove_speed = Vec::new();
+        let mut to_despawn_noise = Vec::new();
         let mut poison_damage = Vec::new();
         let mut strength_expiration = Vec::new();
+
+        for (id, _) in self.world.query::<&Noise>().iter() {
+            to_despawn_noise.push(id);
+        }
+        for id in to_despawn_noise { self.world.despawn(id).expect("Failed to despawn noise"); }
 
         for (id, (_stats,)) in self.world.query::<(&CombatStats,)>().iter() {
             // Poison
@@ -1292,15 +1407,16 @@ impl App {
 
         for id in actors {
             let is_merchant = self.world.get::<&Merchant>(id).is_ok();
-            let (pos, faction, personality, stats, viewshed) = {
-                if let (Ok(p), Ok(f), Ok(pers), Ok(s), Ok(v)) = (
+            let (pos, faction, personality, stats, viewshed, alert) = {
+                if let (Ok(p), Ok(f), Ok(pers), Ok(s), Ok(v), Ok(a)) = (
                     self.world.get::<&Position>(id),
                     self.world.get::<&Faction>(id),
                     self.world.get::<&AIPersonality>(id),
                     self.world.get::<&CombatStats>(id),
-                    self.world.get::<&Viewshed>(id)
+                    self.world.get::<&Viewshed>(id),
+                    self.world.get::<&AlertState>(id)
                 ) {
-                    (*p, *f, *pers, *s, v.visible_tiles)
+                    (*p, *f, *pers, *s, v.visible_tiles, *a)
                 } else { continue; }
             };
 
@@ -1310,27 +1426,81 @@ impl App {
                 continue;
             }
 
-            // Find nearest target of a different faction
-            let mut target = None;
-            let mut min_dist = viewshed as f32 + 1.0;
+            let mut current_alert = alert;
 
-            // Check player
+            // 1. Check for player visibility (transition to Aggressive)
+            let mut can_see_player = false;
             if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
-                if let Ok(p_faction) = self.world.get::<&Faction>(player_id) {
-                    if faction.0 != p_faction.0 {
-                        let dist = (((pos.x as f32 - p_pos.x as f32).powi(2) + (pos.y as f32 - p_pos.y as f32).powi(2))).sqrt();
-                        if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((player_id, *p_pos)); }
+                let dist = (((pos.x as f32 - p_pos.x as f32).powi(2) + (pos.y as f32 - p_pos.y as f32).powi(2))).sqrt();
+                if dist <= viewshed as f32 {
+                    // Check LOS
+                    let line = line2d(LineAlg::Bresenham, Point::new(pos.x, pos.y), Point::new(p_pos.x, p_pos.y));
+                    let mut blocked = false;
+                    for p in line.iter().skip(1).take(line.len() - 2) {
+                        let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
+                        if self.map.blocked[idx] { blocked = true; break; }
+                    }
+                    if !blocked { can_see_player = true; }
+                }
+            }
+
+            if can_see_player {
+                current_alert = AlertState::Aggressive;
+                self.world.insert_one(id, AlertState::Aggressive).expect("Failed to update AlertState");
+            }
+
+            // 2. Check for noise if not Aggressive
+            if current_alert != AlertState::Aggressive {
+                let idx = (pos.y as u16 * self.map.width + pos.x as u16) as usize;
+                let sound_level = self.map.sound[idx];
+                if sound_level > 1.0 {
+                    let mut noise_pos = None;
+                    if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
+                        noise_pos = Some((*p_pos).clone());
+                    }
+                    if let Some(p_pos) = noise_pos {
+                        current_alert = AlertState::Curious { x: p_pos.x, y: p_pos.y };
+                        self.world.insert_one(id, current_alert).expect("Failed to update AlertState");
                     }
                 }
             }
 
-            // Check other monsters
-            for (other_id, (other_pos, other_faction)) in self.world.query::<(&Position, &Faction)>().iter() {
-                if id == other_id { continue; }
-                if self.world.get::<&Wisp>(other_id).is_ok() { continue; } // Don't target wisps
-                if faction.0 != other_faction.0 {
-                    let dist = (((pos.x as f32 - other_pos.x as f32).powi(2) + (pos.y as f32 - other_pos.y as f32).powi(2))).sqrt();
-                    if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((other_id, *other_pos)); }
+            if current_alert == AlertState::Sleeping {
+                continue; // Sleeping monsters do nothing
+            }
+
+            // Find nearest target of a different faction
+            let mut target = None;
+            let mut min_dist = viewshed as f32 + 1.0;
+
+            if current_alert == AlertState::Aggressive {
+                // Check player
+                if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
+                    if let Ok(p_faction) = self.world.get::<&Faction>(player_id) {
+                        if faction.0 != p_faction.0 {
+                            let dist = (((pos.x as f32 - p_pos.x as f32).powi(2) + (pos.y as f32 - p_pos.y as f32).powi(2))).sqrt();
+                            if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((player_id, *p_pos)); }
+                        }
+                    }
+                }
+
+                // Check other monsters
+                for (other_id, (other_pos, other_faction)) in self.world.query::<(&Position, &Faction)>().iter() {
+                    if id == other_id { continue; }
+                    if self.world.get::<&Wisp>(other_id).is_ok() { continue; } // Don't target wisps
+                    if faction.0 != other_faction.0 {
+                        let dist = (((pos.x as f32 - other_pos.x as f32).powi(2) + (pos.y as f32 - other_pos.y as f32).powi(2))).sqrt();
+                        if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((other_id, *other_pos)); }
+                    }
+                }
+            } else if let AlertState::Curious { x, y } = current_alert {
+                // Move towards the noise
+                let dist = (((pos.x as f32 - x as f32).powi(2) + (pos.y as f32 - y as f32).powi(2))).sqrt();
+                if dist < 1.5 {
+                    // Reached the spot, go back to sleeping (or standing guard)
+                    self.world.insert_one(id, AlertState::Sleeping).expect("Failed to update AlertState");
+                } else {
+                    target = Some((id, Position { x, y })); // Dummy target id to indicate movement
                 }
             }
 

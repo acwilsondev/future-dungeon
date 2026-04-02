@@ -14,7 +14,7 @@ use anyhow::Result;
 use app::{App, RunState};
 use crossterm::event::{self, Event, KeyEventKind};
 use engine::Engine;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 fn main() -> Result<()> {
     let mut engine = Engine::new()?;
@@ -25,7 +25,19 @@ fn main() -> Result<()> {
         _ => App::new(),
     };
 
+    let mut last_frame = Instant::now();
+
     while !app.exit {
+        let now = Instant::now();
+        let delta = now.duration_since(last_frame).as_secs_f32();
+        last_frame = now;
+
+        // Smooth FPS calculation
+        if delta > 0.0 {
+            let current_fps = 1.0 / delta;
+            app.fps = app.fps * 0.9 + current_fps * 0.1;
+        }
+
         app.on_tick();
         engine.draw(|f| crate::renderer::render(&app, f))?;
 

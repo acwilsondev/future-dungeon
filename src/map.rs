@@ -21,6 +21,8 @@ pub struct Map {
     pub opaque: Vec<bool>,
     #[serde(skip)]
     pub light: Vec<f32>,
+    #[serde(skip)]
+    pub sound: Vec<f32>,
 }
 
 impl Map {
@@ -34,6 +36,7 @@ impl Map {
             blocked: vec![false; (width * height) as usize],
             opaque: vec![false; (width * height) as usize],
             light: vec![0.0; (width * height) as usize],
+            sound: vec![0.0; (width * height) as usize],
         }
     }
 

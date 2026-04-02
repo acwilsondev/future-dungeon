@@ -11,6 +11,7 @@ pub fn spawn_player(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         Player,
         Faction(FactionKind::Player),
         Viewshed { visible_tiles: 8 },
+        Hearing { range: 15 },
         LightSource { range: 6, color: (255, 255, 200) },
         Name("Player".to_string()),
         CombatStats { max_hp: 30, hp: 30, defense: 2, power: 5 },
@@ -32,6 +33,8 @@ pub fn spawn_monster(world: &mut World, x: u16, y: u16, raw: &RawMonster, dungeo
     cb.add(Faction(raw.faction));
     cb.add(AIPersonality(raw.personality));
     cb.add(Viewshed { visible_tiles: raw.viewshed });
+    cb.add(Hearing { range: 10 });
+    cb.add(AlertState::Sleeping);
     cb.add(Name(raw.name.clone()));
     cb.add(CombatStats { max_hp: hp, hp, defense: raw.defense, power });
     cb.add(Experience { level: dungeon_level as i32, xp: 0, next_level_xp: 0, xp_reward: raw.xp_reward + (dungeon_level as i32 * 5) });
@@ -126,6 +129,8 @@ pub fn spawn_merchant(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         CombatStats { max_hp: 100, hp: 100, defense: 10, power: 10 },
         Faction(FactionKind::Player),
         Viewshed { visible_tiles: 8 },
+        Hearing { range: 10 },
+        AlertState::Aggressive,
         AIPersonality(Personality::Tactical),
     ))
 }
