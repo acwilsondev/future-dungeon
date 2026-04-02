@@ -244,7 +244,7 @@ pub fn render(app: &App, frame: &mut Frame) {
     }).collect();
     frame.render_widget(List::new(log_items).block(log_block), log_area);
 
-    if app.state == RunState::ShowInventory { render_inventory(app, frame); }
+    if app.state == RunState::ShowInventory || app.state == RunState::ShowIdentify || app.state == RunState::ShowAlchemy { render_inventory(app, frame); }
     else if app.state == RunState::ShowHelp { render_help(app, frame); }
     else if app.state == RunState::Dead { render_death_screen(app, frame); }
     else if app.state == RunState::LevelUp { render_level_up(app, frame); }
@@ -397,18 +397,25 @@ fn render_level_up(app: &App, frame: &mut Frame) {
 fn render_inventory(app: &App, frame: &mut Frame) {
     let area = centered_rect(70, 70, frame.size());
     frame.render_widget(Clear, area);
-    let block = Block::default().borders(Borders::ALL).title(" Inventory ");
+    let title = if app.state == RunState::ShowIdentify { " Identify Item " } else if app.state == RunState::ShowAlchemy { " Alchemy Station " } else { " Inventory " };
+    let block = Block::default().borders(Borders::ALL).title(title);
     
     let player_id = app.get_player_id().expect("Player not found in render");
-    let items: Vec<(hecs::Entity, String)> = app.world.query::<(&Item, &InBackpack, &Name)>().iter()
-        .filter(|(_, (_, backpack, _))| backpack.owner == player_id)
-        .map(|(id, (_, _, name))| (id, name.0.clone()))
+    let items: Vec<(hecs::Entity, String)> = app.world.query::<(&Item, &InBackpack)>().iter()
+        .filter(|(_, (_, backpack))| backpack.owner == player_id)
+        .map(|(id, _)| (id, app.get_item_name(id)))
         .collect();
 
     if items.is_empty() {
         frame.render_widget(Paragraph::new("Your backpack is empty.").block(block), area);
     } else {
-        let list_items: Vec<ListItem> = items.iter().map(|(_, name)| ListItem::new(name.clone())).collect();
+        let list_items: Vec<ListItem> = items.iter().map(|(id, name)| {
+            let mut display_name = name.clone();
+            if app.state == RunState::ShowAlchemy && app.alchemy_selection.contains(id) {
+                display_name = format!("{} (Selected)", display_name);
+            }
+            ListItem::new(display_name)
+        }).collect();
         let mut state = ListState::default();
         state.select(Some(app.inventory_cursor));
 
@@ -429,36 +436,48 @@ fn render_inventory(app: &App, frame: &mut Frame) {
         if let Some((item_id, _)) = items.get(app.inventory_cursor) {
             let mut tooltip = Vec::new();
             
-            if let Ok(potion) = app.world.get::<&Potion>(*item_id) {
-                tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Potion")]));
-                tooltip.push(Line::from(vec![Span::styled("Effect: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("Heals {} HP", potion.heal_amount), Style::default().fg(Color::Green))]));
+            let real_name = app.world.get::<&Name>(*item_id).map(|n| n.0.clone()).unwrap_or_default();
+            let is_identified = app.identified_items.contains(&real_name) || app.world.get::<&ObfuscatedName>(*item_id).is_err();
+
+            if !is_identified {
+                tooltip.push(Line::from(vec![Span::styled("Unknown properties.", Style::default().fg(Color::DarkGray))]));
+                tooltip.push(Line::from("Use or identify to reveal."));
+            } else {
+                if let Ok(potion) = app.world.get::<&Potion>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Potion")]));
+                    tooltip.push(Line::from(vec![Span::styled("Effect: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("Heals {} HP", potion.heal_amount), Style::default().fg(Color::Green))]));
+                }
+                if let Ok(weapon) = app.world.get::<&Weapon>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Melee Weapon")]));
+                    tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Power", weapon.power_bonus), Style::default().fg(Color::Red))]));
+                }
+                if let Ok(armor) = app.world.get::<&Armor>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Armor")]));
+                    tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Defense", armor.defense_bonus), Style::default().fg(Color::Blue))]));
+                }
+                if let Ok(ranged) = app.world.get::<&Ranged>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Consumable Ranged")]));
+                    tooltip.push(Line::from(vec![Span::styled("Range: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw(format!("{}", ranged.range))]));
+                }
+                if let Ok(rw) = app.world.get::<&RangedWeapon>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Ranged Weapon")]));
+                    tooltip.push(Line::from(vec![Span::styled("Range: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw(format!("{}", rw.range))]));
+                    tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Damage", rw.damage_bonus), Style::default().fg(Color::Red))]));
+                }
+                if app.world.get::<&Ammunition>(*item_id).is_ok() {
+                    tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Ammunition")]));
+                    tooltip.push(Line::from("Required for bows."));
+                }
+                if let Ok(aoe) = app.world.get::<&AreaOfEffect>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("AoE Radius: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("{}", aoe.radius), Style::default().fg(Color::Yellow))]));
+                }
+                if let Ok(poison) = app.world.get::<&Poison>(*item_id) {
+                    tooltip.push(Line::from(vec![Span::styled("Poison: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("{} damage for {} turns", poison.damage, poison.turns), Style::default().fg(Color::Green))]));
+                }
             }
-            if let Ok(weapon) = app.world.get::<&Weapon>(*item_id) {
-                tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Melee Weapon")]));
-                tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Power", weapon.power_bonus), Style::default().fg(Color::Red))]));
-            }
-            if let Ok(armor) = app.world.get::<&Armor>(*item_id) {
-                tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Armor")]));
-                tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Defense", armor.defense_bonus), Style::default().fg(Color::Blue))]));
-            }
-            if let Ok(ranged) = app.world.get::<&Ranged>(*item_id) {
-                tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Consumable Ranged")]));
-                tooltip.push(Line::from(vec![Span::styled("Range: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw(format!("{}", ranged.range))]));
-            }
-            if let Ok(rw) = app.world.get::<&RangedWeapon>(*item_id) {
-                tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Ranged Weapon")]));
-                tooltip.push(Line::from(vec![Span::styled("Range: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw(format!("{}", rw.range))]));
-                tooltip.push(Line::from(vec![Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("+{} Damage", rw.damage_bonus), Style::default().fg(Color::Red))]));
-            }
-            if app.world.get::<&Ammunition>(*item_id).is_ok() {
-                tooltip.push(Line::from(vec![Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)), Span::raw("Ammunition")]));
-                tooltip.push(Line::from("Required for bows."));
-            }
-            if let Ok(aoe) = app.world.get::<&AreaOfEffect>(*item_id) {
-                tooltip.push(Line::from(vec![Span::styled("AoE Radius: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("{}", aoe.radius), Style::default().fg(Color::Yellow))]));
-            }
-            if let Ok(poison) = app.world.get::<&Poison>(*item_id) {
-                tooltip.push(Line::from(vec![Span::styled("Poison: ", Style::default().add_modifier(Modifier::BOLD)), Span::styled(format!("{} damage for {} turns", poison.damage, poison.turns), Style::default().fg(Color::Green))]));
+
+            if app.world.get::<&Cursed>(*item_id).is_ok() {
+                tooltip.push(Line::from(vec![Span::styled("CURSED", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))]));
             }
 
             frame.render_widget(Paragraph::new(tooltip).block(Block::default().title(" Item Details ")), layout[1]);

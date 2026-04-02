@@ -48,6 +48,8 @@ pub struct RawItem {
     pub poison: Option<(i32, i32)>,
     pub ammo: bool,
     pub consumable: bool,
+    pub obfuscated_name: Option<String>,
+    pub cursed: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

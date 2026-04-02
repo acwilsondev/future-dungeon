@@ -81,7 +81,16 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
                 _ => None,
             }
         }
-        RunState::Dead => {
+        RunState::ShowIdentify | RunState::ShowAlchemy => {
+            match key.code {
+                KeyCode::Esc => Some(Action::CloseMenu),
+                KeyCode::Up | KeyCode::Char('k') => Some(Action::MenuUp),
+                KeyCode::Down | KeyCode::Char('j') => Some(Action::MenuDown),
+                KeyCode::Enter => Some(Action::MenuSelect),
+                _ => None,
+            }
+        }
+        RunState::Dead | RunState::Victory => {
             match key.code {
                 KeyCode::Char('q') | KeyCode::Esc => Some(Action::Quit),
                 _ => None,

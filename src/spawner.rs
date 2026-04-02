@@ -69,6 +69,8 @@ pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Ent
     cb.add(Name(raw.name.clone()));
     cb.add(ItemValue { price: raw.price });
     
+    if let Some(obf) = &raw.obfuscated_name { cb.add(ObfuscatedName(obf.clone())); }
+    if let Some(true) = raw.cursed { cb.add(Cursed); }
     if let Some(h) = raw.potion { cb.add(Potion { heal_amount: h }); }
     if let Some(p) = raw.weapon { cb.add(Weapon { power_bonus: p }); }
     if let Some(d) = raw.armor { cb.add(Armor { defense_bonus: d }); }
@@ -170,6 +172,16 @@ pub fn spawn_wisp(world: &mut World, x: u16, y: u16) -> hecs::Entity {
     ))
 }
 
+pub fn spawn_alchemy_station(world: &mut World, x: u16, y: u16) -> hecs::Entity {
+    world.spawn((
+        Position { x, y },
+        Renderable { glyph: 'A', fg: Color::Rgb(200, 100, 200) },
+        RenderOrder::Map,
+        AlchemyStation,
+        Name("Alchemy Station".to_string()),
+    ))
+}
+
 pub fn spawn_item_in_backpack(world: &mut World, owner: hecs::Entity, raw: &RawItem) -> hecs::Entity {
     let mut cb = hecs::EntityBuilder::new();
     cb.add(Renderable { glyph: raw.glyph, fg: Color::Rgb(raw.color.0, raw.color.1, raw.color.2) });
@@ -179,6 +191,8 @@ pub fn spawn_item_in_backpack(world: &mut World, owner: hecs::Entity, raw: &RawI
     cb.add(ItemValue { price: raw.price });
     cb.add(InBackpack { owner });
     
+    if let Some(obf) = &raw.obfuscated_name { cb.add(ObfuscatedName(obf.clone())); }
+    if let Some(true) = raw.cursed { cb.add(Cursed); }
     if let Some(h) = raw.potion { cb.add(Potion { heal_amount: h }); }
     if let Some(p) = raw.weapon { cb.add(Weapon { power_bonus: p }); }
     if let Some(d) = raw.armor { cb.add(Armor { defense_bonus: d }); }

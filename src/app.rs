@@ -22,6 +22,8 @@ pub enum RunState {
     ShowShop,
     ShowLogHistory,
     ShowBestiary,
+    ShowIdentify,
+    ShowAlchemy,
     Dead,
     Victory,
 }
@@ -86,6 +88,10 @@ pub struct EntitySnapshot {
     pub gold: Option<Gold>,
     #[serde(default)]
     pub item_value: Option<ItemValue>,
+    #[serde(default)]
+    pub obfuscated_name: Option<ObfuscatedName>,
+    #[serde(default)]
+    pub cursed: Option<Cursed>,
     #[serde(default)]
     pub last_hit_by_player: bool,
     #[serde(default)]
@@ -156,6 +162,7 @@ pub struct App {
     #[serde(skip)]
     pub log_cursor: usize,
     pub encountered_monsters: std::collections::HashSet<String>,
+    pub identified_items: std::collections::HashSet<String>,
     #[serde(skip)]
     pub bestiary_cursor: usize,
     pub content: Content,
@@ -163,6 +170,8 @@ pub struct App {
     pub fps: f32,
     pub escaping: bool,
     pub monsters_killed: u32,
+    #[serde(skip)]
+    pub alchemy_selection: Vec<hecs::Entity>,
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -194,11 +203,13 @@ impl App {
             effects: Vec::new(),
             log_cursor: 0,
             encountered_monsters: std::collections::HashSet::new(),
+            identified_items: std::collections::HashSet::new(),
             bestiary_cursor: 0,
             content: Self::load_content(),
             fps: 0.0,
             escaping: false,
             monsters_killed: 0,
+            alchemy_selection: Vec::new(),
         };
         app.generate_level(None);
         app
@@ -206,6 +217,28 @@ impl App {
 
     pub fn get_player_id(&self) -> Option<hecs::Entity> {
         self.world.query::<&Player>().iter().next().map(|(id, _)| id)
+    }
+
+    pub fn get_item_name(&self, item_id: hecs::Entity) -> String {
+        let base_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+        
+        if self.identified_items.contains(&base_name) {
+            return base_name;
+        }
+
+        if let Ok(obf) = self.world.get::<&ObfuscatedName>(item_id) {
+            return obf.0.clone();
+        }
+
+        base_name
+    }
+
+    pub fn identify_item(&mut self, item_id: hecs::Entity) {
+        let real_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+        if self.world.get::<&ObfuscatedName>(item_id).is_ok() && !self.identified_items.contains(&real_name) {
+            self.identified_items.insert(real_name.clone());
+            self.log.push(format!("You identified the {}!", real_name));
+        }
     }
 
     fn load_content() -> Content {
@@ -411,6 +444,130 @@ impl App {
                     _ => {}
                 }
             }
+            RunState::ShowIdentify => {
+                match action {
+                    Action::CloseMenu => self.state = RunState::AwaitingInput,
+                    Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
+                    Action::MenuDown => {
+                        let player_id = self.get_player_id().expect("Player not found during identify browsing");
+                        let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
+                            .filter(|(_, (backpack,))| backpack.owner == player_id).count();
+                        if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
+                    },
+                    Action::MenuSelect => {
+                        let player_id = self.get_player_id().expect("Player not found during identify selection");
+                        let item_to_identify = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
+                            .iter()
+                            .filter(|(_, (_, backpack))| backpack.owner == player_id)
+                            .nth(self.inventory_cursor)
+                            .map(|(id, _)| id);
+                        
+                        if let Some(id) = item_to_identify {
+                            let real_name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+                            if !self.identified_items.contains(&real_name) {
+                                self.identified_items.insert(real_name.clone());
+                                self.log.push(format!("You identify the {}!", real_name));
+                                
+                                // Consume scroll
+                                if let Some(scroll_id) = self.targeting_item {
+                                    self.world.despawn(scroll_id).expect("Failed to despawn identify scroll");
+                                }
+                                self.state = RunState::AwaitingInput;
+                                self.targeting_item = None;
+                                self.inventory_cursor = 0;
+                            } else {
+                                self.log.push("That item is already identified.".to_string());
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            RunState::ShowAlchemy => {
+                match action {
+                    Action::CloseMenu => self.state = RunState::AwaitingInput,
+                    Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
+                    Action::MenuDown => {
+                        let player_id = self.get_player_id().expect("Player not found during alchemy browsing");
+                        let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
+                            .filter(|(_, (backpack,))| backpack.owner == player_id).count();
+                        if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
+                    },
+                    Action::MenuSelect => {
+                        let player_id = self.get_player_id().expect("Player not found during alchemy selection");
+                        let item_to_select = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
+                            .iter()
+                            .filter(|(_, (_, backpack))| backpack.owner == player_id)
+                            .nth(self.inventory_cursor)
+                            .map(|(id, _)| id);
+                        
+                        if let Some(id) = item_to_select {
+                            if self.alchemy_selection.contains(&id) {
+                                self.alchemy_selection.retain(|&x| x != id);
+                                self.log.push("Item deselected.".to_string());
+                            } else {
+                                self.alchemy_selection.push(id);
+                                if self.alchemy_selection.len() == 1 {
+                                    self.log.push("First item selected. Choose a second to combine.".to_string());
+                                } else if self.alchemy_selection.len() == 2 {
+                                    let item1 = self.alchemy_selection[0];
+                                    let item2 = self.alchemy_selection[1];
+                                    
+                                    // Check if both are potions
+                                    let p1_heal = self.world.get::<&Potion>(item1).ok().map(|p| p.heal_amount);
+                                    let p2_heal = self.world.get::<&Potion>(item2).ok().map(|p| p.heal_amount);
+                                    
+                                    let n1 = self.world.get::<&Name>(item1).map(|n| n.0.clone()).unwrap_or_default();
+                                    let n2 = self.world.get::<&Name>(item2).map(|n| n.0.clone()).unwrap_or_default();
+
+                                    if (n1 == "Potion of Strength" && n2 == "Potion of Speed") || (n1 == "Potion of Speed" && n2 == "Potion of Strength") {
+                                        self.world.despawn(item1).expect("Failed to despawn alchemy item 1");
+                                        self.world.despawn(item2).expect("Failed to despawn alchemy item 2");
+                                        
+                                        let new_potion = self.world.spawn((
+                                            Renderable { glyph: '!', fg: ratatui::prelude::Color::Rgb(255, 215, 0) },
+                                            RenderOrder::Item,
+                                            Item,
+                                            Name("Potion of Heroism".to_string()),
+                                            Strength { amount: 5, turns: 20 },
+                                            Speed { turns: 20 },
+                                            Consumable,
+                                            InBackpack { owner: player_id }
+                                        ));
+                                        self.identified_items.insert("Potion of Heroism".to_string());
+                                        self.log.push("You created a Potion of Heroism! It grants both Strength and Speed.".to_string());
+                                        self.state = RunState::AwaitingInput;
+                                    } else if let (Some(heal1), Some(heal2)) = (p1_heal, p2_heal) {
+                                        // Success! Create a better potion
+                                        let new_heal = ((heal1 + heal2) as f32 * 1.5) as i32;
+                                        
+                                        self.world.despawn(item1).expect("Failed to despawn alchemy item 1");
+                                        self.world.despawn(item2).expect("Failed to despawn alchemy item 2");
+                                        
+                                        let _new_potion = self.world.spawn((
+                                            Renderable { glyph: '!', fg: ratatui::prelude::Color::Rgb(255, 255, 255) },
+                                            RenderOrder::Item,
+                                            Item,
+                                            Name("Greater Potion".to_string()),
+                                            Potion { heal_amount: new_heal },
+                                            Consumable,
+                                            InBackpack { owner: player_id }
+                                        ));
+                                        self.identify_item(_new_potion); // Auto-identify crafted items
+                                        
+                                        self.log.push(format!("You combined the potions into a Greater Potion (Heals {})!", new_heal));
+                                        self.state = RunState::AwaitingInput;
+                                    } else {
+                                        self.log.push("You can only combine potions!".to_string());
+                                        self.alchemy_selection.clear();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
             RunState::Dead | RunState::Victory => {
                 if let Action::Quit | Action::CloseMenu = action { self.exit = true; }
             }
@@ -476,6 +633,13 @@ impl App {
 
                 crate::spawner::spawn_item_in_backpack(&mut self.world, merchant, selected_item);
             }
+        }
+
+        // Spawn an Alchemy Station
+        if mb.rooms.len() > 2 {
+            let room = &mb.rooms[2];
+            let center = room.center();
+            crate::spawner::spawn_alchemy_station(&mut self.world, center.0 as u16, center.1 as u16);
         }
 
         for pos in &mb.door_spawns {
@@ -795,11 +959,14 @@ impl App {
             let light_source = self.world.get::<&LightSource>(id).ok().map(|l| *l);
             let gold = self.world.get::<&Gold>(id).ok().map(|g| *g);
             let item_value = self.world.get::<&ItemValue>(id).ok().map(|v| *v);
+            let obfuscated_name = self.world.get::<&ObfuscatedName>(id).ok().map(|n| (*n).clone());
+            let cursed = self.world.get::<&Cursed>(id).ok().map(|c| *c);
             
             self.entities.push(EntitySnapshot {
                 pos, render: *render, render_order: *render_order, name, stats, potion, weapon, armor, door, trap, ranged, 
                 ranged_weapon, aoe, confusion, poison, strength, speed,
                 faction, viewshed, personality, experience, perks, alert_state, hearing, boss, light_source, gold, item_value,
+                obfuscated_name, cursed,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
                 ammo: self.world.get::<&Ammunition>(id).is_ok(),
@@ -850,6 +1017,8 @@ impl App {
             if let Some(light_source) = e.light_source { cb.add(light_source); }
             if let Some(gold) = e.gold { cb.add(gold); }
             if let Some(item_value) = e.item_value { cb.add(item_value); }
+            if let Some(obfuscated_name) = e.obfuscated_name.clone() { cb.add(obfuscated_name); }
+            if let Some(cursed) = e.cursed { cb.add(cursed); }
             if e.last_hit_by_player { cb.add(LastHitByPlayer); }
             if e.is_merchant { cb.add(Merchant); }
             if e.ammo { cb.add(Ammunition); }
@@ -914,6 +1083,11 @@ impl App {
                 if pos.x == new_x && pos.y == new_y { target_interactable = Some(id); break; }
             }
         }
+        if target_interactable.is_none() {
+            for (id, (pos, _)) in self.world.query::<(&Position, &AlchemyStation)>().iter() {
+                if pos.x == new_x && pos.y == new_y { target_interactable = Some(id); break; }
+            }
+        }
 
         if let Some(target_id) = target_interactable {
             // Check if it's a Merchant
@@ -922,6 +1096,15 @@ impl App {
                 self.state = RunState::ShowShop;
                 self.shop_cursor = 0;
                 self.log.push("You talk to the Merchant.".to_string());
+                return;
+            }
+
+            // Check if it's an Alchemy Station
+            if self.world.get::<&AlchemyStation>(target_id).is_ok() {
+                self.state = RunState::ShowAlchemy;
+                self.inventory_cursor = 0;
+                self.alchemy_selection.clear();
+                self.log.push("You approach the Alchemy Station.".to_string());
                 return;
             }
 
@@ -1064,7 +1247,7 @@ impl App {
             if pos.x == player_pos.x && pos.y == player_pos.y { item_to_pick = Some(id); break; }
         }
         if let Some(item_id) = item_to_pick {
-            let item_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+            let item_name = self.get_item_name(item_id);
             self.world.remove_one::<Position>(item_id).expect("Failed to remove Position component");
             self.world.insert_one(item_id, InBackpack { owner: player_id }).expect("Failed to insert InBackpack component");
             self.log.push(format!("You pick up the {}.", item_name));
@@ -1092,7 +1275,7 @@ impl App {
             if let Ok(mut player_gold) = self.world.get::<&mut Gold>(player_id) {
                 player_gold.amount -= price;
             }
-            let item_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+            let item_name = self.get_item_name(item_id);
             self.log.push(format!("You buy the {} for {} gold.", item_name, price));
             
             // Transfer item
@@ -1112,7 +1295,7 @@ impl App {
             }
         }
         
-        let item_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+        let item_name = self.get_item_name(item_id);
         self.log.push(format!("You sell the {} for {} gold.", item_name, price));
         
         self.world.despawn(item_id).expect("Failed to despawn item");
@@ -1120,7 +1303,17 @@ impl App {
 
     pub fn use_item(&mut self, item_id: hecs::Entity) {
         let player_id = self.get_player_id().expect("Player not found");
-        let item_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+        let item_name = self.get_item_name(item_id);
+        let real_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+        
+        if real_name == "Identification Scroll" {
+            self.state = RunState::ShowIdentify;
+            self.targeting_item = Some(item_id);
+            self.inventory_cursor = 0;
+            self.log.push("Select an item to identify...".to_string());
+            return;
+        }
+        
         let player_pos = self.world.get::<&Position>(player_id).ok().map(|p| *p).unwrap_or(Position { x: 0, y: 0 });
 
         let mut handled = false;
@@ -1184,25 +1377,37 @@ impl App {
             }
             return;
         } else if let Ok(weapon) = self.world.get::<&Weapon>(item_id) {
-             self.log.push(format!("You equip the {}. Your power increases!", item_name));
+             if weapon.power_bonus < 0 {
+                 self.log.push(format!("The {} is cursed! Your power decreases!", item_name));
+             } else {
+                 self.log.push(format!("You equip the {}. Your power increases!", item_name));
+             }
              if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                 stats.power += weapon.power_bonus;
              }
              handled = true;
         } else if let Ok(armor) = self.world.get::<&Armor>(item_id) {
-             self.log.push(format!("You equip the {}. Your defense increases!", item_name));
+             if armor.defense_bonus < 0 {
+                 self.log.push(format!("The {} is cursed! Your defense decreases!", item_name));
+             } else {
+                 self.log.push(format!("You equip the {}. Your defense increases!", item_name));
+             }
              if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                 stats.defense += armor.defense_bonus;
              }
              handled = true;
         }
 
-        if handled { self.world.despawn(item_id).expect("Failed to despawn item after use"); self.state = RunState::MonsterTurn; }
+        if handled { 
+            self.identify_item(item_id);
+            self.world.despawn(item_id).expect("Failed to despawn item after use"); 
+            self.state = RunState::MonsterTurn; 
+        }
     }
 
     pub fn fire_targeting_item(&mut self) {
         if let Some(item_id) = self.targeting_item {
-            let item_name = self.world.get::<&Name>(item_id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+            let item_name = self.get_item_name(item_id);
             
             let (player_pos, player_id) = {
                 let Some(id) = self.get_player_id() else { return; };
@@ -1328,6 +1533,8 @@ impl App {
                 self.add_player_xp(total_xp);
             }
             
+            self.identify_item(item_id);
+
             if is_ranged_weapon.is_none() {
                 self.world.despawn(item_id).expect("Failed to despawn consumable item after use");
             }
