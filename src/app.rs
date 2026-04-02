@@ -274,12 +274,16 @@ impl App {
                     Action::CloseMenu | Action::OpenInventory => self.state = RunState::AwaitingInput,
                     Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
                     Action::MenuDown => {
-                        let count = self.world.query::<(&crate::components::InBackpack,)>().iter().count();
+                        let player_id = self.get_player_id().expect("Player not found during inventory browsing");
+                        let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
+                            .filter(|(_, (backpack,))| backpack.owner == player_id).count();
                         if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
                     },
                     Action::MenuSelect => {
+                        let player_id = self.get_player_id().expect("Player not found during item selection");
                         let item_to_use = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
                             .iter()
+                            .filter(|(_, (_, backpack))| backpack.owner == player_id)
                             .nth(self.inventory_cursor)
                             .map(|(id, _)| id);
                         
