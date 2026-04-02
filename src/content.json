@@ -122,6 +122,25 @@
   ],
   "items": [
     {
+      "name": "Amulet of the Ancients",
+      "glyph": "\"",
+      "color": [255, 215, 0],
+      "price": 5000,
+      "potion": null,
+      "weapon": null,
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.0,
+      "min_floor": 10,
+      "max_floor": 10
+    },
+    {
       "name": "Health Potion",
       "glyph": "!",
       "color": [255, 0, 255],

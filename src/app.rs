@@ -23,6 +23,7 @@ pub enum RunState {
     ShowLogHistory,
     ShowBestiary,
     Dead,
+    Victory,
 }
 
 pub enum MonsterAction {
@@ -160,6 +161,8 @@ pub struct App {
     pub content: Content,
     #[serde(skip)]
     pub fps: f32,
+    pub escaping: bool,
+    pub monsters_killed: u32,
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -194,6 +197,8 @@ impl App {
             bestiary_cursor: 0,
             content: Self::load_content(),
             fps: 0.0,
+            escaping: false,
+            monsters_killed: 0,
         };
         app.generate_level(None);
         app
@@ -406,7 +411,7 @@ impl App {
                     _ => {}
                 }
             }
-            RunState::Dead => {
+            RunState::Dead | RunState::Victory => {
                 if let Action::Quit | Action::CloseMenu = action { self.exit = true; }
             }
             _ => {}
@@ -485,7 +490,13 @@ impl App {
             .filter(|m| self.dungeon_level >= m.min_floor && self.dungeon_level <= m.max_floor)
             .collect();
 
-        for spawn in &mb.monster_spawns {
+        let mut monster_spawns = mb.monster_spawns.clone();
+        if self.escaping {
+            // Double the monster spawns for extra pressure
+            monster_spawns.extend(mb.monster_spawns.clone());
+        }
+
+        for spawn in &monster_spawns {
             if available_monsters.is_empty() { break; }
             
             // weighted selection
@@ -511,6 +522,15 @@ impl App {
             if let Some(raw) = boss_raw {
                 crate::spawner::spawn_monster(&mut self.world, spawn.0, spawn.1, raw, self.dungeon_level);
                 self.log.push(format!("You feel a malevolent presence... {} awaits!", raw.name));
+            }
+        }
+        
+        // Spawn Amulet on floor 10
+        if self.dungeon_level == 10 && !self.escaping {
+            let amulet_raw = self.content.items.iter().find(|i| i.name == "Amulet of the Ancients");
+            if let Some(amulet) = amulet_raw {
+                let spawn_pos = mb.item_spawns.pop().unwrap_or(mb.player_start); // Use the last item spawn or fallback to player start
+                crate::spawner::spawn_item(&mut self.world, spawn_pos.0, spawn_pos.1, amulet);
             }
         }
 
@@ -590,7 +610,12 @@ impl App {
 
     pub fn go_up_level(&mut self) {
         if self.dungeon_level <= 1 {
-            self.log.push("You cannot go further up.".to_string());
+            if self.escaping {
+                self.state = RunState::Victory;
+                self.log.push("You escape the dungeon with the Amulet! You win!".to_string());
+            } else {
+                self.log.push("You cannot go further up without the Amulet!".to_string());
+            }
             return;
         }
 
@@ -941,6 +966,7 @@ impl App {
             if monster_died {
                 self.log.push(format!("{} dies!", monster_name));
                 self.world.despawn(target_id).expect("Failed to despawn monster");
+                self.monsters_killed += 1;
                 self.add_player_xp(xp_reward);
             }
             if self.state != RunState::LevelUp {
@@ -1043,6 +1069,12 @@ impl App {
             self.world.insert_one(item_id, InBackpack { owner: player_id }).expect("Failed to insert InBackpack component");
             self.log.push(format!("You pick up the {}.", item_name));
             self.generate_noise(player_pos.x, player_pos.y, 2.0);
+            
+            if item_name == "Amulet of the Ancients" {
+                self.escaping = true;
+                self.log.push("You hold the Amulet! The dungeon rumbles... Escaping time!".to_string());
+            }
+            
             self.state = RunState::MonsterTurn;
         } else { self.log.push("There is nothing here to pick up.".to_string()); }
     }
@@ -1287,7 +1319,10 @@ impl App {
                     }
                 } 
             }
-            for id in to_despawn { self.world.despawn(id).expect("Failed to despawn monster"); }
+            for id in to_despawn { 
+                self.world.despawn(id).expect("Failed to despawn monster"); 
+                self.monsters_killed += 1;
+            }
             
             if total_xp > 0 {
                 self.add_player_xp(total_xp);
@@ -1399,6 +1434,7 @@ impl App {
             let name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Monster".to_string());
             self.log.push(format!("{} dies from poison!", name));
             self.world.despawn(id).expect("Failed to despawn monster"); 
+            self.monsters_killed += 1;
         }
         
         if total_xp > 0 {
@@ -1757,7 +1793,10 @@ impl App {
                 }
             }
         }
-        for id in to_despawn { self.world.despawn(id).expect("Failed to despawn monster"); }
+        for id in to_despawn { 
+            self.world.despawn(id).expect("Failed to despawn monster"); 
+            self.monsters_killed += 1;
+        }
 
         for (pos, raw) in drops {
             crate::spawner::spawn_item(&mut self.world, pos.x, pos.y, &raw);

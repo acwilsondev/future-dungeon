@@ -251,6 +251,7 @@ pub fn render(app: &App, frame: &mut Frame) {
     else if app.state == RunState::ShowShop { render_shop(app, frame); }
     else if app.state == RunState::ShowLogHistory { render_log_history(app, frame); }
     else if app.state == RunState::ShowBestiary { render_bestiary(app, frame); }
+    else if app.state == RunState::Victory { render_victory_screen(app, frame); }
 }
 
 fn render_log_history(app: &App, frame: &mut Frame) {
@@ -482,10 +483,50 @@ fn render_help(_app: &App, frame: &mut Frame) {
     frame.render_widget(Paragraph::new(text).block(Block::default().borders(Borders::ALL).title(" Controls ")).alignment(Alignment::Center), area);
 }
 
-fn render_death_screen(_app: &App, frame: &mut Frame) {
-    let area = centered_rect(40, 20, frame.size()); frame.render_widget(Clear, area);
-    let text = vec![Line::from(Span::styled("YOU HAVE PERISHED", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))), Line::from(""), Line::from("Press Q or Esc to exit.")];
+fn render_death_screen(app: &App, frame: &mut Frame) {
+    let area = centered_rect(50, 40, frame.size()); frame.render_widget(Clear, area);
+    
+    let player_id = app.get_player_id().expect("Player not found in death screen");
+    let gold = app.world.get::<&Gold>(player_id).map(|g| g.amount).unwrap_or(0);
+    let level = app.world.get::<&Experience>(player_id).map(|e| e.level).unwrap_or(1);
+
+    let text = vec![
+        Line::from(Span::styled("YOU HAVE PERISHED", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from(format!("Final Level: {}", level)),
+        Line::from(format!("Monsters Slain: {}", app.monsters_killed)),
+        Line::from(format!("Gold Collected: {}", gold)),
+        Line::from(""),
+        Line::from("Your journey ends here in the dark."),
+        Line::from(""),
+        Line::from(Span::styled("Press Q or Esc to exit.", Style::default().fg(Color::Indexed(245)))),
+    ];
     frame.render_widget(Paragraph::new(text).block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Red))).alignment(Alignment::Center), area);
+}
+
+fn render_victory_screen(app: &App, frame: &mut Frame) {
+    let area = centered_rect(50, 45, frame.size()); frame.render_widget(Clear, area);
+    
+    let player_id = app.get_player_id().expect("Player not found in victory screen");
+    let gold = app.world.get::<&Gold>(player_id).map(|g| g.amount).unwrap_or(0);
+    let level = app.world.get::<&Experience>(player_id).map(|e| e.level).unwrap_or(1);
+
+    let text = vec![
+        Line::from(Span::styled("VICTORY!", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from("You have emerged from the dungeon with the"),
+        Line::from(Span::styled("Amulet of the Ancients!", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
+        Line::from(""),
+        Line::from(Span::styled("--- SESSION SUMMARY ---", Style::default().add_modifier(Modifier::UNDERLINED))),
+        Line::from(format!("Final Level: {}", level)),
+        Line::from(format!("Monsters Slain: {}", app.monsters_killed)),
+        Line::from(format!("Gold Collected: {}", gold)),
+        Line::from(""),
+        Line::from("The echoes of the ancients will sing of your name."),
+        Line::from(""),
+        Line::from(Span::styled("Press Q or Esc to exit.", Style::default().fg(Color::Indexed(245)))),
+    ];
+    frame.render_widget(Paragraph::new(text).block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Yellow))).alignment(Alignment::Center), area);
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: RatatuiRect) -> RatatuiRect {
