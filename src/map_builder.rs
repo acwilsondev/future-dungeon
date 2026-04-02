@@ -27,6 +27,7 @@ impl Rect {
 pub enum LevelTheme {
     Rooms,
     Caves,
+    BossArena,
 }
 
 pub struct MapBuilder {
@@ -34,6 +35,7 @@ pub struct MapBuilder {
     pub rooms: Vec<Rect>,
     pub player_start: (u16, u16),
     pub monster_spawns: Vec<(u16, u16)>,
+    pub boss_spawn: Option<(u16, u16)>,
     pub item_spawns: Vec<(u16, u16)>,
     pub door_spawns: Vec<(u16, u16)>,
     pub trap_spawns: Vec<(u16, u16)>,
@@ -50,6 +52,7 @@ impl MapBuilder {
             rooms: Vec::new(), 
             player_start: (0, 0), 
             monster_spawns: Vec::new(), 
+            boss_spawn: None,
             item_spawns: Vec::new(),
             door_spawns: Vec::new(),
             trap_spawns: Vec::new(),
@@ -60,7 +63,9 @@ impl MapBuilder {
     }
 
     pub fn build(&mut self, depth: u16) {
-        if depth % 3 == 0 {
+        if depth == 3 || depth == 6 {
+            self.theme = LevelTheme::BossArena;
+        } else if depth % 3 == 0 {
             self.theme = LevelTheme::Caves;
         } else {
             self.theme = LevelTheme::Rooms;
@@ -72,7 +77,33 @@ impl MapBuilder {
                 self.place_doors();
             }
             LevelTheme::Caves => self.build_caves(),
+            LevelTheme::BossArena => self.build_boss_arena(),
         }
+    }
+
+    fn build_boss_arena(&mut self) {
+        // Large central room
+        let w = 20;
+        let h = 15;
+        let x = (self.map.width as i32 - w) / 2;
+        let y = (self.map.height as i32 - h) / 2;
+        let arena = Rect::new(x, y, w, h);
+        self.apply_room_to_map(&arena);
+        self.rooms.push(arena);
+
+        // Pillars
+        for py in [y + 4, y + h - 5] {
+            for px in [x + 5, x + w - 6] {
+                let idx = (py as u16 * self.map.width + px as u16) as usize;
+                self.map.tiles[idx] = TileType::Wall;
+            }
+        }
+
+        let center = arena.center();
+        self.player_start = (arena.x1 as u16 + 2, center.1 as u16);
+        self.stairs_up = (arena.x1 as u16 + 1, center.1 as u16);
+        self.boss_spawn = Some((arena.x2 as u16 - 5, center.1 as u16));
+        self.stairs_down = (arena.x2 as u16 - 2, center.1 as u16);
     }
 
     fn is_legal_door(&self, x: u16, y: u16) -> bool {

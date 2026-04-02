@@ -14,7 +14,10 @@
       "ranged": null,
       "spawn_chance": 0.4,
       "min_floor": 1,
-      "max_floor": 999
+      "max_floor": 999,
+      "is_boss": false,
+      "phases": null,
+      "guaranteed_loot": null
     },
     {
       "name": "Goblin",
@@ -30,7 +33,10 @@
       "ranged": null,
       "spawn_chance": 0.5,
       "min_floor": 1,
-      "max_floor": 10
+      "max_floor": 10,
+      "is_boss": false,
+      "phases": null,
+      "guaranteed_loot": null
     },
     {
       "name": "Goblin Archer",
@@ -46,7 +52,10 @@
       "ranged": 8,
       "spawn_chance": 0.3,
       "min_floor": 2,
-      "max_floor": 15
+      "max_floor": 15,
+      "is_boss": false,
+      "phases": null,
+      "guaranteed_loot": null
     },
     {
       "name": "Spider",
@@ -62,7 +71,53 @@
       "ranged": null,
       "spawn_chance": 0.3,
       "min_floor": 1,
-      "max_floor": 999
+      "max_floor": 999,
+      "is_boss": false,
+      "phases": null,
+      "guaranteed_loot": null
+    },
+    {
+      "name": "The Broodmother",
+      "glyph": "S",
+      "color": [255, 100, 255],
+      "hp": 100,
+      "defense": 2,
+      "power": 8,
+      "faction": "Animals",
+      "personality": "Brave",
+      "viewshed": 10,
+      "xp_reward": 200,
+      "ranged": null,
+      "spawn_chance": 0.0,
+      "min_floor": 3,
+      "max_floor": 3,
+      "is_boss": true,
+      "phases": [
+        { "hp_threshold_pct": 0.5, "action": "SummonMinions" }
+      ],
+      "guaranteed_loot": "Venomous Dagger"
+    },
+    {
+      "name": "The Goblin King",
+      "glyph": "G",
+      "color": [255, 215, 0],
+      "hp": 150,
+      "defense": 4,
+      "power": 10,
+      "faction": "Goblins",
+      "personality": "Brave",
+      "viewshed": 12,
+      "xp_reward": 400,
+      "ranged": null,
+      "spawn_chance": 0.0,
+      "min_floor": 6,
+      "max_floor": 6,
+      "is_boss": true,
+      "phases": [
+        { "hp_threshold_pct": 0.6, "action": "Enrage" },
+        { "hp_threshold_pct": 0.3, "action": "Enrage" }
+      ],
+      "guaranteed_loot": "King's Armor"
     }
   ],
   "items": [
@@ -103,6 +158,44 @@
       "spawn_chance": 0.3,
       "min_floor": 1,
       "max_floor": 5
+    },
+    {
+      "name": "Venomous Dagger",
+      "glyph": "/",
+      "color": [0, 255, 0],
+      "price": 50,
+      "potion": null,
+      "weapon": 4,
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": [3, 10],
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.0,
+      "min_floor": 3,
+      "max_floor": 3
+    },
+    {
+      "name": "King's Armor",
+      "glyph": "[",
+      "color": [255, 215, 0],
+      "price": 100,
+      "potion": null,
+      "weapon": null,
+      "armor": 5,
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.0,
+      "min_floor": 6,
+      "max_floor": 6
     },
     {
       "name": "Magic Missile Scroll",

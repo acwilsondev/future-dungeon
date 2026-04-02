@@ -17,14 +17,14 @@ We will not implement other classes as part of the first character initiative.
 
 ## Attributes
 
-Generally speaking we use a DC system for all roles.
+Generally speaking we use a DC system for all rolls.
 
 Attributes give a standard D&D bonus: int((Score - 10) / 2)
 
 Each attribute generally is associated with a type of "Save", which is a protection against harm.
 
 - STR
-    - Heavy melee bonus
+    - Heavy melee bonus (weapon dmg + str bonus)
     - Heavy melee hit bonus
     - Carry capacity
 - DEX
@@ -50,5 +50,5 @@ Each attribute generally is associated with a type of "Save", which is a protect
     - Divine spell potency
 - CHA
     - Merchant price improvements
-    - Chance to befriend
+    - Base encounter mood effect
     - Very small, hidden chance for lucky boons

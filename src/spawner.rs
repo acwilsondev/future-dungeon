@@ -43,6 +43,20 @@ pub fn spawn_monster(world: &mut World, x: u16, y: u16, raw: &RawMonster, dungeo
         cb.add(RangedWeapon { range: r as i32, damage_bonus: power });
     }
     
+    if let Some(true) = raw.is_boss {
+        let mut phases = Vec::new();
+        if let Some(raw_phases) = &raw.phases {
+            for rp in raw_phases {
+                phases.push(BossPhase {
+                    hp_threshold: (hp as f32 * rp.hp_threshold_pct) as i32,
+                    action: rp.action,
+                    triggered: false,
+                });
+            }
+        }
+        cb.add(Boss { phases });
+    }
+    
     world.spawn(cb.build())
 }
 

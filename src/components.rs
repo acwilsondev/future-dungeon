@@ -18,6 +18,24 @@ pub struct Noise {
     pub amount: f32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BossPhaseAction {
+    SummonMinions,
+    Enrage, // Increases power
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BossPhase {
+    pub hp_threshold: i32,
+    pub action: BossPhaseAction,
+    pub triggered: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Boss {
+    pub phases: Vec<BossPhase>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum RenderOrder {
     Map,

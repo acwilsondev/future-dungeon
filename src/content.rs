@@ -3,6 +3,12 @@ use crate::components::FactionKind;
 use crate::components::Personality;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawBossPhase {
+    pub hp_threshold_pct: f32, // 0.0 to 1.0
+    pub action: crate::components::BossPhaseAction,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RawMonster {
     pub name: String,
     pub glyph: char,
@@ -18,6 +24,9 @@ pub struct RawMonster {
     pub faction: FactionKind,
     pub xp_reward: i32,
     pub ranged: Option<u16>,
+    pub is_boss: Option<bool>,
+    pub phases: Option<Vec<RawBossPhase>>,
+    pub guaranteed_loot: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

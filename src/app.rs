@@ -78,6 +78,8 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub hearing: Option<Hearing>,
     #[serde(default)]
+    pub boss: Option<Boss>,
+    #[serde(default)]
     pub light_source: Option<LightSource>,
     #[serde(default)]
     pub gold: Option<Gold>,
@@ -193,7 +195,7 @@ impl App {
             content: Self::load_content(),
             fps: 0.0,
         };
-        app.generate_level();
+        app.generate_level(None);
         app
     }
 
@@ -411,14 +413,23 @@ impl App {
         }
     }
 
-    pub fn generate_level(&mut self) {
+    pub fn generate_level(&mut self, player_snapshot: Option<EntitySnapshot>) {
         let mut mb = MapBuilder::new(80, 50);
         mb.build(self.dungeon_level);
         self.map = mb.map;
         self.world = World::new();
         let mut rng = rand::thread_rng();
 
-        crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);
+        if let Some(snapshot) = player_snapshot {
+            self.entities = vec![snapshot];
+            self.unpack_entities();
+            let mut player_query = self.world.query::<(&mut Position, &Player)>();
+            let (_, (pos, _)) = player_query.iter().next().expect("Player not found after unpack");
+            pos.x = mb.player_start.0;
+            pos.y = mb.player_start.1;
+        } else {
+            crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);
+        }
 
         // Spawn ambient light sources (Glowing Crystals) in some rooms
         for (i, room) in mb.rooms.iter().enumerate().skip(1) {
@@ -493,6 +504,16 @@ impl App {
             crate::spawner::spawn_monster(&mut self.world, spawn.0, spawn.1, raw, self.dungeon_level);
         }
 
+        if let Some(spawn) = mb.boss_spawn {
+            let boss_raw = self.content.monsters.iter()
+                .find(|m| m.is_boss == Some(true) && m.min_floor == self.dungeon_level);
+            
+            if let Some(raw) = boss_raw {
+                crate::spawner::spawn_monster(&mut self.world, spawn.0, spawn.1, raw, self.dungeon_level);
+                self.log.push(format!("You feel a malevolent presence... {} awaits!", raw.name));
+            }
+        }
+
         for spawn in &mb.item_spawns {
             // 20% chance for gold, otherwise pick item
             if available_items.is_empty() || rng.gen_bool(0.2) {
@@ -562,7 +583,7 @@ impl App {
             pos.x = up_stairs_pos.0;
             pos.y = up_stairs_pos.1;
         } else {
-            self.generate_level();
+            self.generate_level(Some(player_snapshot));
         }
         self.log.push(format!("You descend to level {}.", self.dungeon_level));
     }
@@ -745,6 +766,7 @@ impl App {
             let perks = self.world.get::<&Perks>(id).ok().map(|p| (*p).clone());
             let alert_state = self.world.get::<&AlertState>(id).ok().map(|a| *a);
             let hearing = self.world.get::<&Hearing>(id).ok().map(|h| *h);
+            let boss = self.world.get::<&Boss>(id).ok().map(|b| (*b).clone());
             let light_source = self.world.get::<&LightSource>(id).ok().map(|l| *l);
             let gold = self.world.get::<&Gold>(id).ok().map(|g| *g);
             let item_value = self.world.get::<&ItemValue>(id).ok().map(|v| *v);
@@ -752,7 +774,7 @@ impl App {
             self.entities.push(EntitySnapshot {
                 pos, render: *render, render_order: *render_order, name, stats, potion, weapon, armor, door, trap, ranged, 
                 ranged_weapon, aoe, confusion, poison, strength, speed,
-                faction, viewshed, personality, experience, perks, alert_state, hearing, light_source, gold, item_value,
+                faction, viewshed, personality, experience, perks, alert_state, hearing, boss, light_source, gold, item_value,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
                 ammo: self.world.get::<&Ammunition>(id).is_ok(),
@@ -799,6 +821,7 @@ impl App {
             if let Some(perks) = e.perks.clone() { cb.add(perks); }
             if let Some(alert_state) = e.alert_state { cb.add(alert_state); }
             if let Some(hearing) = e.hearing { cb.add(hearing); }
+            if let Some(boss) = e.boss.clone() { cb.add(boss); }
             if let Some(light_source) = e.light_source { cb.add(light_source); }
             if let Some(gold) = e.gold { cb.add(gold); }
             if let Some(item_value) = e.item_value { cb.add(item_value); }
@@ -1411,6 +1434,47 @@ impl App {
 
         for id in actors {
             let is_merchant = self.world.get::<&Merchant>(id).is_ok();
+            
+            // Boss Phase Triggering
+            let mut boss_actions = Vec::new();
+            if let Ok(mut boss) = self.world.get::<&mut Boss>(id) {
+                if let Ok(stats) = self.world.get::<&CombatStats>(id) {
+                    for phase in boss.phases.iter_mut() {
+                        if !phase.triggered && stats.hp <= phase.hp_threshold {
+                            phase.triggered = true;
+                            boss_actions.push(phase.action);
+                        }
+                    }
+                }
+            }
+
+            for action in boss_actions {
+                let boss_name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Boss".to_string());
+                match action {
+                    BossPhaseAction::SummonMinions => {
+                        self.log.push(format!("{} bellows: 'To my side, my children!'", boss_name));
+                        let boss_pos = self.world.get::<&Position>(id).ok().map(|p| *p);
+                        if let Some(pos) = boss_pos {
+                            let minion_name = if boss_name.contains("Broodmother") { "Spider" } else { "Goblin" };
+                            let minion_raw = self.content.monsters.iter().find(|m| m.name == minion_name).expect("Minion not found");
+                            for (dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                                let (mx, my) = ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16);
+                                if !self.map.blocked[(my * self.map.width + mx) as usize] {
+                                    crate::spawner::spawn_monster(&mut self.world, mx, my, minion_raw, self.dungeon_level);
+                                }
+                            }
+                        }
+                    }
+                    BossPhaseAction::Enrage => {
+                        self.log.push(format!("{} enters a bloodthirsty rage!", boss_name));
+                        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(id) {
+                            stats.power += 4;
+                            stats.defense += 2;
+                        }
+                    }
+                }
+            }
+
             let (pos, faction, personality, stats, viewshed, alert) = {
                 if let (Ok(p), Ok(f), Ok(pers), Ok(s), Ok(v), Ok(a)) = (
                     self.world.get::<&Position>(id),
@@ -1668,6 +1732,7 @@ impl App {
         // Cleanup dead entities
         let mut to_despawn = Vec::new();
         let mut total_xp: i32 = 0;
+        let mut drops = Vec::new();
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
             if stats.hp <= 0 { 
                 to_despawn.push(id); 
@@ -1676,9 +1741,28 @@ impl App {
                         total_xp = total_xp.saturating_add(exp.xp_reward);
                     }
                 }
+                
+                // Collect drop info
+                if let Ok(name) = self.world.get::<&Name>(id) {
+                    if let Some(pos) = self.world.get::<&Position>(id).ok() {
+                        let boss_raw = self.content.monsters.iter().find(|m| m.name == name.0);
+                        if let Some(raw) = boss_raw {
+                            if let Some(loot_name) = &raw.guaranteed_loot {
+                                if let Some(item_raw) = self.content.items.iter().find(|i| &i.name == loot_name) {
+                                    drops.push((*pos, item_raw.clone()));
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         for id in to_despawn { self.world.despawn(id).expect("Failed to despawn monster"); }
+
+        for (pos, raw) in drops {
+            crate::spawner::spawn_item(&mut self.world, pos.x, pos.y, &raw);
+            self.log.push(format!("{} dropped {}!", "The boss", raw.name));
+        }
 
         if total_xp > 0 {
             self.add_player_xp(total_xp);
