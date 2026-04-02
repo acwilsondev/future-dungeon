@@ -1,4 +1,4 @@
-use crate::app::{Map, TileType};
+use crate::map::{Map, TileType};
 use rand::Rng;
 use std::cmp::{max, min};
 
@@ -59,7 +59,7 @@ impl MapBuilder {
         }
     }
 
-    pub fn build(&mut self, depth: u32) {
+    pub fn build(&mut self, depth: u16) {
         if depth % 3 == 0 {
             self.theme = LevelTheme::Caves;
         } else {

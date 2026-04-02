@@ -1,6 +1,15 @@
 use ratatui::prelude::Color;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum RenderOrder {
+    Map,
+    Trap,
+    Item,
+    Monster,
+    Player,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Position {
     pub x: u16,
