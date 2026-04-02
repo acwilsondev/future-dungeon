@@ -36,6 +36,28 @@ pub struct Boss {
     pub phases: Vec<BossPhase>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EquipmentSlot {
+    Melee,
+    Ranged,
+    Head,
+    Torso,
+    Hands,
+    Feet,
+    LeftFinger,
+    RightFinger,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Equippable {
+    pub slot: EquipmentSlot,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Equipped {
+    pub slot: EquipmentSlot,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum RenderOrder {
     Map,

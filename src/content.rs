@@ -50,6 +50,7 @@ pub struct RawItem {
     pub consumable: bool,
     pub obfuscated_name: Option<String>,
     pub cursed: Option<bool>,
+    pub slot: Option<crate::components::EquipmentSlot>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

@@ -414,6 +414,9 @@ fn render_inventory(app: &App, frame: &mut Frame) {
             if app.state == RunState::ShowAlchemy && app.alchemy_selection.contains(id) {
                 display_name = format!("{} (Selected)", display_name);
             }
+            if app.world.get::<&Equipped>(*id).is_ok() {
+                display_name = format!("{} (E)", display_name);
+            }
             ListItem::new(display_name)
         }).collect();
         let mut state = ListState::default();
@@ -421,7 +424,7 @@ fn render_inventory(app: &App, frame: &mut Frame) {
 
         let layout = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+            .constraints([Constraint::Percentage(30), Constraint::Percentage(35), Constraint::Percentage(35)])
             .split(area.inner(&Margin { vertical: 1, horizontal: 1 }));
 
         frame.render_stateful_widget(
@@ -431,6 +434,38 @@ fn render_inventory(app: &App, frame: &mut Frame) {
             layout[0],
             &mut state
         );
+
+        // Paper Doll / Equipment Slots
+        let mut equipment_list = Vec::new();
+        let slots = [
+            (EquipmentSlot::Head, "Head"),
+            (EquipmentSlot::Torso, "Torso"),
+            (EquipmentSlot::Hands, "Hands"),
+            (EquipmentSlot::Feet, "Feet"),
+            (EquipmentSlot::Melee, "Melee"),
+            (EquipmentSlot::Ranged, "Ranged"),
+            (EquipmentSlot::LeftFinger, "L.Finger"),
+            (EquipmentSlot::RightFinger, "R.Finger"),
+        ];
+
+        for (slot, label) in slots {
+            let mut equipped_name = "None".to_string();
+            let mut equipped_color = Color::DarkGray;
+
+            for (id, (eq, backpack)) in app.world.query::<(&Equipped, &InBackpack)>().iter() {
+                if backpack.owner == player_id && eq.slot == slot {
+                    equipped_name = app.get_item_name(id);
+                    equipped_color = Color::Cyan;
+                    break;
+                }
+            }
+
+            equipment_list.push(Line::from(vec![
+                Span::styled(format!("{:<9}: ", label), Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(equipped_name, Style::default().fg(equipped_color))
+            ]));
+        }
+        frame.render_widget(Paragraph::new(equipment_list).block(Block::default().title(" Equipment ").borders(Borders::RIGHT)), layout[1]);
 
         // Item Details / Tooltip
         if let Some((item_id, _)) = items.get(app.inventory_cursor) {
@@ -480,7 +515,7 @@ fn render_inventory(app: &App, frame: &mut Frame) {
                 tooltip.push(Line::from(vec![Span::styled("CURSED", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))]));
             }
 
-            frame.render_widget(Paragraph::new(tooltip).block(Block::default().title(" Item Details ")), layout[1]);
+            frame.render_widget(Paragraph::new(tooltip).block(Block::default().title(" Item Details ")), layout[2]);
         }
 
         frame.render_widget(block, area);

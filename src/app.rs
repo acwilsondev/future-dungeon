@@ -93,6 +93,10 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub cursed: Option<Cursed>,
     #[serde(default)]
+    pub equippable: Option<Equippable>,
+    #[serde(default)]
+    pub equipped: Option<Equipped>,
+    #[serde(default)]
     pub last_hit_by_player: bool,
     #[serde(default)]
     pub is_merchant: bool,
@@ -172,6 +176,7 @@ pub struct App {
     pub monsters_killed: u32,
     #[serde(skip)]
     pub alchemy_selection: Vec<hecs::Entity>,
+    pub turn_count: u32,
 }
 
 fn default_runstate() -> RunState { RunState::AwaitingInput }
@@ -210,6 +215,7 @@ impl App {
             escaping: false,
             monsters_killed: 0,
             alchemy_selection: Vec::new(),
+            turn_count: 0,
         };
         app.generate_level(None);
         app
@@ -217,6 +223,26 @@ impl App {
 
     pub fn get_player_id(&self) -> Option<hecs::Entity> {
         self.world.query::<&Player>().iter().next().map(|(id, _)| id)
+    }
+
+    pub fn get_player_stats(&self) -> (i32, i32) {
+        let player_id = self.get_player_id().expect("Player not found");
+        let base_stats = self.world.get::<&CombatStats>(player_id).expect("Player has no CombatStats");
+        let mut power = base_stats.power;
+        let mut defense = base_stats.defense;
+
+        for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+            if backpack.owner == player_id {
+                if let Ok(weapon) = self.world.get::<&Weapon>(id) {
+                    power += weapon.power_bonus;
+                }
+                if let Ok(armor) = self.world.get::<&Armor>(id) {
+                    defense += armor.defense_bonus;
+                }
+            }
+        }
+
+        (power, defense)
     }
 
     pub fn get_item_name(&self, item_id: hecs::Entity) -> String {
@@ -239,6 +265,70 @@ impl App {
             self.identified_items.insert(real_name.clone());
             self.log.push(format!("You identified the {}!", real_name));
         }
+    }
+
+    pub fn refresh_player_render(&mut self) {
+        let player_id = self.get_player_id().expect("Player not found");
+        let mut color = Color::Yellow; // Default
+        let glyph = '@';
+
+        for (id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+            if backpack.owner == player_id && eq.slot == EquipmentSlot::Torso {
+                let name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or_default();
+                if name.contains("Leather") {
+                    color = Color::Rgb(139, 69, 19); // Brown
+                } else if name.contains("King") || name.contains("Iron") || name.contains("Plate") {
+                    color = Color::Gray;
+                }
+            }
+        }
+
+        if let Ok(mut render) = self.world.get::<&mut Renderable>(player_id) {
+            render.fg = color;
+            render.glyph = glyph;
+        }
+    }
+
+    pub fn unequip_item(&mut self, item_id: hecs::Entity) -> bool {
+        let item_name = self.get_item_name(item_id);
+        if self.world.get::<&Cursed>(item_id).is_ok() {
+            self.log.push(format!("You cannot unequip the {}; it's cursed!", item_name));
+            return false;
+        }
+
+        self.world.remove_one::<Equipped>(item_id).expect("Failed to remove Equipped component");
+        self.log.push(format!("You unequip the {}.", item_name));
+        self.refresh_player_render();
+        true
+    }
+
+    pub fn equip_item(&mut self, item_id: hecs::Entity) {
+        let (player_id, slot) = {
+            let player_id = self.get_player_id().expect("Player not found");
+            let equippable = self.world.get::<&Equippable>(item_id).expect("Item not equippable");
+            (player_id, equippable.slot)
+        };
+
+        // Find if something is already in that slot
+        let mut to_unequip = None;
+        for (id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+            if backpack.owner == player_id && eq.slot == slot {
+                to_unequip = Some(id);
+                break;
+            }
+        }
+
+        if let Some(old_item) = to_unequip {
+            if !self.unequip_item(old_item) {
+                return; // Couldn't unequip cursed item
+            }
+        }
+
+        self.world.insert_one(item_id, Equipped { slot }).expect("Failed to insert Equipped component");
+        let item_name = self.get_item_name(item_id);
+        self.log.push(format!("You equip the {}.", item_name));
+        self.identify_item(item_id);
+        self.refresh_player_render();
     }
 
     fn load_content() -> Content {
@@ -524,7 +614,7 @@ impl App {
                                         self.world.despawn(item1).expect("Failed to despawn alchemy item 1");
                                         self.world.despawn(item2).expect("Failed to despawn alchemy item 2");
                                         
-                                        let new_potion = self.world.spawn((
+                                        let _new_potion = self.world.spawn((
                                             Renderable { glyph: '!', fg: ratatui::prelude::Color::Rgb(255, 215, 0) },
                                             RenderOrder::Item,
                                             Item,
@@ -961,12 +1051,14 @@ impl App {
             let item_value = self.world.get::<&ItemValue>(id).ok().map(|v| *v);
             let obfuscated_name = self.world.get::<&ObfuscatedName>(id).ok().map(|n| (*n).clone());
             let cursed = self.world.get::<&Cursed>(id).ok().map(|c| *c);
+            let equippable = self.world.get::<&Equippable>(id).ok().map(|e| *e);
+            let equipped = self.world.get::<&Equipped>(id).ok().map(|e| (*e).clone());
             
             self.entities.push(EntitySnapshot {
                 pos, render: *render, render_order: *render_order, name, stats, potion, weapon, armor, door, trap, ranged, 
                 ranged_weapon, aoe, confusion, poison, strength, speed,
                 faction, viewshed, personality, experience, perks, alert_state, hearing, boss, light_source, gold, item_value,
-                obfuscated_name, cursed,
+                obfuscated_name, cursed, equippable, equipped,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
                 ammo: self.world.get::<&Ammunition>(id).is_ok(),
@@ -1019,6 +1111,8 @@ impl App {
             if let Some(item_value) = e.item_value { cb.add(item_value); }
             if let Some(obfuscated_name) = e.obfuscated_name.clone() { cb.add(obfuscated_name); }
             if let Some(cursed) = e.cursed { cb.add(cursed); }
+            if let Some(equippable) = e.equippable { cb.add(equippable); }
+            if let Some(equipped) = e.equipped.clone() { cb.add(equipped); }
             if e.last_hit_by_player { cb.add(LastHitByPlayer); }
             if e.is_merchant { cb.add(Merchant); }
             if e.ammo { cb.add(Ammunition); }
@@ -1069,9 +1163,10 @@ impl App {
 
     pub fn move_player(&mut self, dx: i16, dy: i16) {
         let (new_x, new_y, player_power) = {
-            let mut player_query = self.world.query::<(&Position, &Player, &CombatStats)>();
-            let (_, (pos, _, player_stats)) = player_query.iter().next().expect("Player not found");
-            ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16, player_stats.power)
+            let (power, _) = self.get_player_stats();
+            let mut player_query = self.world.query::<(&Position, &Player)>();
+            let (_, (pos, _)) = player_query.iter().next().expect("Player not found");
+            ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16, power)
         };
 
         let mut target_interactable = None;
@@ -1205,7 +1300,22 @@ impl App {
             let mut triggered_traps = Vec::new();
             for (id, (t_pos, trap)) in self.world.query::<(&Position, &mut Trap)>().iter() {
                 if t_pos.x == new_x && t_pos.y == new_y {
-                    triggered_traps.push(id); total_damage += trap.damage; trap.revealed = true;
+                    let mut levitating = false;
+                    for (eq_id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+                        if backpack.owner == player_id && eq.slot == EquipmentSlot::Feet {
+                            let name = self.world.get::<&Name>(eq_id).map(|n| n.0.clone()).unwrap_or_default();
+                            if name == "Boots of Levitation" { levitating = true; break; }
+                        }
+                    }
+
+                    if levitating {
+                        if !trap.revealed {
+                            trap.revealed = true;
+                            self.log.push("You levitate safely over a trap!".to_string());
+                        }
+                    } else {
+                        triggered_traps.push(id); total_damage += trap.damage; trap.revealed = true;
+                    }
                 }
             }
             if total_damage > 0 {
@@ -1376,31 +1486,18 @@ impl App {
                 self.log.push(format!("Select target for {}...", item_name));
             }
             return;
-        } else if let Ok(weapon) = self.world.get::<&Weapon>(item_id) {
-             if weapon.power_bonus < 0 {
-                 self.log.push(format!("The {} is cursed! Your power decreases!", item_name));
-             } else {
-                 self.log.push(format!("You equip the {}. Your power increases!", item_name));
-             }
-             if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
-                stats.power += weapon.power_bonus;
-             }
-             handled = true;
-        } else if let Ok(armor) = self.world.get::<&Armor>(item_id) {
-             if armor.defense_bonus < 0 {
-                 self.log.push(format!("The {} is cursed! Your defense decreases!", item_name));
-             } else {
-                 self.log.push(format!("You equip the {}. Your defense increases!", item_name));
-             }
-             if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
-                stats.defense += armor.defense_bonus;
-             }
-             handled = true;
+        }
+
+        if self.world.get::<&Equippable>(item_id).is_ok() {
+            self.equip_item(item_id);
+            handled = true;
         }
 
         if handled { 
             self.identify_item(item_id);
-            self.world.despawn(item_id).expect("Failed to despawn item after use"); 
+            if self.world.get::<&Consumable>(item_id).is_ok() {
+                self.world.despawn(item_id).expect("Failed to despawn item after use"); 
+            }
             self.state = RunState::MonsterTurn; 
         }
     }
@@ -1550,6 +1647,7 @@ impl App {
     }
 
     pub fn on_turn_tick(&mut self) {
+        self.turn_count += 1;
         let mut to_remove_confusion = Vec::new();
         let mut to_remove_poison = Vec::new();
         let mut to_remove_strength = Vec::new();
@@ -1557,6 +1655,27 @@ impl App {
         let mut to_despawn_noise = Vec::new();
         let mut poison_damage = Vec::new();
         let mut strength_expiration = Vec::new();
+
+        let player_id = self.get_player_id().expect("Player not found in turn tick");
+
+        // Passive Equipment Effects
+        if self.turn_count % 5 == 0 {
+            let mut regen = false;
+            for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+                if backpack.owner == player_id {
+                    let name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or_default();
+                    if name == "Ring of Regeneration" { regen = true; break; }
+                }
+            }
+            if regen {
+                if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
+                    if stats.hp < stats.max_hp {
+                        stats.hp += 1;
+                        self.log.push("The Ring of Regeneration heals you.".to_string());
+                    }
+                }
+            }
+        }
 
         for (id, _) in self.world.query::<&Noise>().iter() {
             to_despawn_noise.push(id);
@@ -1895,15 +2014,21 @@ impl App {
                     }
                 }
                 MonsterAction::Attack(target_id) => {
-                    let (monster_name, monster_power) = { 
-                        let stats = self.world.get::<&CombatStats>(id).expect("Monster has no stats"); 
-                        let name = self.world.get::<&Name>(id).expect("Monster has no name"); 
-                        (name.0.clone(), stats.power) 
+                    let (monster_name, monster_power) = {
+                        let stats = self.world.get::<&CombatStats>(id).expect("Monster has no stats");
+                        let name = self.world.get::<&Name>(id).expect("Monster has no name");
+                        (name.0.clone(), stats.power)
                     };
                     let target_name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Something".to_string());
-                    let target_defense = self.world.get::<&CombatStats>(target_id).map(|s| s.defense).unwrap_or(0);
+
+                    let target_defense = if self.world.get::<&Player>(target_id).is_ok() {
+                        let (_, def) = self.get_player_stats();
+                        def
+                    } else {
+                        self.world.get::<&CombatStats>(target_id).map(|s| s.defense).unwrap_or(0)
+                    };
+
                     let damage = (monster_power - target_defense).max(0);
-                    
                     let target_hp = {
                         if let Ok(mut target_stats) = self.world.get::<&mut CombatStats>(target_id) {
                             target_stats.hp -= damage;
@@ -1935,7 +2060,14 @@ impl App {
                         (name.0.clone(), *r)
                     };
                     let target_name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Something".to_string());
-                    let target_defense = self.world.get::<&CombatStats>(target_id).map(|s| s.defense).unwrap_or(0);
+                    
+                    let target_defense = if self.world.get::<&Player>(target_id).is_ok() {
+                        let (_, def) = self.get_player_stats();
+                        def
+                    } else {
+                        self.world.get::<&CombatStats>(target_id).map(|s| s.defense).unwrap_or(0)
+                    };
+
                     let damage = (rw.damage_bonus - target_defense).max(0);
 
                     let target_hp = {
