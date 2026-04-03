@@ -53,6 +53,7 @@ pub struct RawItem {
     pub cursed: Option<bool>,
     pub slot: Option<crate::components::EquipmentSlot>,
     pub branches: Option<Vec<String>>,
+    pub light: Option<(i32, (u8, u8, u8), Option<i32>, bool)>, // range, color, turns, flicker
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

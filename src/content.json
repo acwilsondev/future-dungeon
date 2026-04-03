@@ -597,13 +597,23 @@
       "confusion": null,
       "poison": null,
       "ammo": false,
-      "consumable": true,
+      "consumable": false,
       "spawn_chance": 0.4,
       "min_floor": 1,
       "max_floor": 999,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": null
+      "slot": "Light",
+      "light": [
+        10,
+        [
+          255,
+          255,
+          100
+        ],
+        2000,
+        true
+      ]
     },
     {
       "name": "Identification Scroll",

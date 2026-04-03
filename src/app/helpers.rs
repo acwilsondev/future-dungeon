@@ -59,22 +59,29 @@ impl App {
 
     pub fn refresh_player_render(&mut self) {
         let player_id = self.get_player_id().expect("Player not found");
-        let mut color = Color::White;
-        let mut glyph = '@';
+        if let Ok(mut render) = self.world.get::<&mut Renderable>(player_id) {
+            render.fg = Color::Yellow;
+            render.glyph = '@';
+        }
 
-        for (id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
-            if backpack.owner == player_id && eq.slot == EquipmentSlot::Torso {
-                if let Ok(render) = self.world.get::<&Renderable>(id) {
-                    color = render.fg;
-                    glyph = render.glyph;
+        let mut light_to_apply = LightSource {
+            range: 2,
+            base_range: 2,
+            color: (150, 150, 100),
+            remaining_turns: None,
+            flicker: false,
+        };
+
+        for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+            if backpack.owner == player_id {
+                if let Ok(light) = self.world.get::<&LightSource>(id) {
+                    light_to_apply = *light;
+                    break;
                 }
             }
         }
 
-        if let Ok(mut render) = self.world.get::<&mut Renderable>(player_id) {
-            render.fg = color;
-            render.glyph = glyph;
-        }
+        self.world.insert_one(player_id, light_to_apply).ok();
     }
 
     pub fn add_player_xp(&mut self, xp: i32) {

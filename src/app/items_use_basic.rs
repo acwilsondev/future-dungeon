@@ -78,25 +78,6 @@ impl App {
             handled = true;
         }
 
-        if item_name == "Torch" {
-            self.world
-                .insert_one(
-                    player_id,
-                    LightSource {
-                        range: 10,
-                        base_range: 10,
-                        color: (255, 255, 100),
-                        remaining_turns: Some(2000),
-                        flicker: true,
-                    },
-                )
-                .expect("Failed to insert LightSource component");
-            self.log
-                .push("You light a torch. The shadows retreat.".to_string());
-            self.generate_noise(player_pos.x, player_pos.y, 2.0);
-            handled = true;
-        }
-
         if self.world.get::<&Ranged>(item_id).is_ok()
             || self.world.get::<&RangedWeapon>(item_id).is_ok()
         {

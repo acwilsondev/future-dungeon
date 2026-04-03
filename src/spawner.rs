@@ -160,6 +160,15 @@ pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Ent
     if raw.consumable {
         cb.add(Consumable);
     }
+    if let Some((range, color, turns, flicker)) = raw.light {
+        cb.add(LightSource {
+            range,
+            base_range: range,
+            color,
+            remaining_turns: turns,
+            flicker,
+        });
+    }
 
     world.spawn(cb.build())
 }
@@ -394,6 +403,15 @@ pub fn spawn_item_in_backpack(
     }
     if raw.consumable {
         cb.add(Consumable);
+    }
+    if let Some((range, color, turns, flicker)) = raw.light {
+        cb.add(LightSource {
+            range,
+            base_range: range,
+            color,
+            remaining_turns: turns,
+            flicker,
+        });
     }
 
     world.spawn(cb.build())

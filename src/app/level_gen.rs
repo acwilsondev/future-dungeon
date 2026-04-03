@@ -40,7 +40,7 @@ impl App {
                         &item_raw,
                     );
                     self.identified_items.insert(item_name.to_string());
-                    if item_name == "Dagger" || item_name == "Leather Armor" {
+                    if item_name == "Dagger" || item_name == "Leather Armor" || item_name == "Torch" {
                         self.equip_item(item_id);
                     }
                 }

@@ -159,5 +159,5 @@ Ranged attacks are resolved the same, but are activated by pressing F and choosi
 ### Armor and Shields
 
 - Equipped armor provides a static bonus to AV (which reduces damage)
-- Shields use an arm equipment slot to provide a static bonus to AV.
+- Shields can be Wielded to provide a static bonus to AV.
 - A player *can* equip a shield in both hands.

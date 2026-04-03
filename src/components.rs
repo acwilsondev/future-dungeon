@@ -46,6 +46,7 @@ pub enum EquipmentSlot {
     Feet,
     LeftFinger,
     RightFinger,
+    Light,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
