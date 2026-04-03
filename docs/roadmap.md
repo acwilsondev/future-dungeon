@@ -4,15 +4,20 @@ This document outlines planned initiatives.
 
 ## Roadmap
 
-- Character Model. See [player.md](design/player.md)
-- Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
-- Equipment Galore!
-- The Fighter TBD
-- The Wizard TBD
-- The Cleric TBD
-- The Thief TBD
-- Followers
-- Advanced AI/Goal-Action-Planning
-- LORE
-- Save File Improvements
+e = enhancement
+t = tech debt
+
+- (e) 0.4 Character Model. See [player.md](design/player.md)
+- (e) 0.5 Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
+- (t) Automated Builds CI/CD
+- (e) Equipment Galore!
+- (e) Main Menu
+- (e) The Fighter TBD
+- (e) The Wizard TBD
+- (e) The Cleric TBD
+- (e) The Thief TBD
+- (e) Followers
+- (e) Advanced AI/Goal-Action-Planning
+- (e) LORE
+- (t) Save File Improvements
 
