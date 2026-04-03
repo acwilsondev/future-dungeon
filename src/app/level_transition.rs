@@ -19,18 +19,18 @@ impl App {
 
         self.pack_entities();
         let current_entities = self.entities.clone();
-        let player_snapshot = current_entities
+        let traveling_entities: Vec<EntitySnapshot> = current_entities
             .iter()
-            .find(|e| e.is_player)
+            .filter(|e| e.is_player || e.in_backpack)
             .cloned()
-            .expect("Player entity not found during level transition");
+            .collect();
         let level_entities: Vec<EntitySnapshot> = current_entities
             .into_iter()
-            .filter(|e| !e.is_player)
+            .filter(|e| !e.is_player && !e.in_backpack)
             .collect();
 
         self.levels.insert(
-            (self.dungeon_level, self.current_branch),
+            (from.0, from.1),
             LevelData {
                 map: self.map.clone(),
                 entities: level_entities,
@@ -45,35 +45,36 @@ impl App {
         if let Some(level_data) = self.levels.get(&(self.dungeon_level, self.current_branch)) {
             self.map = level_data.map.clone();
             self.entities = level_data.entities.clone();
-            self.entities.push(player_snapshot);
-            self.unpack_entities();
-            let mut stairs_pos = (0, 0);
+            self.entities.extend(traveling_entities);
+            if self.unpack_entities().is_ok() {
+                let mut stairs_pos = (0, 0);
 
-            if going_down {
-                for (_, (pos, stairs)) in self.world.query::<(&Position, &UpStairs)>().iter() {
-                    if stairs.destination == from {
-                        stairs_pos = (pos.x, pos.y);
-                        break;
+                if going_down {
+                    for (_, (pos, stairs)) in self.world.query::<(&Position, &UpStairs)>().iter() {
+                        if stairs.destination == from {
+                            stairs_pos = (pos.x, pos.y);
+                            break;
+                        }
+                        stairs_pos = (pos.x, pos.y); // Fallback
                     }
-                    stairs_pos = (pos.x, pos.y); // Fallback
-                }
-            } else {
-                for (_, (pos, stairs)) in self.world.query::<(&Position, &DownStairs)>().iter() {
-                    if stairs.destination == from {
-                        stairs_pos = (pos.x, pos.y);
-                        break;
+                } else {
+                    for (_, (pos, stairs)) in self.world.query::<(&Position, &DownStairs)>().iter() {
+                        if stairs.destination == from {
+                            stairs_pos = (pos.x, pos.y);
+                            break;
+                        }
+                        stairs_pos = (pos.x, pos.y); // Fallback
                     }
-                    stairs_pos = (pos.x, pos.y); // Fallback
                 }
-            }
 
-            let mut player_query = self.world.query::<(&mut Position, &Player)>();
-            if let Some((_, (pos, _))) = player_query.iter().next() {
-                pos.x = stairs_pos.0;
-                pos.y = stairs_pos.1;
+                let mut player_query = self.world.query::<(&mut Position, &Player)>();
+                if let Some((_, (pos, _))) = player_query.iter().next() {
+                    pos.x = stairs_pos.0;
+                    pos.y = stairs_pos.1;
+                }
             }
         } else {
-            self.generate_level(Some(player_snapshot));
+            self.generate_level(traveling_entities);
         }
 
         let branch_name = match self.current_branch {

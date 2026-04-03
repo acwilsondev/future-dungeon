@@ -20,7 +20,7 @@ pub fn load_game() -> Result<Option<App>> {
 
     let json = fs::read_to_string(path)?;
     let mut app: App = serde_json::from_str(&json)?;
-    app.unpack_entities();
+    app.unpack_entities()?;
 
     delete_save();
 

@@ -5,23 +5,22 @@ use hecs::World;
 use rand::Rng;
 
 impl App {
-    pub fn generate_level(&mut self, player_snapshot: Option<EntitySnapshot>) {
+    pub fn generate_level(&mut self, traveling_entities: Vec<EntitySnapshot>) {
         let mut mb = MapBuilder::new(80, 50);
         mb.build(self.dungeon_level);
         self.map = mb.map.clone();
         self.world = World::new();
         let mut rng = rand::thread_rng();
 
-        if let Some(snapshot) = player_snapshot {
-            self.entities = vec![snapshot];
-            self.unpack_entities();
-            let mut player_query = self.world.query::<(&mut Position, &Player)>();
-            let (_, (pos, _)) = player_query
-                .iter()
-                .next()
-                .expect("Player not found after unpack");
-            pos.x = mb.player_start.0;
-            pos.y = mb.player_start.1;
+        if !traveling_entities.is_empty() {
+            self.entities = traveling_entities;
+            if self.unpack_entities().is_ok() {
+                let mut player_query = self.world.query::<(&mut Position, &Player)>();
+                if let Some((_, (pos, _))) = player_query.iter().next() {
+                    pos.x = mb.player_start.0;
+                    pos.y = mb.player_start.1;
+                }
+            }
         } else {
             let player_id =
                 crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);

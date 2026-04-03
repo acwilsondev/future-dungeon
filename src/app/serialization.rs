@@ -96,7 +96,7 @@ impl App {
         }
     }
 
-    pub fn unpack_entities(&mut self) {
+    pub fn unpack_entities(&mut self) -> anyhow::Result<()> {
         self.world = World::new();
         let mut player_entity = None;
         let mut in_backpack_markers = Vec::new();
@@ -240,14 +240,14 @@ impl App {
 
         if let Some(player) = player_entity {
             for id in in_backpack_markers {
-                self.world
-                    .insert_one(id, InBackpack { owner: player })
-                    .expect("Failed to insert InBackpack component during unpack");
+                self.world.insert_one(id, InBackpack { owner: player })?;
             }
+        } else {
+            return Err(anyhow::anyhow!("Player entity not found in snapshot"));
         }
 
-        self.map.visible = vec![false; (self.map.width * self.map.height) as usize];
-        self.update_blocked_and_opaque();
+        self.map.reinitialize_skipped_fields();
         self.update_fov();
+        Ok(())
     }
 }

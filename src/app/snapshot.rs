@@ -3,7 +3,7 @@ use crate::map::Map;
 use serde::{Deserialize, Serialize};
 
 /// A snapshot of an entity for serialization
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct EntitySnapshot {
     pub pos: Option<Position>,
     pub render: Renderable,
@@ -88,7 +88,7 @@ pub struct EntitySnapshot {
     pub destination: Option<(u16, Branch)>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LevelData {
     pub map: Map,
     pub entities: Vec<EntitySnapshot>,

@@ -133,13 +133,16 @@ impl App {
         self.update_sound();
         let (pos, range) = {
             let mut player_query = self.world.query::<(&Position, &Player)>();
-            let (id, (pos, _)) = player_query.iter().next().expect("Player not found");
-            let range = self
-                .world
-                .get::<&Viewshed>(id)
-                .map(|v| v.visible_tiles)
-                .unwrap_or(8);
-            (*pos, range)
+            if let Some((id, (pos, _))) = player_query.iter().next() {
+                let range = self
+                    .world
+                    .get::<&Viewshed>(id)
+                    .map(|v| v.visible_tiles)
+                    .unwrap_or(8);
+                (*pos, range)
+            } else {
+                return;
+            }
         };
 
         // Calculate broad LOS (max 20 tiles)

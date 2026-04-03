@@ -7,7 +7,7 @@ pub enum TileType {
     Floor,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Map {
     pub width: u16,
     pub height: u16,
@@ -55,6 +55,14 @@ impl Map {
             self.blocked[i] = *tile == TileType::Wall;
             self.opaque[i] = *tile == TileType::Wall;
         }
+    }
+
+    pub fn reinitialize_skipped_fields(&mut self) {
+        let size = (self.width * self.height) as usize;
+        self.visible = vec![false; size];
+        self.light = vec![0.0; size];
+        self.sound = vec![0.0; size];
+        self.populate_blocked_and_opaque();
     }
 }
 
