@@ -116,6 +116,8 @@ pub struct EntitySnapshot {
     pub is_down_stairs: bool,
     #[serde(default)]
     pub is_up_stairs: bool,
+    #[serde(default)]
+    pub destination: Option<(u16, Branch)>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -140,9 +142,10 @@ pub struct App {
     pub world: World,
     pub map: Map,
     pub entities: Vec<EntitySnapshot>,
-    pub levels: HashMap<u16, LevelData>,
+    pub levels: HashMap<(u16, Branch), LevelData>,
     pub log: Vec<String>,
     pub dungeon_level: u16,
+    pub current_branch: Branch,
     #[serde(skip, default = "default_runstate")]
     pub state: RunState,
     #[serde(skip)]
@@ -196,6 +199,7 @@ impl App {
             levels: HashMap::new(),
             log: vec!["Welcome to RustLike!".to_string()],
             dungeon_level: 1,
+            current_branch: Branch::Main,
             state: RunState::AwaitingInput,
             inventory_cursor: 0,
             targeting_cursor: (0, 0),
@@ -723,11 +727,33 @@ impl App {
             }
         }
 
-        crate::spawner::spawn_stairs(&mut self.world, mb.stairs_down.0, mb.stairs_down.1, true);
-        crate::spawner::spawn_stairs(&mut self.world, mb.stairs_up.0, mb.stairs_up.1, false);
+        crate::spawner::spawn_stairs(&mut self.world, mb.stairs_down.0, mb.stairs_down.1, true, (self.dungeon_level + 1, self.current_branch));
+        crate::spawner::spawn_stairs(&mut self.world, mb.stairs_up.0, mb.stairs_up.1, false, (self.dungeon_level.saturating_sub(1).max(1), self.current_branch));
+
+        if let Some(alt_down) = mb.stairs_down_alt {
+            let alt_branch = if self.current_branch == Branch::Main {
+                if self.dungeon_level % 2 == 0 { Branch::Gardens } else { Branch::Vaults }
+            } else {
+                Branch::Main
+            };
+            crate::spawner::spawn_stairs(&mut self.world, alt_down.0, alt_down.1, true, (self.dungeon_level + 1, alt_branch));
+        }
+
+        let branch_str = match self.current_branch {
+            Branch::Main => "Main",
+            Branch::Gardens => "Gardens",
+            Branch::Vaults => "Vaults",
+        };
 
         let available_items: Vec<&RawItem> = self.content.items.iter()
             .filter(|i| self.dungeon_level >= i.min_floor && self.dungeon_level <= i.max_floor)
+            .filter(|i| {
+                if let Some(branches) = &i.branches {
+                    branches.contains(&branch_str.to_string())
+                } else {
+                    true // If no branches specified, it spawns everywhere
+                }
+            })
             .collect();
 
         // Spawn a Merchant in a random room (usually the second one)
@@ -765,11 +791,22 @@ impl App {
         }
 
         for pos in &mb.trap_spawns {
-            crate::spawner::spawn_trap(&mut self.world, pos.0, pos.1);
+            if self.current_branch == Branch::Gardens {
+                crate::spawner::spawn_spore(&mut self.world, pos.0, pos.1);
+            } else {
+                crate::spawner::spawn_trap(&mut self.world, pos.0, pos.1);
+            }
         }
 
         let available_monsters: Vec<&RawMonster> = self.content.monsters.iter()
             .filter(|m| self.dungeon_level >= m.min_floor && self.dungeon_level <= m.max_floor)
+            .filter(|m| {
+                if let Some(branches) = &m.branches {
+                    branches.contains(&branch_str.to_string())
+                } else {
+                    true
+                }
+            })
             .collect();
 
         let mut monster_spawns = mb.monster_spawns.clone();
@@ -858,40 +895,10 @@ impl App {
         }
     }
 
-    pub fn go_down_level(&mut self) {
-        self.pack_entities();
-        let current_entities = self.entities.clone();
-        let player_snapshot = current_entities.iter().find(|e| e.is_player).cloned().expect("Player entity not found during level transition");
-        let level_entities: Vec<EntitySnapshot> = current_entities.into_iter().filter(|e| !e.is_player).collect();
-
-        self.levels.insert(self.dungeon_level, LevelData {
-            map: self.map.clone(),
-            entities: level_entities,
-        });
-
-        self.dungeon_level += 1;
-
-        if let Some(level_data) = self.levels.get(&self.dungeon_level) {
-            self.map = level_data.map.clone();
-            self.entities = level_data.entities.clone();
-            self.entities.push(player_snapshot);
-            self.unpack_entities();
-            let mut up_stairs_pos = (0, 0);
-            for (_, (pos, _)) in self.world.query::<(&Position, &UpStairs)>().iter() {
-                up_stairs_pos = (pos.x, pos.y);
-            }
-            let mut player_query = self.world.query::<(&mut Position, &Player)>();
-            let (_, (pos, _)) = player_query.iter().next().expect("Player not found after transition");
-            pos.x = up_stairs_pos.0;
-            pos.y = up_stairs_pos.1;
-        } else {
-            self.generate_level(Some(player_snapshot));
-        }
-        self.log.push(format!("You descend to level {}.", self.dungeon_level));
-    }
-
-    pub fn go_up_level(&mut self) {
-        if self.dungeon_level <= 1 {
+    pub fn go_to_level(&mut self, destination: (u16, Branch)) {
+        let from = (self.dungeon_level, self.current_branch);
+        
+        if self.dungeon_level <= 1 && destination.0 < 1 {
             if self.escaping {
                 self.state = RunState::Victory;
                 self.log.push("You escape the dungeon with the Amulet! You win!".to_string());
@@ -906,29 +913,61 @@ impl App {
         let player_snapshot = current_entities.iter().find(|e| e.is_player).cloned().expect("Player entity not found during level transition");
         let level_entities: Vec<EntitySnapshot> = current_entities.into_iter().filter(|e| !e.is_player).collect();
 
-        self.levels.insert(self.dungeon_level, LevelData {
+        self.levels.insert((self.dungeon_level, self.current_branch), LevelData {
             map: self.map.clone(),
             entities: level_entities,
         });
 
-        self.dungeon_level -= 1;
+        let going_down = destination.0 > self.dungeon_level;
+        
+        self.dungeon_level = destination.0;
+        self.current_branch = destination.1;
 
-        let level_data = self.levels.get(&self.dungeon_level).expect("Level data not found for target level");
-        self.map = level_data.map.clone();
-        self.entities = level_data.entities.clone();
-        self.entities.push(player_snapshot);
-        self.unpack_entities();
+        if let Some(level_data) = self.levels.get(&(self.dungeon_level, self.current_branch)) {
+            self.map = level_data.map.clone();
+            self.entities = level_data.entities.clone();
+            self.entities.push(player_snapshot);
+            self.unpack_entities();
+            let mut stairs_pos = (0, 0);
+            
+            if going_down {
+                for (_, (pos, stairs)) in self.world.query::<(&Position, &UpStairs)>().iter() {
+                    if stairs.destination == from {
+                        stairs_pos = (pos.x, pos.y);
+                        break;
+                    }
+                    stairs_pos = (pos.x, pos.y); // Fallback
+                }
+            } else {
+                for (_, (pos, stairs)) in self.world.query::<(&Position, &DownStairs)>().iter() {
+                    if stairs.destination == from {
+                        stairs_pos = (pos.x, pos.y);
+                        break;
+                    }
+                    stairs_pos = (pos.x, pos.y); // Fallback
+                }
+            }
 
-        let mut down_stairs_pos = (0, 0);
-        for (_, (pos, _)) in self.world.query::<(&Position, &DownStairs)>().iter() {
-            down_stairs_pos = (pos.x, pos.y);
+            let mut player_query = self.world.query::<(&mut Position, &Player)>();
+            if let Some((_, (pos, _))) = player_query.iter().next() {
+                pos.x = stairs_pos.0;
+                pos.y = stairs_pos.1;
+            }
+        } else {
+            self.generate_level(Some(player_snapshot));
         }
-        let mut player_query = self.world.query::<(&mut Position, &Player)>();
-        let (_, (pos, _)) = player_query.iter().next().expect("Player not found after transition up");
-        pos.x = down_stairs_pos.0;
-        pos.y = down_stairs_pos.1;
 
-        self.log.push(format!("You ascend to level {}.", self.dungeon_level));
+        let branch_name = match self.current_branch {
+            Branch::Main => "Main Dungeon",
+            Branch::Gardens => "Overgrown Gardens",
+            Branch::Vaults => "Frozen Vaults",
+        };
+
+        if going_down {
+            self.log.push(format!("You descend to level {} of {}.", self.dungeon_level, branch_name));
+        } else {
+            self.log.push(format!("You ascend to level {} of {}.", self.dungeon_level, branch_name));
+        }
     }
 
     pub fn update_lighting(&mut self) {
@@ -1098,6 +1137,8 @@ impl App {
                 is_item: self.world.get::<&Item>(id).is_ok(),
                 is_down_stairs: self.world.get::<&DownStairs>(id).is_ok(),
                 is_up_stairs: self.world.get::<&UpStairs>(id).is_ok(),
+                destination: self.world.get::<&DownStairs>(id).ok().map(|s| s.destination)
+                    .or_else(|| self.world.get::<&UpStairs>(id).ok().map(|s| s.destination)),
             });
         }
     }
@@ -1149,8 +1190,8 @@ impl App {
             if e.is_monster { cb.add(Monster); }
             if e.is_wisp { cb.add(Wisp); }
             if e.is_item { cb.add(Item); }
-            if e.is_down_stairs { cb.add(DownStairs); }
-            if e.is_up_stairs { cb.add(UpStairs); }
+            if e.is_down_stairs { cb.add(DownStairs { destination: e.destination.unwrap_or((0, Branch::Main)) }); }
+            if e.is_up_stairs { cb.add(UpStairs { destination: e.destination.unwrap_or((0, Branch::Main)) }); }
             let entity = self.world.spawn(cb.build());
             if e.is_player { player_entity = Some(entity); }
             if e.in_backpack { in_backpack_markers.push(entity); }
@@ -1328,6 +1369,7 @@ impl App {
 
             let mut total_damage = 0;
             let mut triggered_traps = Vec::new();
+            let mut poisons_to_apply = Vec::new();
             for (id, (t_pos, trap)) in self.world.query::<(&Position, &mut Trap)>().iter() {
                 if t_pos.x == new_x && t_pos.y == new_y {
                     let mut levitating = false;
@@ -1345,6 +1387,11 @@ impl App {
                         }
                     } else {
                         triggered_traps.push(id); total_damage += trap.damage; trap.revealed = true;
+                        if let Ok(poison) = self.world.get::<&Poison>(id) {
+                            if self.world.get::<&Poison>(player_id).is_err() {
+                                poisons_to_apply.push(*poison);
+                            }
+                        }
                     }
                 }
             }
@@ -1356,8 +1403,14 @@ impl App {
                     if player_stats.hp <= 0 { self.death = true; self.state = RunState::Dead; }
                 }
                 drop(stats_query);
-                for trap_id in triggered_traps { self.world.despawn(trap_id).expect("Failed to despawn trap"); }
             }
+            for trap_id in triggered_traps { self.world.despawn(trap_id).expect("Failed to despawn trap"); }
+            
+            for poison in poisons_to_apply {
+                self.world.insert_one(player_id, poison).ok();
+                self.log.push("You step on a Poison Spore and are poisoned!".to_string());
+            }
+
             self.update_fov();
             self.state = RunState::MonsterTurn;
         }
@@ -1369,11 +1422,27 @@ impl App {
             let (_, (pos, _)) = player_query.iter().next().expect("Player not found");
             *pos
         };
-        let mut transition = None;
-        for (_, (pos, _)) in self.world.query::<(&Position, &DownStairs)>().iter() { if pos.x == player_pos.x && pos.y == player_pos.y { transition = Some(true); } }
-        for (_, (pos, _)) in self.world.query::<(&Position, &UpStairs)>().iter() { if pos.x == player_pos.x && pos.y == player_pos.y { transition = Some(false); } }
-        if let Some(down) = transition { if down { self.go_down_level(); } else { self.go_up_level(); } }
-        else { self.log.push("There are no stairs here.".to_string()); }
+        let mut transition_down = None;
+        let mut transition_up = None;
+
+        for (_, (pos, stairs)) in self.world.query::<(&Position, &DownStairs)>().iter() {
+            if pos.x == player_pos.x && pos.y == player_pos.y {
+                transition_down = Some(stairs.destination);
+            }
+        }
+        for (_, (pos, stairs)) in self.world.query::<(&Position, &UpStairs)>().iter() {
+            if pos.x == player_pos.x && pos.y == player_pos.y {
+                transition_up = Some(stairs.destination);
+            }
+        }
+
+        if let Some(dest) = transition_down {
+            self.go_to_level(dest);
+        } else if let Some(dest) = transition_up {
+            self.go_to_level(dest);
+        } else {
+            self.log.push("There are no stairs here.".to_string());
+        }
     }
 
     pub fn pick_up_item(&mut self) {
@@ -2268,7 +2337,14 @@ impl App {
             }
         }
 
-        if self.state != RunState::Dead && self.state != RunState::LevelUp { self.state = RunState::AwaitingInput; }
+        if self.state != RunState::Dead && self.state != RunState::LevelUp {
+            if self.current_branch == Branch::Vaults && self.turn_count % 2 == 0 {
+                // In Vaults, player is slower, so monsters get a double turn occasionally
+                self.monster_turn();
+            } else {
+                self.state = RunState::AwaitingInput;
+            }
+        }
     }
 }
 

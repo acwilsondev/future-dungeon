@@ -46,9 +46,19 @@ fn draw_map(app: &App, frame: &mut Frame, area: RatatuiRect, camera: (i32, i32),
             let light = app.map.light[idx];
             let is_visible = app.map.visible[idx];
             
-            let (char, mut color) = match app.map.tiles[idx] {
-                TileType::Wall => ("#", if is_visible { Color::Indexed(252) } else { Color::Indexed(238) }),
-                TileType::Floor => (".", if is_visible { Color::Indexed(242) } else { Color::Indexed(234) }),
+            let (char, mut color) = match app.current_branch {
+                Branch::Main => match app.map.tiles[idx] {
+                    TileType::Wall => ("#", if is_visible { Color::Indexed(252) } else { Color::Indexed(238) }),
+                    TileType::Floor => (".", if is_visible { Color::Indexed(242) } else { Color::Indexed(234) }),
+                },
+                Branch::Gardens => match app.map.tiles[idx] {
+                    TileType::Wall => ("♣", if is_visible { Color::Rgb(34, 139, 34) } else { Color::Rgb(0, 100, 0) }),
+                    TileType::Floor => (",", if is_visible { Color::Rgb(144, 238, 144) } else { Color::Rgb(50, 150, 50) }),
+                },
+                Branch::Vaults => match app.map.tiles[idx] {
+                    TileType::Wall => ("#", if is_visible { Color::Rgb(173, 216, 230) } else { Color::Rgb(70, 130, 180) }),
+                    TileType::Floor => ("-", if is_visible { Color::Rgb(224, 255, 255) } else { Color::Rgb(100, 149, 237) }),
+                },
             };
 
             if is_visible {

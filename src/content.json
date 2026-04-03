@@ -3,7 +3,11 @@
     {
       "name": "Orc",
       "glyph": "o",
-      "color": [255, 0, 0],
+      "color": [
+        255,
+        0,
+        0
+      ],
       "hp": 15,
       "defense": 1,
       "power": 4,
@@ -22,7 +26,11 @@
     {
       "name": "Goblin",
       "glyph": "g",
-      "color": [0, 255, 0],
+      "color": [
+        0,
+        255,
+        0
+      ],
       "hp": 8,
       "defense": 0,
       "power": 2,
@@ -41,7 +49,11 @@
     {
       "name": "Goblin Archer",
       "glyph": "a",
-      "color": [0, 255, 255],
+      "color": [
+        0,
+        255,
+        255
+      ],
       "hp": 6,
       "defense": 0,
       "power": 3,
@@ -60,7 +72,11 @@
     {
       "name": "Spider",
       "glyph": "s",
-      "color": [255, 165, 0],
+      "color": [
+        255,
+        165,
+        0
+      ],
       "hp": 5,
       "defense": 0,
       "power": 5,
@@ -79,7 +95,11 @@
     {
       "name": "The Broodmother",
       "glyph": "S",
-      "color": [255, 100, 255],
+      "color": [
+        255,
+        100,
+        255
+      ],
       "hp": 100,
       "defense": 2,
       "power": 8,
@@ -93,14 +113,21 @@
       "max_floor": 3,
       "is_boss": true,
       "phases": [
-        { "hp_threshold_pct": 0.5, "action": "SummonMinions" }
+        {
+          "hp_threshold_pct": 0.5,
+          "action": "SummonMinions"
+        }
       ],
       "guaranteed_loot": "Venomous Dagger"
     },
     {
       "name": "The Goblin King",
       "glyph": "G",
-      "color": [255, 215, 0],
+      "color": [
+        255,
+        215,
+        0
+      ],
       "hp": 150,
       "defense": 4,
       "power": 10,
@@ -114,17 +141,79 @@
       "max_floor": 6,
       "is_boss": true,
       "phases": [
-        { "hp_threshold_pct": 0.6, "action": "Enrage" },
-        { "hp_threshold_pct": 0.3, "action": "Enrage" }
+        {
+          "hp_threshold_pct": 0.6,
+          "action": "Enrage"
+        },
+        {
+          "hp_threshold_pct": 0.3,
+          "action": "Enrage"
+        }
       ],
       "guaranteed_loot": "King's Armor"
+    },
+    {
+      "name": "Garden Snake",
+      "glyph": "s",
+      "color": [
+        0,
+        200,
+        0
+      ],
+      "hp": 12,
+      "defense": 1,
+      "power": 4,
+      "faction": "Animals",
+      "personality": "Tactical",
+      "viewshed": 6,
+      "xp_reward": 20,
+      "ranged": null,
+      "spawn_chance": 0.4,
+      "min_floor": 2,
+      "max_floor": 999,
+      "is_boss": false,
+      "phases": null,
+      "guaranteed_loot": null,
+      "branches": [
+        "Gardens"
+      ]
+    },
+    {
+      "name": "Ice Elemental",
+      "glyph": "E",
+      "color": [
+        100,
+        100,
+        255
+      ],
+      "hp": 25,
+      "defense": 3,
+      "power": 6,
+      "faction": "Animals",
+      "personality": "Brave",
+      "viewshed": 8,
+      "xp_reward": 30,
+      "ranged": null,
+      "spawn_chance": 0.4,
+      "min_floor": 2,
+      "max_floor": 999,
+      "is_boss": false,
+      "phases": null,
+      "guaranteed_loot": null,
+      "branches": [
+        "Vaults"
+      ]
     }
   ],
   "items": [
     {
       "name": "Boots of Levitation",
       "glyph": "[",
-      "color": [0, 255, 255],
+      "color": [
+        0,
+        255,
+        255
+      ],
       "price": 80,
       "potion": null,
       "weapon": null,
@@ -146,7 +235,11 @@
     {
       "name": "Amulet of the Ancients",
       "glyph": "\"",
-      "color": [255, 215, 0],
+      "color": [
+        255,
+        215,
+        0
+      ],
       "price": 5000,
       "potion": null,
       "weapon": null,
@@ -168,7 +261,11 @@
     {
       "name": "Health Potion",
       "glyph": "!",
-      "color": [255, 0, 255],
+      "color": [
+        255,
+        0,
+        255
+      ],
       "price": 10,
       "potion": 8,
       "weapon": null,
@@ -190,7 +287,11 @@
     {
       "name": "Dagger",
       "glyph": "/",
-      "color": [0, 255, 255],
+      "color": [
+        0,
+        255,
+        255
+      ],
       "price": 5,
       "potion": null,
       "weapon": 2,
@@ -212,7 +313,11 @@
     {
       "name": "Venomous Dagger",
       "glyph": "/",
-      "color": [0, 255, 0],
+      "color": [
+        0,
+        255,
+        0
+      ],
       "price": 50,
       "potion": null,
       "weapon": 4,
@@ -221,7 +326,10 @@
       "ranged_weapon": null,
       "aoe": null,
       "confusion": null,
-      "poison": [3, 10],
+      "poison": [
+        3,
+        10
+      ],
       "ammo": false,
       "consumable": false,
       "spawn_chance": 0.0,
@@ -234,7 +342,11 @@
     {
       "name": "King's Armor",
       "glyph": "[",
-      "color": [255, 215, 0],
+      "color": [
+        255,
+        215,
+        0
+      ],
       "price": 100,
       "potion": null,
       "weapon": null,
@@ -256,7 +368,11 @@
     {
       "name": "Magic Missile Scroll",
       "glyph": ")",
-      "color": [255, 255, 0],
+      "color": [
+        255,
+        255,
+        0
+      ],
       "price": 15,
       "potion": null,
       "weapon": null,
@@ -278,7 +394,11 @@
     {
       "name": "Fire Scroll",
       "glyph": ")",
-      "color": [255, 0, 0],
+      "color": [
+        255,
+        0,
+        0
+      ],
       "price": 20,
       "potion": null,
       "weapon": null,
@@ -300,7 +420,11 @@
     {
       "name": "Potion of Strength",
       "glyph": "!",
-      "color": [255, 255, 0],
+      "color": [
+        255,
+        255,
+        0
+      ],
       "price": 15,
       "potion": null,
       "weapon": null,
@@ -322,7 +446,11 @@
     {
       "name": "Potion of Speed",
       "glyph": "!",
-      "color": [0, 255, 255],
+      "color": [
+        0,
+        255,
+        255
+      ],
       "price": 20,
       "potion": null,
       "weapon": null,
@@ -344,7 +472,11 @@
     {
       "name": "Poison Scroll",
       "glyph": ")",
-      "color": [0, 255, 0],
+      "color": [
+        0,
+        255,
+        0
+      ],
       "price": 15,
       "potion": null,
       "weapon": null,
@@ -353,7 +485,10 @@
       "ranged_weapon": null,
       "aoe": null,
       "confusion": null,
-      "poison": [2, 6],
+      "poison": [
+        2,
+        6
+      ],
       "ammo": false,
       "consumable": true,
       "spawn_chance": 0.2,
@@ -366,13 +501,20 @@
     {
       "name": "Shortbow",
       "glyph": ")",
-      "color": [255, 255, 0],
+      "color": [
+        255,
+        255,
+        0
+      ],
       "price": 25,
       "potion": null,
       "weapon": null,
       "armor": null,
       "ranged": null,
-      "ranged_weapon": [8, 4],
+      "ranged_weapon": [
+        8,
+        4
+      ],
       "aoe": null,
       "confusion": null,
       "poison": null,
@@ -388,7 +530,11 @@
     {
       "name": "Arrows",
       "glyph": "`",
-      "color": [150, 150, 150],
+      "color": [
+        150,
+        150,
+        150
+      ],
       "price": 2,
       "potion": null,
       "weapon": null,
@@ -410,7 +556,11 @@
     {
       "name": "Leather Armor",
       "glyph": "[",
-      "color": [0, 255, 0],
+      "color": [
+        0,
+        255,
+        0
+      ],
       "price": 15,
       "potion": null,
       "weapon": null,
@@ -432,7 +582,11 @@
     {
       "name": "Torch",
       "glyph": "(",
-      "color": [255, 165, 0],
+      "color": [
+        255,
+        165,
+        0
+      ],
       "price": 5,
       "potion": null,
       "weapon": null,
@@ -454,7 +608,11 @@
     {
       "name": "Identification Scroll",
       "glyph": "?",
-      "color": [255, 255, 255],
+      "color": [
+        255,
+        255,
+        255
+      ],
       "price": 20,
       "potion": null,
       "weapon": null,
@@ -476,7 +634,11 @@
     {
       "name": "Cursed Ring of Doom",
       "glyph": "=",
-      "color": [100, 0, 0],
+      "color": [
+        100,
+        0,
+        0
+      ],
       "price": 5,
       "potion": null,
       "weapon": null,
@@ -498,7 +660,11 @@
     {
       "name": "Leather Cap",
       "glyph": "[",
-      "color": [139, 69, 19],
+      "color": [
+        139,
+        69,
+        19
+      ],
       "price": 10,
       "potion": null,
       "weapon": null,
@@ -520,7 +686,11 @@
     {
       "name": "Iron Gauntlets",
       "glyph": "[",
-      "color": [169, 169, 169],
+      "color": [
+        169,
+        169,
+        169
+      ],
       "price": 15,
       "potion": null,
       "weapon": null,
@@ -542,7 +712,11 @@
     {
       "name": "Leather Boots",
       "glyph": "[",
-      "color": [139, 69, 19],
+      "color": [
+        139,
+        69,
+        19
+      ],
       "price": 10,
       "potion": null,
       "weapon": null,
@@ -564,7 +738,11 @@
     {
       "name": "Ring of Regeneration",
       "glyph": "=",
-      "color": [0, 255, 0],
+      "color": [
+        0,
+        255,
+        0
+      ],
       "price": 100,
       "potion": null,
       "weapon": null,
@@ -582,6 +760,64 @@
       "obfuscated_name": "Glimmering Ring",
       "cursed": false,
       "slot": "RightFinger"
+    },
+    {
+      "name": "Frost Wand",
+      "glyph": "/",
+      "color": [
+        100,
+        100,
+        255
+      ],
+      "price": 50,
+      "potion": null,
+      "weapon": 3,
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.1,
+      "min_floor": 2,
+      "max_floor": 999,
+      "obfuscated_name": "Cold Stick",
+      "cursed": false,
+      "slot": "Melee",
+      "branches": [
+        "Vaults"
+      ]
+    },
+    {
+      "name": "Vine Whip",
+      "glyph": "/",
+      "color": [
+        0,
+        200,
+        0
+      ],
+      "price": 45,
+      "potion": null,
+      "weapon": 4,
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.1,
+      "min_floor": 2,
+      "max_floor": 999,
+      "obfuscated_name": "Thorny Whip",
+      "cursed": false,
+      "slot": "Melee",
+      "branches": [
+        "Gardens"
+      ]
     }
   ]
 }

@@ -40,6 +40,7 @@ pub struct MapBuilder {
     pub door_spawns: Vec<(u16, u16)>,
     pub trap_spawns: Vec<(u16, u16)>,
     pub stairs_down: (u16, u16),
+    pub stairs_down_alt: Option<(u16, u16)>,
     pub stairs_up: (u16, u16),
     pub theme: LevelTheme,
 }
@@ -57,6 +58,7 @@ impl MapBuilder {
             door_spawns: Vec::new(),
             trap_spawns: Vec::new(),
             stairs_down: (0, 0),
+            stairs_down_alt: None,
             stairs_up: (0, 0),
             theme: LevelTheme::Rooms,
         }
@@ -227,6 +229,12 @@ impl MapBuilder {
                         let trap_y = rng.gen_range(new_room.y1..new_room.y2) as u16;
                         self.trap_spawns.push((trap_x, trap_y));
                     }
+                    if rng.gen_bool(0.4) {
+                        // More traps/spores in branches will be handled by the game logic
+                        let trap_x = rng.gen_range(new_room.x1..new_room.x2) as u16;
+                        let trap_y = rng.gen_range(new_room.y1..new_room.y2) as u16;
+                        self.trap_spawns.push((trap_x, trap_y));
+                    }
                 } else {
                     let start = new_room.center();
                     self.player_start = (start.0 as u16, start.1 as u16);
@@ -238,6 +246,11 @@ impl MapBuilder {
 
         let end = self.rooms[self.rooms.len() - 1].center();
         self.stairs_down = (end.0 as u16, end.1 as u16);
+
+        if self.rooms.len() > 3 && rng.gen_bool(0.3) {
+            let alt_end = self.rooms[self.rooms.len() - 2].center();
+            self.stairs_down_alt = Some((alt_end.0 as u16, alt_end.1 as u16));
+        }
     }
 
     fn spawn_vault(&mut self, rect: &Rect) {

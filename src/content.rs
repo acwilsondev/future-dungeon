@@ -27,6 +27,7 @@ pub struct RawMonster {
     pub is_boss: Option<bool>,
     pub phases: Option<Vec<RawBossPhase>>,
     pub guaranteed_loot: Option<String>,
+    pub branches: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -51,6 +52,7 @@ pub struct RawItem {
     pub obfuscated_name: Option<String>,
     pub cursed: Option<bool>,
     pub slot: Option<crate::components::EquipmentSlot>,
+    pub branches: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

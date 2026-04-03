@@ -96,13 +96,13 @@ pub fn spawn_gold(world: &mut World, x: u16, y: u16, amount: i32) -> hecs::Entit
     ))
 }
 
-pub fn spawn_stairs(world: &mut World, x: u16, y: u16, down: bool) -> hecs::Entity {
+pub fn spawn_stairs(world: &mut World, x: u16, y: u16, down: bool, destination: (u16, Branch)) -> hecs::Entity {
     if down {
         world.spawn((
             Position { x, y },
             Renderable { glyph: '>', fg: Color::White },
             RenderOrder::Map,
-            DownStairs,
+            DownStairs { destination },
             Name("Down Stairs".to_string()),
         ))
     } else {
@@ -110,7 +110,7 @@ pub fn spawn_stairs(world: &mut World, x: u16, y: u16, down: bool) -> hecs::Enti
             Position { x, y },
             Renderable { glyph: '<', fg: Color::White },
             RenderOrder::Map,
-            UpStairs,
+            UpStairs { destination },
             Name("Up Stairs".to_string()),
         ))
     }
@@ -123,6 +123,17 @@ pub fn spawn_door(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         RenderOrder::Map,
         Door { open: false },
         Name("Door".to_string()),
+    ))
+}
+
+pub fn spawn_spore(world: &mut World, x: u16, y: u16) -> hecs::Entity {
+    world.spawn((
+        Position { x, y },
+        Renderable { glyph: ',', fg: Color::Rgb(0, 255, 0) },
+        RenderOrder::Trap,
+        Trap { damage: 0, revealed: true },
+        Poison { damage: 2, turns: 5 },
+        Name("Poison Spore".to_string()),
     ))
 }
 
