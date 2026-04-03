@@ -206,7 +206,10 @@ pub struct Viewshed {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LightSource {
     pub range: i32,
+    pub base_range: i32,
     pub color: (u8, u8, u8),
+    pub remaining_turns: Option<i32>,
+    pub flicker: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

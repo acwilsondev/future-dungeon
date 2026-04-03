@@ -27,27 +27,12 @@ pub fn apply_lighting(color: Color, intensity: f32) -> Color {
     }
 }
 
-pub fn render(app: &App, frame: &mut Frame) {
-    let chunks = Layout::default().direction(Direction::Vertical).constraints([Constraint::Min(0), Constraint::Length(6)]).split(frame.size());
-    let top_chunks = Layout::default().direction(Direction::Horizontal).constraints([Constraint::Min(0), Constraint::Length(30)]).split(chunks[0]);
-    let map_area = top_chunks[0]; let sidebar_area = top_chunks[1]; let log_area = chunks[1];
-
-    let map_title = format!(" RustLike Dungeon - FPS: {:.1} ", app.fps);
-    let map_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Indexed(240)))
-        .title(Span::styled(map_title, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
-    frame.render_widget(map_block, map_area);
-    let inner_map = map_area.inner(&Margin { vertical: 1, horizontal: 1 });
+fn draw_map(app: &App, frame: &mut Frame, area: RatatuiRect, camera: (i32, i32), player_pos: &Position) {
+    let inner_map = area;
     let buffer = frame.buffer_mut();
-
-    let mut player_query = app.world.query::<(&Position, &Player, &CombatStats)>();
-    let (_, (player_pos, _, player_stats)) = player_query.iter().next().expect("Player not found");
-
-    let view_w = inner_map.width as i32; let view_h = inner_map.height as i32;
-    let mut camera_x = player_pos.x as i32 - view_w / 2; let mut camera_y = player_pos.y as i32 - view_h / 2;
-    camera_x = camera_x.clamp(0, (app.map.width as i32 - view_w).max(0)); 
-    camera_y = camera_y.clamp(0, (app.map.height as i32 - view_h).max(0));
+    let (camera_x, camera_y) = camera;
+    let view_w = inner_map.width as i32;
+    let view_h = inner_map.height as i32;
 
     for y in 0..view_h {
         let map_y = y + camera_y; 
@@ -67,9 +52,9 @@ pub fn render(app: &App, frame: &mut Frame) {
             };
 
             if is_visible {
-                color = apply_lighting(color, light.max(0.2)); // Minimum ambient light when in FOV
+                color = apply_lighting(color, light.max(0.2)); 
             } else {
-                color = apply_lighting(color, 0.1); // Very dim for revealed but not in FOV
+                color = apply_lighting(color, 0.1); 
             }
 
             buffer.get_mut(inner_map.x + x as u16, inner_map.y + y as u16).set_symbol(char).set_fg(color);
@@ -87,7 +72,7 @@ pub fn render(app: &App, frame: &mut Frame) {
         if !app.map.visible[idx] { continue; }
         
         let light = app.map.light[idx];
-        if light < 0.1 && app.world.get::<&Player>(id).is_err() { continue; } // Hide monsters in total darkness
+        if light < 0.1 && app.world.get::<&Player>(id).is_err() { continue; } 
 
         if let Ok(trap) = app.world.get::<&Trap>(id) { if !trap.revealed { continue; } }
         let screen_x = pos.x as i32 - camera_x; let screen_y = pos.y as i32 - camera_y;
@@ -99,7 +84,6 @@ pub fn render(app: &App, frame: &mut Frame) {
         }
     }
 
-    // Render visual effects
     for effect in &app.effects {
         match effect {
             VisualEffect::Flash { x, y, glyph, fg, bg, .. } => {
@@ -129,7 +113,6 @@ pub fn render(app: &App, frame: &mut Frame) {
     }
 
     if app.state == RunState::ShowTargeting {
-        // Draw line from player to target
         let line = line2d(
             LineAlg::Bresenham, 
             Point::new(player_pos.x, player_pos.y), 
@@ -141,20 +124,22 @@ pub fn render(app: &App, frame: &mut Frame) {
             let sy = p.y - camera_y;
             if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
                 let cell = buffer.get_mut(inner_map.x + sx as u16, inner_map.y + sy as u16);
-                if i == 0 {
-                    // Player position, don't change it much
-                } else if i == line.len() - 1 {
-                    cell.set_bg(Color::Cyan).set_fg(Color::Black);
-                } else {
-                    cell.set_bg(Color::Indexed(236));
+                if i > 0 {
+                    if i == line.len() - 1 {
+                        cell.set_bg(Color::Cyan).set_fg(Color::Black);
+                    } else {
+                        cell.set_bg(Color::Indexed(236));
+                    }
                 }
             }
         }
     }
+}
 
-    let sidebar = Block::default().borders(Borders::ALL).title(" Character ");
-    let hp_percent = (player_stats.hp as f32 / player_stats.max_hp as f32 * 100.0) as u16;
-    let hp_color = if hp_percent > 50 { Color::Green } else if hp_percent > 25 { Color::Yellow } else { Color::Red };
+fn draw_sidebar(app: &App, frame: &mut Frame, area: RatatuiRect, player_pos: &Position, player_stats: &CombatStats) {
+    let sidebar_block = Block::default().borders(Borders::ALL).title(" Character ");
+    frame.render_widget(sidebar_block, area);
+    
     let sidebar_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -164,7 +149,10 @@ pub fn render(app: &App, frame: &mut Frame) {
             Constraint::Length(3), // Noise
             Constraint::Min(0)     // Status/Perks
         ])
-        .split(sidebar_area.inner(&Margin { vertical: 1, horizontal: 1 }));
+        .split(area.inner(&Margin { vertical: 1, horizontal: 1 }));
+
+    let hp_percent = (player_stats.hp as f32 / player_stats.max_hp as f32 * 100.0) as u16;
+    let hp_color = if hp_percent > 50 { Color::Green } else if hp_percent > 25 { Color::Yellow } else { Color::Red };
     frame.render_widget(Gauge::default().block(Block::default().title("HP")).gauge_style(Style::default().fg(hp_color).bg(Color::Indexed(233))).percent(hp_percent).label(format!("{}/{}", player_stats.hp, player_stats.max_hp)), sidebar_layout[0]);
     frame.render_widget(Paragraph::new(format!("ATK: {}  DEF: {}", player_stats.power, player_stats.defense)), sidebar_layout[1]);
     
@@ -175,7 +163,6 @@ pub fn render(app: &App, frame: &mut Frame) {
 
     frame.render_widget(Paragraph::new(format!("Level: {}  XP: {}/{}", level, xp, next_xp)), sidebar_layout[2]);
     
-    // Noise Level
     let player_idx = (player_pos.y as u16 * app.map.width + player_pos.x as u16) as usize;
     let player_noise = app.map.sound[player_idx];
     let noise_percent = (player_noise * 10.0).clamp(0.0, 100.0) as u16;
@@ -191,7 +178,6 @@ pub fn render(app: &App, frame: &mut Frame) {
         sidebar_layout[3]
     );
 
-    // Status Effects / Gold
     let mut status_lines = Vec::new();
     let gold_amount = app.world.get::<&Gold>(player_id).map(|g| g.amount).unwrap_or(0);
     status_lines.push(Line::from(Span::styled(format!("Gold: {}", gold_amount), Style::default().fg(Color::Yellow))));
@@ -222,12 +208,11 @@ pub fn render(app: &App, frame: &mut Frame) {
     }
     
     if !status_lines.is_empty() {
-         let status_area = sidebar_layout[4];
-         frame.render_widget(Paragraph::new(status_lines).block(Block::default().title(" Status/Perks ")), status_area);
+         frame.render_widget(Paragraph::new(status_lines).block(Block::default().title(" Status/Perks ")), sidebar_layout[4]);
     }
+}
 
-    frame.render_widget(sidebar, sidebar_area);
-
+fn draw_message_log(app: &App, frame: &mut Frame, area: RatatuiRect) {
     let log_block = Block::default().borders(Borders::ALL).title(" Message Log ");
     let log_items: Vec<ListItem> = app.log.iter().rev().take(5).enumerate().map(|(i, s)| {
         let mut style = Style::default();
@@ -242,7 +227,38 @@ pub fn render(app: &App, frame: &mut Frame) {
 
         ListItem::new(Span::styled(s.clone(), Style::default().fg(fg).add_modifier(if i == 0 { Modifier::BOLD } else { Modifier::empty() })))
     }).collect();
-    frame.render_widget(List::new(log_items).block(log_block), log_area);
+    frame.render_widget(List::new(log_items).block(log_block), area);
+}
+
+pub fn render(app: &App, frame: &mut Frame) {
+    let chunks = Layout::default().direction(Direction::Vertical).constraints([Constraint::Min(0), Constraint::Length(6)]).split(frame.size());
+    let top_chunks = Layout::default().direction(Direction::Horizontal).constraints([Constraint::Min(0), Constraint::Length(30)]).split(chunks[0]);
+    let map_area = top_chunks[0]; let sidebar_area = top_chunks[1]; let log_area = chunks[1];
+
+    let map_title = format!(" RustLike Dungeon - FPS: {:.1} ", app.fps);
+    let map_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Indexed(240)))
+        .title(Span::styled(map_title, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)));
+    frame.render_widget(map_block, map_area);
+    let inner_map = map_area.inner(&Margin { vertical: 1, horizontal: 1 });
+
+    let mut player_query = app.world.query::<(&Position, &Player, &CombatStats)>();
+    let (_, (player_pos, _, player_stats)) = player_query.iter().next().expect("Player not found");
+
+    let view_w = inner_map.width as i32; let view_h = inner_map.height as i32;
+    let mut camera_x = player_pos.x as i32 - view_w / 2; let mut camera_y = player_pos.y as i32 - view_h / 2;
+    camera_x = camera_x.clamp(0, (app.map.width as i32 - view_w).max(0)); 
+    camera_y = camera_y.clamp(0, (app.map.height as i32 - view_h).max(0));
+
+    // 1. Draw Map & Entities
+    draw_map(app, frame, inner_map, (camera_x, camera_y), player_pos);
+
+    // 2. Draw Sidebar (Character Stats)
+    draw_sidebar(app, frame, sidebar_area, player_pos, player_stats);
+
+    // 3. Draw Message Log
+    draw_message_log(app, frame, log_area);
 
     if app.state == RunState::ShowInventory || app.state == RunState::ShowIdentify || app.state == RunState::ShowAlchemy { render_inventory(app, frame); }
     else if app.state == RunState::ShowHelp { render_help(app, frame); }
@@ -349,9 +365,11 @@ fn render_shop(app: &App, frame: &mut Frame) {
                 .collect()
         } else { Vec::new() }
     } else {
-        // Sell: Player's backpack
+        // Sell: Player's backpack (Filter out equipped items)
         app.world.query::<(&Item, &InBackpack, &Name, &ItemValue)>().iter()
-            .filter(|(_, (_, backpack, _, _))| backpack.owner == player_id)
+            .filter(|(id, (_, backpack, _, _))| {
+                backpack.owner == player_id && app.world.get::<&Equipped>(*id).is_err()
+            })
             .map(|(id, (_, _, name, value))| (id, name.0.clone(), value.price / 2))
             .collect()
     };

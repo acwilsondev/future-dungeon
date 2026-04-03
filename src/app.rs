@@ -292,7 +292,8 @@ impl App {
     pub fn unequip_item(&mut self, item_id: hecs::Entity) -> bool {
         let item_name = self.get_item_name(item_id);
         if self.world.get::<&Cursed>(item_id).is_ok() {
-            self.log.push(format!("You cannot unequip the {}; it's cursed!", item_name));
+            self.identify_item(item_id);
+            self.log.push(format!("You cannot unequip the {}; it's cursed!", self.get_item_name(item_id)));
             return false;
         }
 
@@ -364,22 +365,285 @@ impl App {
         self.effects = still_active;
     }
 
-    pub fn process_action(&mut self, action: Action) {
-        match self.state {
-            RunState::AwaitingInput => {
-                match action {
-                    Action::Quit => self.exit = true,
-                    Action::MovePlayer(dx, dy) => self.move_player(dx, dy),
-                    Action::PickUpItem => self.pick_up_item(),
-                    Action::OpenInventory => self.state = RunState::ShowInventory,
-                    Action::OpenHelp => self.state = RunState::ShowHelp,
-                    Action::OpenLogHistory => { self.state = RunState::ShowLogHistory; self.log_cursor = self.log.len().saturating_sub(1); }
-                    Action::OpenBestiary => { self.state = RunState::ShowBestiary; self.bestiary_cursor = 0; }
-                    Action::TryLevelTransition => self.try_level_transition(),
-                    Action::Wait => self.state = RunState::MonsterTurn,
-                    _ => {}
+    fn handle_awaiting_input(&mut self, action: Action) {
+        match action {
+            Action::Quit => self.exit = true,
+            Action::MovePlayer(dx, dy) => self.move_player(dx, dy),
+            Action::PickUpItem => self.pick_up_item(),
+            Action::OpenInventory => self.state = RunState::ShowInventory,
+            Action::OpenHelp => self.state = RunState::ShowHelp,
+            Action::OpenLogHistory => { self.state = RunState::ShowLogHistory; self.log_cursor = self.log.len().saturating_sub(1); }
+            Action::OpenBestiary => { self.state = RunState::ShowBestiary; self.bestiary_cursor = 0; }
+            Action::TryLevelTransition => self.try_level_transition(),
+            Action::Wait => self.state = RunState::MonsterTurn,
+            _ => {}
+        }
+    }
+
+    fn handle_inventory_input(&mut self, action: Action) {
+        match action {
+            Action::CloseMenu | Action::OpenInventory => self.state = RunState::AwaitingInput,
+            Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
+            Action::MenuDown => {
+                let player_id = self.get_player_id().expect("Player not found during inventory browsing");
+                let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
+                    .filter(|(_, (backpack,))| backpack.owner == player_id).count();
+                if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
+            },
+            Action::MenuSelect => {
+                let player_id = self.get_player_id().expect("Player not found during item selection");
+                let item_to_use = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
+                    .iter()
+                    .filter(|(_, (_, backpack))| backpack.owner == player_id)
+                    .nth(self.inventory_cursor)
+                    .map(|(id, _)| id);
+                
+                if let Some(id) = item_to_use {
+                    self.use_item(id);
+                    self.inventory_cursor = 0;
                 }
             }
+            _ => {}
+        }
+    }
+
+    fn handle_shop_input(&mut self, action: Action) {
+        match action {
+            Action::CloseMenu => self.state = RunState::AwaitingInput,
+            Action::ToggleShopMode => {
+                self.shop_mode = (self.shop_mode + 1) % 2;
+                self.shop_cursor = 0;
+            }
+            Action::MenuUp => if self.shop_cursor > 0 { self.shop_cursor -= 1; },
+            Action::MenuDown => {
+                let player_id = self.get_player_id().expect("Player not found during shop browsing");
+                let count = if self.shop_mode == 0 {
+                    if let Some(m_id) = self.active_merchant {
+                        self.world.query::<(&crate::components::InBackpack,)>().iter()
+                            .filter(|(_, (backpack,))| backpack.owner == m_id).count()
+                    } else { 0 }
+                } else {
+                    self.world.query::<(&crate::components::InBackpack,)>().iter()
+                        .filter(|(id, (backpack,))| {
+                            backpack.owner == player_id && self.world.get::<&Equipped>(*id).is_err()
+                        }).count()
+                };
+                if count > 0 && self.shop_cursor < count - 1 { self.shop_cursor += 1; }
+            }
+            Action::MenuSelect => {
+                let player_id = self.get_player_id().expect("Player not found during shop transaction");
+                let item_to_trade = if self.shop_mode == 0 {
+                    if let Some(m_id) = self.active_merchant {
+                        self.world.query::<(&crate::components::InBackpack,)>().iter()
+                            .filter(|(_, (backpack,))| backpack.owner == m_id)
+                            .nth(self.shop_cursor).map(|(id, _)| id)
+                    } else { None }
+                } else {
+                    self.world.query::<(&crate::components::InBackpack,)>().iter()
+                        .filter(|(id, (backpack,))| {
+                            backpack.owner == player_id && self.world.get::<&Equipped>(*id).is_err()
+                        })
+                        .nth(self.shop_cursor).map(|(id, _)| id)
+                };
+                if let Some(id) = item_to_trade {
+                    if self.shop_mode == 0 { self.buy_item(id); } else { self.sell_item(id); }
+                    self.shop_cursor = 0;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_alchemy_input(&mut self, action: Action) {
+        match action {
+            Action::CloseMenu => self.state = RunState::AwaitingInput,
+            Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
+            Action::MenuDown => {
+                let player_id = self.get_player_id().expect("Player not found during alchemy browsing");
+                let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
+                    .filter(|(_, (backpack,))| backpack.owner == player_id).count();
+                if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
+            },
+            Action::MenuSelect => {
+                let player_id = self.get_player_id().expect("Player not found during alchemy selection");
+                let item_to_select = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
+                    .iter()
+                    .filter(|(_, (_, backpack))| backpack.owner == player_id)
+                    .nth(self.inventory_cursor)
+                    .map(|(id, _)| id);
+                
+                if let Some(id) = item_to_select {
+                    if self.alchemy_selection.contains(&id) {
+                        self.alchemy_selection.retain(|&x| x != id);
+                        self.log.push("Item deselected.".to_string());
+                    } else {
+                        self.alchemy_selection.push(id);
+                        if self.alchemy_selection.len() == 1 {
+                            self.log.push("First item selected. Choose a second to combine.".to_string());
+                        } else if self.alchemy_selection.len() == 2 {
+                            let item1 = self.alchemy_selection[0];
+                            let item2 = self.alchemy_selection[1];
+                            
+                            let p1_heal = self.world.get::<&Potion>(item1).ok().map(|p| p.heal_amount);
+                            let p2_heal = self.world.get::<&Potion>(item2).ok().map(|p| p.heal_amount);
+                            
+                            let n1 = self.world.get::<&Name>(item1).map(|n| n.0.clone()).unwrap_or_default();
+                            let n2 = self.world.get::<&Name>(item2).map(|n| n.0.clone()).unwrap_or_default();
+
+                            if (n1 == "Potion of Strength" && n2 == "Potion of Speed") || (n1 == "Potion of Speed" && n2 == "Potion of Strength") {
+                                self.world.despawn(item1).expect("Failed to despawn alchemy item 1");
+                                self.world.despawn(item2).expect("Failed to despawn alchemy item 2");
+                                
+                                let _new_potion = self.world.spawn((
+                                    Renderable { glyph: '!', fg: ratatui::prelude::Color::Rgb(255, 215, 0) },
+                                    RenderOrder::Item,
+                                    Item,
+                                    Name("Potion of Heroism".to_string()),
+                                    Strength { amount: 5, turns: 20 },
+                                    Speed { turns: 20 },
+                                    Consumable,
+                                    InBackpack { owner: player_id }
+                                ));
+                                self.identified_items.insert("Potion of Heroism".to_string());
+                                self.log.push("You created a Potion of Heroism! It grants both Strength and Speed.".to_string());
+                                self.state = RunState::AwaitingInput;
+                            } else if let (Some(heal1), Some(heal2)) = (p1_heal, p2_heal) {
+                                let new_heal = ((heal1 + heal2) as f32 * 1.5) as i32;
+                                
+                                self.world.despawn(item1).expect("Failed to despawn alchemy item 1");
+                                self.world.despawn(item2).expect("Failed to despawn alchemy item 2");
+                                
+                                let _new_potion = self.world.spawn((
+                                    Renderable { glyph: '!', fg: ratatui::prelude::Color::Rgb(255, 255, 255) },
+                                    RenderOrder::Item,
+                                    Item,
+                                    Name("Greater Potion".to_string()),
+                                    Potion { heal_amount: new_heal },
+                                    Consumable,
+                                    InBackpack { owner: player_id }
+                                ));
+                                self.identify_item(_new_potion);
+                                
+                                self.log.push(format!("You combined the potions into a Greater Potion (Heals {})!", new_heal));
+                                self.state = RunState::AwaitingInput;
+                            } else {
+                                self.log.push("You can only combine potions!".to_string());
+                                self.alchemy_selection.clear();
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_level_up_input(&mut self, action: Action) {
+        match action {
+            Action::MenuUp => if self.level_up_cursor > 0 { self.level_up_cursor -= 1; },
+            Action::MenuDown => if self.level_up_cursor < 3 { self.level_up_cursor += 1; },
+            Action::MenuSelect => {
+                let player_id = self.get_player_id().expect("Player not found during level up");
+                match self.level_up_cursor {
+                    0 => {
+                        if let Ok(mut stats) = self.world.get::<&mut crate::components::CombatStats>(player_id) {
+                            stats.max_hp += 10; stats.hp += 10;
+                        }
+                        if let Ok(mut perks) = self.world.get::<&mut crate::components::Perks>(player_id) {
+                            perks.traits.push(crate::components::Perk::Toughness);
+                        }
+                        self.log.push("You chose Toughness! Max HP increased.".to_string());
+                    }
+                    1 => {
+                        if let Ok(mut viewshed) = self.world.get::<&mut crate::components::Viewshed>(player_id) {
+                            viewshed.visible_tiles += 2;
+                        }
+                        if let Ok(mut perks) = self.world.get::<&mut crate::components::Perks>(player_id) {
+                            perks.traits.push(crate::components::Perk::EagleEye);
+                        }
+                        self.log.push("You chose Eagle Eye! FOV increased.".to_string());
+                    }
+                    2 => {
+                        if let Ok(mut stats) = self.world.get::<&mut crate::components::CombatStats>(player_id) {
+                            stats.power += 2;
+                        }
+                        if let Ok(mut perks) = self.world.get::<&mut crate::components::Perks>(player_id) {
+                            perks.traits.push(crate::components::Perk::Strong);
+                        }
+                        self.log.push("You chose Strong! Power increased.".to_string());
+                    }
+                    3 => {
+                        if let Ok(mut stats) = self.world.get::<&mut crate::components::CombatStats>(player_id) {
+                            stats.defense += 1;
+                        }
+                        if let Ok(mut perks) = self.world.get::<&mut crate::components::Perks>(player_id) {
+                            perks.traits.push(crate::components::Perk::ThickSkin);
+                        }
+                        self.log.push("You chose Thick Skin! Defense increased.".to_string());
+                    }
+                    _ => {}
+                }
+                self.state = RunState::MonsterTurn;
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_identify_input(&mut self, action: Action) {
+        match action {
+            Action::CloseMenu => self.state = RunState::AwaitingInput,
+            Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
+            Action::MenuDown => {
+                let player_id = self.get_player_id().expect("Player not found during identify browsing");
+                let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
+                    .filter(|(_, (backpack,))| backpack.owner == player_id).count();
+                if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
+            },
+            Action::MenuSelect => {
+                let player_id = self.get_player_id().expect("Player not found during identify selection");
+                let item_to_identify = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
+                    .iter()
+                    .filter(|(_, (_, backpack))| backpack.owner == player_id)
+                    .nth(self.inventory_cursor)
+                    .map(|(id, _)| id);
+                
+                if let Some(id) = item_to_identify {
+                    let real_name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
+                    if !self.identified_items.contains(&real_name) {
+                        self.identified_items.insert(real_name.clone());
+                        self.log.push(format!("You identify the {}!", real_name));
+                        
+                        if let Some(scroll_id) = self.targeting_item {
+                            self.world.despawn(scroll_id).expect("Failed to despawn identify scroll");
+                        }
+                        self.state = RunState::AwaitingInput;
+                        self.targeting_item = None;
+                        self.inventory_cursor = 0;
+                    } else {
+                        self.log.push("That item is already identified.".to_string());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_targeting_input(&mut self, action: Action) {
+        match action {
+            Action::CloseMenu => self.state = RunState::AwaitingInput,
+            Action::MovePlayer(dx, dy) => {
+                let new_x = (self.targeting_cursor.0 as i16 + dx).clamp(0, self.map.width as i16 - 1) as u16;
+                let new_y = (self.targeting_cursor.1 as i16 + dy).clamp(0, self.map.height as i16 - 1) as u16;
+                self.targeting_cursor = (new_x, new_y);
+            }
+            Action::MenuSelect => self.fire_targeting_item(),
+            _ => {}
+        }
+    }
+
+    pub fn process_action(&mut self, action: Action) {
+        match self.state {
+            RunState::AwaitingInput => self.handle_awaiting_input(action),
             RunState::ShowLogHistory => {
                 match action {
                     Action::CloseMenu | Action::OpenLogHistory => self.state = RunState::AwaitingInput,
@@ -399,265 +663,17 @@ impl App {
                     _ => {}
                 }
             }
-            RunState::ShowInventory => {
-                match action {
-                    Action::CloseMenu | Action::OpenInventory => self.state = RunState::AwaitingInput,
-                    Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
-                    Action::MenuDown => {
-                        let player_id = self.get_player_id().expect("Player not found during inventory browsing");
-                        let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
-                            .filter(|(_, (backpack,))| backpack.owner == player_id).count();
-                        if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
-                    },
-                    Action::MenuSelect => {
-                        let player_id = self.get_player_id().expect("Player not found during item selection");
-                        let item_to_use = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
-                            .iter()
-                            .filter(|(_, (_, backpack))| backpack.owner == player_id)
-                            .nth(self.inventory_cursor)
-                            .map(|(id, _)| id);
-                        
-                        if let Some(id) = item_to_use {
-                            self.use_item(id);
-                            self.inventory_cursor = 0;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            RunState::ShowTargeting => {
-                match action {
-                    Action::CloseMenu => self.state = RunState::AwaitingInput,
-                    Action::MovePlayer(dx, dy) => {
-                        let new_x = (self.targeting_cursor.0 as i16 + dx).clamp(0, self.map.width as i16 - 1) as u16;
-                        let new_y = (self.targeting_cursor.1 as i16 + dy).clamp(0, self.map.height as i16 - 1) as u16;
-                        self.targeting_cursor = (new_x, new_y);
-                    }
-                    Action::MenuSelect => self.fire_targeting_item(),
-                    _ => {}
-                }
-            }
+            RunState::ShowInventory => self.handle_inventory_input(action),
+            RunState::ShowTargeting => self.handle_targeting_input(action),
             RunState::ShowHelp => {
                 if let Action::CloseMenu | Action::OpenHelp = action {
                     self.state = RunState::AwaitingInput;
                 }
             }
-            RunState::LevelUp => {
-                match action {
-                    Action::MenuUp => if self.level_up_cursor > 0 { self.level_up_cursor -= 1; },
-                    Action::MenuDown => if self.level_up_cursor < 3 { self.level_up_cursor += 1; },
-                    Action::MenuSelect => {
-                        let player_id = self.get_player_id().expect("Player not found during level up");
-                        match self.level_up_cursor {
-                            0 => {
-                                if let Ok(mut stats) = self.world.get::<&mut crate::components::CombatStats>(player_id) {
-                                    stats.max_hp += 10; stats.hp += 10;
-                                }
-                                if let Ok(mut perks) = self.world.get::<&mut crate::components::Perks>(player_id) {
-                                    perks.traits.push(crate::components::Perk::Toughness);
-                                }
-                                self.log.push("You chose Toughness! Max HP increased.".to_string());
-                            }
-                            1 => {
-                                if let Ok(mut viewshed) = self.world.get::<&mut crate::components::Viewshed>(player_id) {
-                                    viewshed.visible_tiles += 2;
-                                }
-                                if let Ok(mut perks) = self.world.get::<&mut crate::components::Perks>(player_id) {
-                                    perks.traits.push(crate::components::Perk::EagleEye);
-                                }
-                                self.log.push("You chose Eagle Eye! FOV increased.".to_string());
-                            }
-                            2 => {
-                                if let Ok(mut stats) = self.world.get::<&mut crate::components::CombatStats>(player_id) {
-                                    stats.power += 2;
-                                }
-                                if let Ok(mut perks) = self.world.get::<&mut crate::components::Perks>(player_id) {
-                                    perks.traits.push(crate::components::Perk::Strong);
-                                }
-                                self.log.push("You chose Strong! Power increased.".to_string());
-                            }
-                            3 => {
-                                if let Ok(mut stats) = self.world.get::<&mut crate::components::CombatStats>(player_id) {
-                                    stats.defense += 1;
-                                }
-                                if let Ok(mut perks) = self.world.get::<&mut crate::components::Perks>(player_id) {
-                                    perks.traits.push(crate::components::Perk::ThickSkin);
-                                }
-                                self.log.push("You chose Thick Skin! Defense increased.".to_string());
-                            }
-                            _ => {}
-                        }
-                        self.state = RunState::MonsterTurn;
-                    }
-                    _ => {}
-                }
-            }
-            RunState::ShowShop => {
-                match action {
-                    Action::CloseMenu => self.state = RunState::AwaitingInput,
-                    Action::ToggleShopMode => {
-                        self.shop_mode = (self.shop_mode + 1) % 2;
-                        self.shop_cursor = 0;
-                    }
-                    Action::MenuUp => if self.shop_cursor > 0 { self.shop_cursor -= 1; },
-                    Action::MenuDown => {
-                        let player_id = self.get_player_id().expect("Player not found during shop browsing");
-                        let count = if self.shop_mode == 0 {
-                            if let Some(m_id) = self.active_merchant {
-                                self.world.query::<(&crate::components::InBackpack,)>().iter()
-                                    .filter(|(_, (backpack,))| backpack.owner == m_id).count()
-                            } else { 0 }
-                        } else {
-                            self.world.query::<(&crate::components::InBackpack,)>().iter()
-                                .filter(|(_, (backpack,))| backpack.owner == player_id).count()
-                        };
-                        if count > 0 && self.shop_cursor < count - 1 { self.shop_cursor += 1; }
-                    }
-                    Action::MenuSelect => {
-                        let player_id = self.get_player_id().expect("Player not found during shop transaction");
-                        let item_to_trade = if self.shop_mode == 0 {
-                            if let Some(m_id) = self.active_merchant {
-                                self.world.query::<(&crate::components::InBackpack,)>().iter()
-                                    .filter(|(_, (backpack,))| backpack.owner == m_id)
-                                    .nth(self.shop_cursor).map(|(id, _)| id)
-                            } else { None }
-                        } else {
-                            self.world.query::<(&crate::components::InBackpack,)>().iter()
-                                .filter(|(_, (backpack,))| backpack.owner == player_id)
-                                .nth(self.shop_cursor).map(|(id, _)| id)
-                        };
-                        if let Some(id) = item_to_trade {
-                            if self.shop_mode == 0 { self.buy_item(id); } else { self.sell_item(id); }
-                            self.shop_cursor = 0;
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            RunState::ShowIdentify => {
-                match action {
-                    Action::CloseMenu => self.state = RunState::AwaitingInput,
-                    Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
-                    Action::MenuDown => {
-                        let player_id = self.get_player_id().expect("Player not found during identify browsing");
-                        let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
-                            .filter(|(_, (backpack,))| backpack.owner == player_id).count();
-                        if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
-                    },
-                    Action::MenuSelect => {
-                        let player_id = self.get_player_id().expect("Player not found during identify selection");
-                        let item_to_identify = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
-                            .iter()
-                            .filter(|(_, (_, backpack))| backpack.owner == player_id)
-                            .nth(self.inventory_cursor)
-                            .map(|(id, _)| id);
-                        
-                        if let Some(id) = item_to_identify {
-                            let real_name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Item".to_string());
-                            if !self.identified_items.contains(&real_name) {
-                                self.identified_items.insert(real_name.clone());
-                                self.log.push(format!("You identify the {}!", real_name));
-                                
-                                // Consume scroll
-                                if let Some(scroll_id) = self.targeting_item {
-                                    self.world.despawn(scroll_id).expect("Failed to despawn identify scroll");
-                                }
-                                self.state = RunState::AwaitingInput;
-                                self.targeting_item = None;
-                                self.inventory_cursor = 0;
-                            } else {
-                                self.log.push("That item is already identified.".to_string());
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            RunState::ShowAlchemy => {
-                match action {
-                    Action::CloseMenu => self.state = RunState::AwaitingInput,
-                    Action::MenuUp => if self.inventory_cursor > 0 { self.inventory_cursor -= 1; },
-                    Action::MenuDown => {
-                        let player_id = self.get_player_id().expect("Player not found during alchemy browsing");
-                        let count = self.world.query::<(&crate::components::InBackpack,)>().iter()
-                            .filter(|(_, (backpack,))| backpack.owner == player_id).count();
-                        if count > 0 && self.inventory_cursor < count - 1 { self.inventory_cursor += 1; }
-                    },
-                    Action::MenuSelect => {
-                        let player_id = self.get_player_id().expect("Player not found during alchemy selection");
-                        let item_to_select = self.world.query::<(&crate::components::Item, &crate::components::InBackpack)>()
-                            .iter()
-                            .filter(|(_, (_, backpack))| backpack.owner == player_id)
-                            .nth(self.inventory_cursor)
-                            .map(|(id, _)| id);
-                        
-                        if let Some(id) = item_to_select {
-                            if self.alchemy_selection.contains(&id) {
-                                self.alchemy_selection.retain(|&x| x != id);
-                                self.log.push("Item deselected.".to_string());
-                            } else {
-                                self.alchemy_selection.push(id);
-                                if self.alchemy_selection.len() == 1 {
-                                    self.log.push("First item selected. Choose a second to combine.".to_string());
-                                } else if self.alchemy_selection.len() == 2 {
-                                    let item1 = self.alchemy_selection[0];
-                                    let item2 = self.alchemy_selection[1];
-                                    
-                                    // Check if both are potions
-                                    let p1_heal = self.world.get::<&Potion>(item1).ok().map(|p| p.heal_amount);
-                                    let p2_heal = self.world.get::<&Potion>(item2).ok().map(|p| p.heal_amount);
-                                    
-                                    let n1 = self.world.get::<&Name>(item1).map(|n| n.0.clone()).unwrap_or_default();
-                                    let n2 = self.world.get::<&Name>(item2).map(|n| n.0.clone()).unwrap_or_default();
-
-                                    if (n1 == "Potion of Strength" && n2 == "Potion of Speed") || (n1 == "Potion of Speed" && n2 == "Potion of Strength") {
-                                        self.world.despawn(item1).expect("Failed to despawn alchemy item 1");
-                                        self.world.despawn(item2).expect("Failed to despawn alchemy item 2");
-                                        
-                                        let _new_potion = self.world.spawn((
-                                            Renderable { glyph: '!', fg: ratatui::prelude::Color::Rgb(255, 215, 0) },
-                                            RenderOrder::Item,
-                                            Item,
-                                            Name("Potion of Heroism".to_string()),
-                                            Strength { amount: 5, turns: 20 },
-                                            Speed { turns: 20 },
-                                            Consumable,
-                                            InBackpack { owner: player_id }
-                                        ));
-                                        self.identified_items.insert("Potion of Heroism".to_string());
-                                        self.log.push("You created a Potion of Heroism! It grants both Strength and Speed.".to_string());
-                                        self.state = RunState::AwaitingInput;
-                                    } else if let (Some(heal1), Some(heal2)) = (p1_heal, p2_heal) {
-                                        // Success! Create a better potion
-                                        let new_heal = ((heal1 + heal2) as f32 * 1.5) as i32;
-                                        
-                                        self.world.despawn(item1).expect("Failed to despawn alchemy item 1");
-                                        self.world.despawn(item2).expect("Failed to despawn alchemy item 2");
-                                        
-                                        let _new_potion = self.world.spawn((
-                                            Renderable { glyph: '!', fg: ratatui::prelude::Color::Rgb(255, 255, 255) },
-                                            RenderOrder::Item,
-                                            Item,
-                                            Name("Greater Potion".to_string()),
-                                            Potion { heal_amount: new_heal },
-                                            Consumable,
-                                            InBackpack { owner: player_id }
-                                        ));
-                                        self.identify_item(_new_potion); // Auto-identify crafted items
-                                        
-                                        self.log.push(format!("You combined the potions into a Greater Potion (Heals {})!", new_heal));
-                                        self.state = RunState::AwaitingInput;
-                                    } else {
-                                        self.log.push("You can only combine potions!".to_string());
-                                        self.alchemy_selection.clear();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            }
+            RunState::LevelUp => self.handle_level_up_input(action),
+            RunState::ShowShop => self.handle_shop_input(action),
+            RunState::ShowIdentify => self.handle_identify_input(action),
+            RunState::ShowAlchemy => self.handle_alchemy_input(action),
             RunState::Dead | RunState::Victory => {
                 if let Action::Quit | Action::CloseMenu = action { self.exit = true; }
             }
@@ -680,7 +696,19 @@ impl App {
             pos.x = mb.player_start.0;
             pos.y = mb.player_start.1;
         } else {
-            crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);
+            let player_id = crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);
+            
+            // Starting equipment
+            let starting_items = ["Torch", "Health Potion", "Dagger", "Leather Armor"];
+            for item_name in starting_items {
+                if let Some(item_raw) = self.content.items.iter().find(|i| i.name == item_name).cloned() {
+                    let item_id = crate::spawner::spawn_item_in_backpack(&mut self.world, player_id, &item_raw);
+                    self.identified_items.insert(item_name.to_string());
+                    if item_name == "Dagger" || item_name == "Leather Armor" {
+                        self.equip_item(item_id);
+                    }
+                }
+            }
         }
 
         // Spawn ambient light sources (Glowing Crystals) in some rooms
@@ -1002,8 +1030,8 @@ impl App {
                 let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
                 let dist = (((p.x as f32 - pos.x as f32).powi(2) + (p.y as f32 - pos.y as f32).powi(2))).sqrt();
 
-                // Visible if within player's sight range OR if the tile is lit
-                if dist <= range as f32 || self.map.light[idx] > 0.1 {
+                // Visible if within player's sight range AND the tile is lit
+                if dist <= range as f32 && self.map.light[idx] > 0.1 {
                     self.map.visible[idx] = true;
                     self.map.revealed[idx] = true;
                 }
@@ -1274,10 +1302,12 @@ impl App {
         }
 
         if !self.map.blocked[(new_y as u16 * self.map.width + new_x as u16) as usize] {
-            let mut player_query = self.world.query::<(&mut Position, &Player)>();
-            let (player_id, (pos, _)) = player_query.iter().next().expect("Player not found");
-            pos.x = new_x; pos.y = new_y;
-            drop(player_query);
+            let player_id = {
+                let mut player_query = self.world.query::<(&mut Position, &Player)>();
+                let (player_id, (pos, _)) = player_query.iter().next().expect("Player not found");
+                pos.x = new_x; pos.y = new_y;
+                player_id
+            };
             self.generate_noise(new_x, new_y, 3.0); // Moving is quiet but not silent
 
             // Gold pickup - ensure we don't pick up the player!
@@ -1396,6 +1426,10 @@ impl App {
     }
 
     pub fn sell_item(&mut self, item_id: hecs::Entity) {
+        if self.world.get::<&Equipped>(item_id).is_ok() {
+            self.log.push("You cannot sell equipped items!".to_string());
+            return;
+        }
         let player_id = self.get_player_id().expect("Player not found");
         let price = self.world.get::<&ItemValue>(item_id).map(|v| v.price / 2).unwrap_or(1); // Sell for half price
         
@@ -1463,7 +1497,13 @@ impl App {
         }
 
         if item_name == "Torch" {
-            self.world.insert_one(player_id, LightSource { range: 10, color: (255, 255, 100) }).expect("Failed to insert LightSource component");
+            self.world.insert_one(player_id, LightSource { 
+                range: 10, 
+                base_range: 10, 
+                color: (255, 255, 100), 
+                remaining_turns: Some(2000), 
+                flicker: true 
+            }).expect("Failed to insert LightSource component");
             self.log.push("You light a torch. The shadows retreat.".to_string());
             self.generate_noise(player_pos.x, player_pos.y, 2.0);
             handled = true;
@@ -1489,7 +1529,11 @@ impl App {
         }
 
         if self.world.get::<&Equippable>(item_id).is_ok() {
-            self.equip_item(item_id);
+            if self.world.get::<&Equipped>(item_id).is_ok() {
+                self.unequip_item(item_id);
+            } else {
+                self.equip_item(item_id);
+            }
             handled = true;
         }
 
@@ -1497,8 +1541,8 @@ impl App {
             self.identify_item(item_id);
             if self.world.get::<&Consumable>(item_id).is_ok() {
                 self.world.despawn(item_id).expect("Failed to despawn item after use"); 
+                self.state = RunState::MonsterTurn; 
             }
-            self.state = RunState::MonsterTurn; 
         }
     }
 
@@ -1658,6 +1702,55 @@ impl App {
 
         let player_id = self.get_player_id().expect("Player not found in turn tick");
 
+        // Light Sources (Burnout and Flicker)
+        let mut to_remove_light = Vec::new();
+        let mut any_light_changed = false;
+        {
+            let mut rng = rand::thread_rng();
+            for (id, light) in self.world.query::<&mut LightSource>().iter() {
+                if let Some(turns) = light.remaining_turns {
+                    if turns > 0 {
+                        light.remaining_turns = Some(turns - 1);
+                        if turns == 1001 { // About to hit 1000
+                            light.base_range /= 2;
+                            light.range = light.range.min(light.base_range);
+                            any_light_changed = true;
+                            if id == player_id {
+                                self.log.push("Your torch begins to dim...".to_string());
+                            }
+                        }
+                    } else {
+                        to_remove_light.push(id);
+                        any_light_changed = true;
+                    }
+                }
+                if light.flicker {
+                    let flicker_amount = rng.gen_range(-1..=1);
+                    let new_range = (light.base_range + flicker_amount).max(1);
+                    if new_range != light.range {
+                        light.range = new_range;
+                        any_light_changed = true;
+                    }
+                }
+            }
+        }
+        for id in to_remove_light {
+            self.world.remove_one::<LightSource>(id).ok();
+            if id == player_id {
+                self.log.push("Your torch flickers and goes out!".to_string());
+                self.world.insert_one(id, LightSource { 
+                    range: 2, 
+                    base_range: 2, 
+                    color: (150, 150, 100), 
+                    remaining_turns: None, 
+                    flicker: false 
+                }).ok();
+            }
+        }
+        if any_light_changed {
+            self.update_fov();
+        }
+
         // Passive Equipment Effects
         if self.turn_count % 5 == 0 {
             let mut regen = false;
@@ -1768,343 +1861,55 @@ impl App {
         }
     }
 
-    pub fn monster_turn(&mut self) {
-        self.on_turn_tick();
-        if self.state == RunState::Dead { return; }
+    fn update_monster_perception(&mut self, id: hecs::Entity, player_id: hecs::Entity) {
+        let (pos, viewshed, mut current_alert) = {
+            if let (Ok(p), Ok(v), Ok(a)) = (
+                self.world.get::<&Position>(id),
+                self.world.get::<&Viewshed>(id),
+                self.world.get::<&AlertState>(id)
+            ) {
+                (*p, v.visible_tiles, *a)
+            } else { return; }
+        };
 
-        let player_id = self.get_player_id().expect("Player not found in monster_turn");
-
-        if self.world.get::<&Speed>(player_id).is_ok() {
-            if self.speed_toggle {
-                self.speed_toggle = false;
-                self.state = RunState::AwaitingInput;
-                self.log.push("You move with supernatural speed!".to_string());
-                return;
-            }
-        }
-        self.speed_toggle = true;
-
-        let mut actions = Vec::new();
-        let mut actors: Vec<hecs::Entity> = self.world.query::<&Monster>().iter().map(|(id, _)| id).collect();
-        for (id, _) in self.world.query::<&Merchant>().iter() { actors.push(id); }
-        
-        let mut wisp_moves = Vec::new();
-        for (id, _) in self.world.query::<&Wisp>().iter() {
-            let mut rng = rand::thread_rng();
-            wisp_moves.push((id, rng.gen_range(-1..=1), rng.gen_range(-1..=1)));
-        }
-
-        for id in actors {
-            let is_merchant = self.world.get::<&Merchant>(id).is_ok();
-            
-            // Boss Phase Triggering
-            let mut boss_actions = Vec::new();
-            if let Ok(mut boss) = self.world.get::<&mut Boss>(id) {
-                if let Ok(stats) = self.world.get::<&CombatStats>(id) {
-                    for phase in boss.phases.iter_mut() {
-                        if !phase.triggered && stats.hp <= phase.hp_threshold {
-                            phase.triggered = true;
-                            boss_actions.push(phase.action);
-                        }
-                    }
-                }
-            }
-
-            for action in boss_actions {
-                let boss_name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Boss".to_string());
-                match action {
-                    BossPhaseAction::SummonMinions => {
-                        self.log.push(format!("{} bellows: 'To my side, my children!'", boss_name));
-                        let boss_pos = self.world.get::<&Position>(id).ok().map(|p| *p);
-                        if let Some(pos) = boss_pos {
-                            let minion_name = if boss_name.contains("Broodmother") { "Spider" } else { "Goblin" };
-                            let minion_raw = self.content.monsters.iter().find(|m| m.name == minion_name).expect("Minion not found");
-                            for (dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
-                                let (mx, my) = ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16);
-                                if !self.map.blocked[(my * self.map.width + mx) as usize] {
-                                    crate::spawner::spawn_monster(&mut self.world, mx, my, minion_raw, self.dungeon_level);
-                                }
-                            }
-                        }
-                    }
-                    BossPhaseAction::Enrage => {
-                        self.log.push(format!("{} enters a bloodthirsty rage!", boss_name));
-                        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(id) {
-                            stats.power += 4;
-                            stats.defense += 2;
-                        }
-                    }
-                }
-            }
-
-            let (pos, faction, personality, stats, viewshed, alert) = {
-                if let (Ok(p), Ok(f), Ok(pers), Ok(s), Ok(v), Ok(a)) = (
-                    self.world.get::<&Position>(id),
-                    self.world.get::<&Faction>(id),
-                    self.world.get::<&AIPersonality>(id),
-                    self.world.get::<&CombatStats>(id),
-                    self.world.get::<&Viewshed>(id),
-                    self.world.get::<&AlertState>(id)
-                ) {
-                    (*p, *f, *pers, *s, v.visible_tiles, *a)
-                } else { continue; }
-            };
-
-            if self.world.get::<&Confusion>(id).is_ok() {
-                let mut rng = rand::thread_rng();
-                actions.push((id, MonsterAction::Move(rng.gen_range(-1..=1), rng.gen_range(-1..=1))));
-                continue;
-            }
-
-            let mut current_alert = alert;
-
-            // 1. Check for player visibility (transition to Aggressive)
+        if current_alert != AlertState::Aggressive {
+            // Check for player visibility
             let mut can_see_player = false;
             if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
                 let dist = (((pos.x as f32 - p_pos.x as f32).powi(2) + (pos.y as f32 - p_pos.y as f32).powi(2))).sqrt();
                 if dist <= viewshed as f32 {
-                    // Check LOS
-                    let line = line2d(LineAlg::Bresenham, Point::new(pos.x, pos.y), Point::new(p_pos.x, p_pos.y));
-                    let mut blocked = false;
-                    for p in line.iter().skip(1).take(line.len() - 2) {
-                        let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
-                        if self.map.blocked[idx] { blocked = true; break; }
+                    // Monster can only see player if player is lit or very close
+                    let p_idx = (p_pos.y as u16 * self.map.width + p_pos.x as u16) as usize;
+                    if self.map.light[p_idx] > 0.2 || dist < 1.5 {
+                        let line = line2d(LineAlg::Bresenham, Point::new(pos.x, pos.y), Point::new(p_pos.x, p_pos.y));
+                        let mut blocked = false;
+                        for p in line.iter().skip(1).take(line.len() - 2) {
+                            let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
+                            if self.map.blocked[idx] { blocked = true; break; }
+                        }
+                        if !blocked { can_see_player = true; }
                     }
-                    if !blocked { can_see_player = true; }
                 }
             }
 
             if can_see_player {
-                current_alert = AlertState::Aggressive;
                 self.world.insert_one(id, AlertState::Aggressive).expect("Failed to update AlertState");
-            }
-
-            // 2. Check for noise if not Aggressive
-            if current_alert != AlertState::Aggressive {
+            } else {
+                // Check for noise
                 let idx = (pos.y as u16 * self.map.width + pos.x as u16) as usize;
                 let sound_level = self.map.sound[idx];
                 if sound_level > 1.0 {
-                    let mut noise_pos = None;
-                    if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
-                        noise_pos = Some((*p_pos).clone());
-                    }
-                    if let Some(p_pos) = noise_pos {
-                        current_alert = AlertState::Curious { x: p_pos.x, y: p_pos.y };
+                    let p_pos_data = self.world.get::<&Position>(player_id).ok().map(|p| (p.x, p.y));
+                    if let Some((px, py)) = p_pos_data {
+                        current_alert = AlertState::Curious { x: px, y: py };
                         self.world.insert_one(id, current_alert).expect("Failed to update AlertState");
                     }
                 }
             }
-
-            if current_alert == AlertState::Sleeping {
-                continue; // Sleeping monsters do nothing
-            }
-
-            // Find nearest target of a different faction
-            let mut target = None;
-            let mut min_dist = viewshed as f32 + 1.0;
-
-            if current_alert == AlertState::Aggressive {
-                // Check player
-                if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
-                    if let Ok(p_faction) = self.world.get::<&Faction>(player_id) {
-                        if faction.0 != p_faction.0 {
-                            let dist = (((pos.x as f32 - p_pos.x as f32).powi(2) + (pos.y as f32 - p_pos.y as f32).powi(2))).sqrt();
-                            if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((player_id, *p_pos)); }
-                        }
-                    }
-                }
-
-                // Check other monsters
-                for (other_id, (other_pos, other_faction)) in self.world.query::<(&Position, &Faction)>().iter() {
-                    if id == other_id { continue; }
-                    if self.world.get::<&Wisp>(other_id).is_ok() { continue; } // Don't target wisps
-                    if faction.0 != other_faction.0 {
-                        let dist = (((pos.x as f32 - other_pos.x as f32).powi(2) + (pos.y as f32 - other_pos.y as f32).powi(2))).sqrt();
-                        if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((other_id, *other_pos)); }
-                    }
-                }
-            } else if let AlertState::Curious { x, y } = current_alert {
-                // Move towards the noise
-                let dist = (((pos.x as f32 - x as f32).powi(2) + (pos.y as f32 - y as f32).powi(2))).sqrt();
-                if dist < 1.5 {
-                    // Reached the spot, go back to sleeping (or standing guard)
-                    self.world.insert_one(id, AlertState::Sleeping).expect("Failed to update AlertState");
-                } else {
-                    target = Some((id, Position { x, y })); // Dummy target id to indicate movement
-                }
-            }
-
-            if let Some((target_id, target_pos)) = target {
-                // Personality check
-                let mut move_vec = None;
-                let mut attack = false;
-
-                if personality.0 == Personality::Cowardly && stats.hp < stats.max_hp / 2 && !is_merchant {
-                    // Flee!
-                    let mut dx = 0; let mut dy = 0;
-                    if pos.x < target_pos.x { dx = -1; } else if pos.x > target_pos.x { dx = 1; }
-                    if pos.y < target_pos.y { dy = -1; } else if pos.y > target_pos.y { dy = 1; }
-                    move_vec = Some((dx, dy));
-                } else if personality.0 == Personality::Tactical && min_dist < 4.0 && !is_merchant {
-                    // Try to maintain distance if too close
-                    let mut dx = 0; let mut dy = 0;
-                    if pos.x < target_pos.x { dx = -1; } else if pos.x > target_pos.x { dx = 1; }
-                    if pos.y < target_pos.y { dy = -1; } else if pos.y > target_pos.y { dy = 1; }
-                    move_vec = Some((dx, dy));
-                } else if min_dist < 1.5 {
-                    attack = true;
-                } else if !is_merchant {
-                    let mut dx = 0; let mut dy = 0;
-                    if pos.x < target_pos.x { dx = 1; } else if pos.x > target_pos.x { dx = -1; }
-                    if pos.y < target_pos.y { dy = 1; } else if pos.y > target_pos.y { dy = -1; }
-                    move_vec = Some((dx, dy));
-                }
-
-                if attack {
-                    actions.push((id, MonsterAction::Attack(target_id)));
-                } else if let Some((dx, dy)) = move_vec {
-                    actions.push((id, MonsterAction::Move(dx, dy)));
-                }
-
-                // Ranged attack check (even if moving or fleeing, if tactical)
-                if personality.0 == Personality::Tactical && min_dist > 1.5 && min_dist < 8.0 {
-                    if self.world.get::<&RangedWeapon>(id).is_ok() {
-                        // Check LOS
-                        let line = line2d(
-                            LineAlg::Bresenham,
-                            Point::new(pos.x, pos.y),
-                            Point::new(target_pos.x, target_pos.y)
-                        );
-                        let mut blocked = false;
-                        for p in line.iter().skip(1).take(line.len() - 2) { // Skip own tile and target tile
-                            let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
-                            if self.map.blocked[idx] {
-                                blocked = true;
-                                break;
-                            }
-                        }
-                        if !blocked {
-                            actions.push((id, MonsterAction::RangedAttack(target_id)));
-                        }
-                    }
-                }
-            }
         }
+    }
 
-        let mut occupied_positions: std::collections::HashSet<(u16, u16)> = self.world.query::<(&Position, &Monster)>().iter().map(|(_, (p, _))| (p.x, p.y)).collect();
-        for (_, (p, _)) in self.world.query::<(&Position, &Merchant)>().iter() { occupied_positions.insert((p.x, p.y)); }
-        if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
-            occupied_positions.insert((p_pos.x, p_pos.y));
-        }
-
-        for (id, action) in actions {
-            match action {
-                MonsterAction::Move(dx, dy) => {
-                    let (new_x, new_y) = { 
-                        if let Ok(pos) = self.world.get::<&Position>(id) {
-                            ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16)
-                        } else { continue; }
-                    };
-                    if !occupied_positions.contains(&(new_x, new_y)) && !self.map.blocked[(new_y as u16 * self.map.width + new_x as u16) as usize] {
-                        if let Ok(mut pos) = self.world.get::<&mut Position>(id) {
-                            occupied_positions.remove(&(pos.x, pos.y));
-                            pos.x = new_x; pos.y = new_y;
-                            occupied_positions.insert((new_x, new_y));
-                        }
-                    }
-                }
-                MonsterAction::Attack(target_id) => {
-                    let (monster_name, monster_power) = {
-                        let stats = self.world.get::<&CombatStats>(id).expect("Monster has no stats");
-                        let name = self.world.get::<&Name>(id).expect("Monster has no name");
-                        (name.0.clone(), stats.power)
-                    };
-                    let target_name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Something".to_string());
-
-                    let target_defense = if self.world.get::<&Player>(target_id).is_ok() {
-                        let (_, def) = self.get_player_stats();
-                        def
-                    } else {
-                        self.world.get::<&CombatStats>(target_id).map(|s| s.defense).unwrap_or(0)
-                    };
-
-                    let damage = (monster_power - target_defense).max(0);
-                    let target_hp = {
-                        if let Ok(mut target_stats) = self.world.get::<&mut CombatStats>(target_id) {
-                            target_stats.hp -= damage;
-                            target_stats.hp
-                        } else { 0 }
-                    };
-                    
-                    if target_id == player_id {
-                        self.log.push(format!("{} hits you for {} damage!", monster_name, damage));
-                        if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
-                            self.effects.push(VisualEffect::Flash { x: p_pos.x, y: p_pos.y, glyph: '!', fg: Color::Red, bg: Some(Color::Indexed(232)), duration: 5 });
-                        }
-                        if target_hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
-                    } else {
-                        self.log.push(format!("{} hits {} for {} damage!", monster_name, target_name, damage));
-                        if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
-                            self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
-                        }
-                        self.world.remove_one::<LastHitByPlayer>(target_id).ok(); // ok() because it might not be there
-                        if target_hp <= 0 {
-                            self.log.push(format!("{} dies!", target_name));
-                        }
-                    }
-                }
-                MonsterAction::RangedAttack(target_id) => {
-                    let (monster_name, rw) = {
-                        let name = self.world.get::<&Name>(id).expect("Monster has no name");
-                        let r = self.world.get::<&RangedWeapon>(id).expect("Monster has no ranged weapon");
-                        (name.0.clone(), *r)
-                    };
-                    let target_name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Something".to_string());
-                    
-                    let target_defense = if self.world.get::<&Player>(target_id).is_ok() {
-                        let (_, def) = self.get_player_stats();
-                        def
-                    } else {
-                        self.world.get::<&CombatStats>(target_id).map(|s| s.defense).unwrap_or(0)
-                    };
-
-                    let damage = (rw.damage_bonus - target_defense).max(0);
-
-                    let target_hp = {
-                        if let Ok(mut target_stats) = self.world.get::<&mut CombatStats>(target_id) {
-                            target_stats.hp -= damage;
-                            target_stats.hp
-                        } else { 0 }
-                    };
-
-                    if target_id == player_id {
-                        self.log.push(format!("{} fires at you for {} damage!", monster_name, damage));
-                        if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
-                            self.effects.push(VisualEffect::Flash { x: p_pos.x, y: p_pos.y, glyph: '!', fg: Color::Red, bg: Some(Color::Indexed(232)), duration: 5 });
-                        }
-                        if target_hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
-                    } else {
-                        self.log.push(format!("{} fires at {} for {} damage!", monster_name, target_name, damage));
-                        if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
-                            self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
-                        }
-                        self.world.remove_one::<LastHitByPlayer>(target_id).ok();
-                        if target_hp <= 0 {
-                            self.log.push(format!("{} dies!", target_name));
-                        }
-                    }
-                    
-                    // Add projectile animation
-                    if let (Ok(m_pos), Ok(t_pos)) = (self.world.get::<&Position>(id), self.world.get::<&Position>(target_id)) {
-                        let line = line2d(LineAlg::Bresenham, Point::new(m_pos.x, m_pos.y), Point::new(t_pos.x, t_pos.y));
-                        let path: Vec<(u16, u16)> = line.iter().map(|p| (p.x as u16, p.y as u16)).collect();
-                        self.effects.push(VisualEffect::Projectile { path, glyph: '*', fg: Color::Cyan, frame: 0, speed: 2 });
-                    }
-                }
-            }
-        }
-
-        // Cleanup dead entities
+    fn cleanup_dead_entities(&mut self) {
         let mut to_despawn = Vec::new();
         let mut total_xp: i32 = 0;
         let mut drops = Vec::new();
@@ -2139,11 +1944,315 @@ impl App {
 
         for (pos, raw) in drops {
             crate::spawner::spawn_item(&mut self.world, pos.x, pos.y, &raw);
-            self.log.push(format!("{} dropped {}!", "The boss", raw.name));
+            self.log.push(format!("The boss dropped {}!", raw.name));
         }
 
         if total_xp > 0 {
             self.add_player_xp(total_xp);
+        }
+    }
+
+    fn execute_monster_action(&mut self, id: hecs::Entity, action: MonsterAction, player_id: hecs::Entity, occupied_positions: &mut std::collections::HashSet<(u16, u16)>) {
+        match action {
+            MonsterAction::Move(dx, dy) => {
+                let (new_x, new_y) = { 
+                    if let Ok(pos) = self.world.get::<&Position>(id) {
+                        ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16)
+                    } else { return; }
+                };
+                if !occupied_positions.contains(&(new_x, new_y)) && !self.map.blocked[(new_y as u16 * self.map.width + new_x as u16) as usize] {
+                    if let Ok(mut pos) = self.world.get::<&mut Position>(id) {
+                        occupied_positions.remove(&(pos.x, pos.y));
+                        pos.x = new_x; pos.y = new_y;
+                        occupied_positions.insert((new_x, new_y));
+                    }
+                }
+            }
+            MonsterAction::Attack(target_id) => {
+                let (monster_name, monster_power) = {
+                    let stats = self.world.get::<&CombatStats>(id).expect("Monster has no stats");
+                    let name = self.world.get::<&Name>(id).expect("Monster has no name");
+                    (name.0.clone(), stats.power)
+                };
+                let target_name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Something".to_string());
+
+                let target_defense = if self.world.get::<&Player>(target_id).is_ok() {
+                    let (_, def) = self.get_player_stats();
+                    def
+                } else {
+                    self.world.get::<&CombatStats>(target_id).map(|s| s.defense).unwrap_or(0)
+                };
+
+                let damage = (monster_power - target_defense).max(0);
+                let target_hp = {
+                    if let Ok(mut target_stats) = self.world.get::<&mut CombatStats>(target_id) {
+                        target_stats.hp -= damage;
+                        target_stats.hp
+                    } else { 0 }
+                };
+                
+                if target_id == player_id {
+                    self.log.push(format!("{} hits you for {} damage!", monster_name, damage));
+                    if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
+                        self.effects.push(VisualEffect::Flash { x: p_pos.x, y: p_pos.y, glyph: '!', fg: Color::Red, bg: Some(Color::Indexed(232)), duration: 5 });
+                    }
+                    if target_hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
+                } else {
+                    self.log.push(format!("{} hits {} for {} damage!", monster_name, target_name, damage));
+                    if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
+                        self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
+                    }
+                    self.world.remove_one::<LastHitByPlayer>(target_id).ok();
+                    if target_hp <= 0 {
+                        self.log.push(format!("{} dies!", target_name));
+                    }
+                }
+            }
+            MonsterAction::RangedAttack(target_id) => {
+                let (monster_name, rw) = {
+                    let name = self.world.get::<&Name>(id).expect("Monster has no name");
+                    let r = self.world.get::<&RangedWeapon>(id).expect("Monster has no ranged weapon");
+                    (name.0.clone(), *r)
+                };
+                let target_name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Something".to_string());
+                
+                let target_defense = if self.world.get::<&Player>(target_id).is_ok() {
+                    let (_, def) = self.get_player_stats();
+                    def
+                } else {
+                    self.world.get::<&CombatStats>(target_id).map(|s| s.defense).unwrap_or(0)
+                };
+
+                let damage = (rw.damage_bonus - target_defense).max(0);
+
+                let target_hp = {
+                    if let Ok(mut target_stats) = self.world.get::<&mut CombatStats>(target_id) {
+                        target_stats.hp -= damage;
+                        target_stats.hp
+                    } else { 0 }
+                };
+
+                if target_id == player_id {
+                    self.log.push(format!("{} fires at you for {} damage!", monster_name, damage));
+                    if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
+                        self.effects.push(VisualEffect::Flash { x: p_pos.x, y: p_pos.y, glyph: '!', fg: Color::Red, bg: Some(Color::Indexed(232)), duration: 5 });
+                    }
+                    if target_hp <= 0 { self.log.push("You are dead!".to_string()); self.state = RunState::Dead; self.death = true; }
+                } else {
+                    self.log.push(format!("{} fires at {} for {} damage!", monster_name, target_name, damage));
+                    if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
+                        self.effects.push(VisualEffect::Flash { x: t_pos.x, y: t_pos.y, glyph: '*', fg: Color::Red, bg: None, duration: 5 });
+                    }
+                    self.world.remove_one::<LastHitByPlayer>(target_id).ok();
+                    if target_hp <= 0 {
+                        self.log.push(format!("{} dies!", target_name));
+                    }
+                }
+                
+                // Add projectile animation
+                if let (Ok(m_pos), Ok(t_pos)) = (self.world.get::<&Position>(id), self.world.get::<&Position>(target_id)) {
+                    let line = line2d(LineAlg::Bresenham, Point::new(m_pos.x, m_pos.y), Point::new(t_pos.x, t_pos.y));
+                    let path: Vec<(u16, u16)> = line.iter().map(|p| (p.x as u16, p.y as u16)).collect();
+                    self.effects.push(VisualEffect::Projectile { path, glyph: '*', fg: Color::Cyan, frame: 0, speed: 2 });
+                }
+            }
+        }
+    }
+
+    fn calculate_monster_action(&mut self, id: hecs::Entity, player_id: hecs::Entity) -> Option<MonsterAction> {
+        let (pos, faction, personality, stats, viewshed, alert) = {
+            if let (Ok(p), Ok(f), Ok(pers), Ok(s), Ok(v), Ok(a)) = (
+                self.world.get::<&Position>(id),
+                self.world.get::<&Faction>(id),
+                self.world.get::<&AIPersonality>(id),
+                self.world.get::<&CombatStats>(id),
+                self.world.get::<&Viewshed>(id),
+                self.world.get::<&AlertState>(id)
+            ) {
+                (*p, *f, *pers, *s, v.visible_tiles, *a)
+            } else { return None; }
+        };
+
+        if self.world.get::<&Confusion>(id).is_ok() {
+            let mut rng = rand::thread_rng();
+            return Some(MonsterAction::Move(rng.gen_range(-1..=1), rng.gen_range(-1..=1)));
+        }
+
+        if alert == AlertState::Sleeping {
+            return None;
+        }
+
+        let is_merchant = self.world.get::<&Merchant>(id).is_ok();
+        let mut target = None;
+        let mut min_dist = viewshed as f32 + 1.0;
+
+        if alert == AlertState::Aggressive {
+            // Check player
+            if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
+                if let Ok(p_faction) = self.world.get::<&Faction>(player_id) {
+                    if faction.0 != p_faction.0 {
+                        let dist = (((pos.x as f32 - p_pos.x as f32).powi(2) + (pos.y as f32 - p_pos.y as f32).powi(2))).sqrt();
+                        if dist <= viewshed as f32 { min_dist = dist; target = Some((player_id, *p_pos)); }
+                    }
+                }
+            }
+
+            // Check other monsters
+            for (other_id, (other_pos, other_faction)) in self.world.query::<(&Position, &Faction)>().iter() {
+                if id == other_id { continue; }
+                if self.world.get::<&Wisp>(other_id).is_ok() { continue; }
+                if faction.0 != other_faction.0 {
+                    let dist = (((pos.x as f32 - other_pos.x as f32).powi(2) + (pos.y as f32 - other_pos.y as f32).powi(2))).sqrt();
+                    if dist <= viewshed as f32 && dist < min_dist { min_dist = dist; target = Some((other_id, *other_pos)); }
+                }
+            }
+        } else if let AlertState::Curious { x, y } = alert {
+            let dist = (((pos.x as f32 - x as f32).powi(2) + (pos.y as f32 - y as f32).powi(2))).sqrt();
+            if dist < 1.5 {
+                self.world.insert_one(id, AlertState::Sleeping).expect("Failed to update AlertState");
+                return None;
+            } else {
+                target = Some((id, Position { x, y }));
+            }
+        }
+
+        if let Some((target_id, target_pos)) = target {
+            let mut move_vec = None;
+            let mut attack = false;
+
+            if personality.0 == Personality::Cowardly && stats.hp < stats.max_hp / 2 && !is_merchant {
+                let mut dx = 0; let mut dy = 0;
+                if pos.x < target_pos.x { dx = -1; } else if pos.x > target_pos.x { dx = 1; }
+                if pos.y < target_pos.y { dy = -1; } else if pos.y > target_pos.y { dy = 1; }
+                move_vec = Some((dx, dy));
+            } else if personality.0 == Personality::Tactical && min_dist < 4.0 && !is_merchant {
+                let mut dx = 0; let mut dy = 0;
+                if pos.x < target_pos.x { dx = -1; } else if pos.x > target_pos.x { dx = 1; }
+                if pos.y < target_pos.y { dy = -1; } else if pos.y > target_pos.y { dy = 1; }
+                move_vec = Some((dx, dy));
+            } else if min_dist < 1.5 {
+                attack = true;
+            } else if !is_merchant {
+                let mut dx = 0; let mut dy = 0;
+                if pos.x < target_pos.x { dx = 1; } else if pos.x > target_pos.x { dx = -1; }
+                if pos.y < target_pos.y { dy = 1; } else if pos.y > target_pos.y { dy = -1; }
+                move_vec = Some((dx, dy));
+            }
+
+            if attack {
+                return Some(MonsterAction::Attack(target_id));
+            } else if let Some((dx, dy)) = move_vec {
+                return Some(MonsterAction::Move(dx, dy));
+            }
+
+            // Ranged attack check
+            if personality.0 == Personality::Tactical && min_dist > 1.5 && min_dist < 8.0 {
+                if self.world.get::<&RangedWeapon>(id).is_ok() {
+                    let line = line2d(LineAlg::Bresenham, Point::new(pos.x, pos.y), Point::new(target_pos.x, target_pos.y));
+                    let mut blocked = false;
+                    for p in line.iter().skip(1).take(line.len() - 2) {
+                        let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
+                        if self.map.blocked[idx] { blocked = true; break; }
+                    }
+                    if !blocked {
+                        return Some(MonsterAction::RangedAttack(target_id));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    fn process_boss_phases(&mut self, id: hecs::Entity) {
+        let mut boss_actions = Vec::new();
+        if let Ok(mut boss) = self.world.get::<&mut Boss>(id) {
+            if let Ok(stats) = self.world.get::<&CombatStats>(id) {
+                for phase in boss.phases.iter_mut() {
+                    if !phase.triggered && stats.hp <= phase.hp_threshold {
+                        phase.triggered = true;
+                        boss_actions.push(phase.action);
+                    }
+                }
+            }
+        }
+
+        for action in boss_actions {
+            let boss_name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Boss".to_string());
+            match action {
+                BossPhaseAction::SummonMinions => {
+                    self.log.push(format!("{} bellows: 'To my side, my children!'", boss_name));
+                    let boss_pos = self.world.get::<&Position>(id).ok().map(|p| *p);
+                    if let Some(pos) = boss_pos {
+                        let minion_name = if boss_name.contains("Broodmother") { "Spider" } else { "Goblin" };
+                        let minion_raw = self.content.monsters.iter().find(|m| m.name == minion_name).expect("Minion not found");
+                        for (dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                            let (mx, my) = ((pos.x as i16 + dx).max(0) as u16, (pos.y as i16 + dy).max(0) as u16);
+                            if !self.map.blocked[(my * self.map.width + mx) as usize] {
+                                crate::spawner::spawn_monster(&mut self.world, mx, my, minion_raw, self.dungeon_level);
+                            }
+                        }
+                    }
+                }
+                BossPhaseAction::Enrage => {
+                    self.log.push(format!("{} enters a bloodthirsty rage!", boss_name));
+                    if let Ok(mut stats) = self.world.get::<&mut CombatStats>(id) {
+                        stats.power += 4;
+                        stats.defense += 2;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn monster_turn(&mut self) {
+        self.on_turn_tick();
+        if self.state == RunState::Dead { return; }
+
+        let player_id = self.get_player_id().expect("Player not found in monster_turn");
+
+        // Handle Speed status
+        if self.world.get::<&Speed>(player_id).is_ok() {
+            if self.speed_toggle {
+                self.speed_toggle = false;
+                self.state = RunState::AwaitingInput;
+                self.log.push("You move with supernatural speed!".to_string());
+                return;
+            }
+        }
+        self.speed_toggle = true;
+
+        let mut actions = Vec::new();
+        let mut actors: Vec<hecs::Entity> = self.world.query::<&Monster>().iter().map(|(id, _)| id).collect();
+        for (id, _) in self.world.query::<&Merchant>().iter() { actors.push(id); }
+        
+        // 1. Plan actions
+        for id in actors {
+            self.process_boss_phases(id);
+            self.update_monster_perception(id, player_id);
+            if let Some(action) = self.calculate_monster_action(id, player_id) {
+                actions.push((id, action));
+            }
+        }
+
+        // 2. Execute actions
+        let mut occupied_positions: std::collections::HashSet<(u16, u16)> = self.world.query::<(&Position, &Monster)>().iter().map(|(_, (p, _))| (p.x, p.y)).collect();
+        for (_, (p, _)) in self.world.query::<(&Position, &Merchant)>().iter() { occupied_positions.insert((p.x, p.y)); }
+        if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
+            occupied_positions.insert((p_pos.x, p_pos.y));
+        }
+
+        for (id, action) in actions {
+            self.execute_monster_action(id, action, player_id, &mut occupied_positions);
+        }
+
+        // 3. Cleanup
+        self.cleanup_dead_entities();
+
+        // 4. Special Wisp movement (non-combat, random)
+        let mut wisp_moves = Vec::new();
+        for (id, _) in self.world.query::<&Wisp>().iter() {
+            let mut rng = rand::thread_rng();
+            wisp_moves.push((id, rng.gen_range(-1..=1), rng.gen_range(-1..=1)));
         }
 
         for (id, dx, dy) in wisp_moves {

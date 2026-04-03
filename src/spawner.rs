@@ -12,7 +12,7 @@ pub fn spawn_player(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         Faction(FactionKind::Player),
         Viewshed { visible_tiles: 8 },
         Hearing { range: 15 },
-        LightSource { range: 6, color: (255, 255, 200) },
+        LightSource { range: 2, base_range: 2, color: (150, 150, 100), remaining_turns: None, flicker: false },
         Name("Player".to_string()),
         CombatStats { max_hp: 30, hp: 30, defense: 2, power: 5 },
         Experience { level: 1, xp: 0, next_level_xp: 50, xp_reward: 0 },
@@ -157,7 +157,7 @@ pub fn spawn_light_crystal(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         Position { x, y },
         Renderable { glyph: '*', fg: Color::Rgb(100, 149, 237) },
         RenderOrder::Map,
-        LightSource { range: 4, color: (100, 149, 237) },
+        LightSource { range: 4, base_range: 4, color: (100, 149, 237), remaining_turns: None, flicker: true },
         Name("Glowing Crystal".to_string()),
     ))
 }
@@ -167,7 +167,7 @@ pub fn spawn_wisp(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         Position { x, y },
         Renderable { glyph: '*', fg: Color::Cyan },
         RenderOrder::Map,
-        LightSource { range: 4, color: (0, 255, 255) },
+        LightSource { range: 4, base_range: 4, color: (0, 255, 255), remaining_turns: None, flicker: true },
         Wisp,
         Name("Dungeon Wisp".to_string()),
     ))
