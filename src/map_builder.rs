@@ -12,7 +12,12 @@ pub struct Rect {
 
 impl Rect {
     pub fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
-        Self { x1: x, x2: x + w, y1: y, y2: y + h }
+        Self {
+            x1: x,
+            x2: x + w,
+            y1: y,
+            y2: y + h,
+        }
     }
 
     pub fn intersects(&self, other: &Rect) -> bool {
@@ -48,11 +53,11 @@ pub struct MapBuilder {
 impl MapBuilder {
     pub fn new(width: u16, height: u16) -> Self {
         let map = Map::new(width, height);
-        Self { 
-            map, 
-            rooms: Vec::new(), 
-            player_start: (0, 0), 
-            monster_spawns: Vec::new(), 
+        Self {
+            map,
+            rooms: Vec::new(),
+            player_start: (0, 0),
+            monster_spawns: Vec::new(),
             boss_spawn: None,
             item_spawns: Vec::new(),
             door_spawns: Vec::new(),
@@ -67,7 +72,7 @@ impl MapBuilder {
     pub fn build(&mut self, depth: u16) {
         if depth == 3 || depth == 6 {
             self.theme = LevelTheme::BossArena;
-        } else if depth % 3 == 0 {
+        } else if depth.is_multiple_of(3) {
             self.theme = LevelTheme::Caves;
         } else {
             self.theme = LevelTheme::Rooms;
@@ -125,8 +130,15 @@ impl MapBuilder {
 
         // Rule: 2 orthogonal wall tiles AND 2 orthogonal floor tiles
         // Specifically, they must be opposite to be a door in a wall.
-        if (left == TileType::Wall && right == TileType::Wall && up == TileType::Floor && down == TileType::Floor) ||
-           (left == TileType::Floor && right == TileType::Floor && up == TileType::Wall && down == TileType::Wall) {
+        if (left == TileType::Wall
+            && right == TileType::Wall
+            && up == TileType::Floor
+            && down == TileType::Floor)
+            || (left == TileType::Floor
+                && right == TileType::Floor
+                && up == TileType::Wall
+                && down == TileType::Wall)
+        {
             return true;
         }
 
@@ -206,7 +218,7 @@ impl MapBuilder {
                 if !self.rooms.is_empty() {
                     let (new_x, new_y) = new_room.center();
                     let (prev_x, prev_y) = self.rooms[self.rooms.len() - 1].center();
-                    
+
                     if rng.gen_bool(0.5) {
                         self.apply_horizontal_tunnel(prev_x, new_x, prev_y);
                         self.apply_vertical_tunnel(prev_y, new_y, new_x);
@@ -263,16 +275,23 @@ impl MapBuilder {
         let center = rect.center();
         let idx = (center.1 as u16 * self.map.width + center.0 as u16) as usize;
         self.map.tiles[idx] = TileType::Wall;
-        
-        self.monster_spawns.push((center.0 as u16 + 1, center.1 as u16));
-        self.monster_spawns.push((center.0 as u16 - 1, center.1 as u16));
-        self.item_spawns.push((center.0 as u16, center.1 as u16 + 1));
+
+        self.monster_spawns
+            .push((center.0 as u16 + 1, center.1 as u16));
+        self.monster_spawns
+            .push((center.0 as u16 - 1, center.1 as u16));
+        self.item_spawns
+            .push((center.0 as u16, center.1 as u16 + 1));
     }
 
     fn build_caves(&mut self) {
         let mut rng = rand::thread_rng();
         for tile in self.map.tiles.iter_mut() {
-            if rng.gen_bool(0.45) { *tile = TileType::Wall; } else { *tile = TileType::Floor; }
+            if rng.gen_bool(0.45) {
+                *tile = TileType::Wall;
+            } else {
+                *tile = TileType::Floor;
+            }
         }
 
         for _ in 0..5 {
@@ -282,30 +301,49 @@ impl MapBuilder {
                     let mut neighbors = 0;
                     for iy in -1..=1 {
                         for ix in -1..=1 {
-                            if ix == 0 && iy == 0 { continue; }
-                            if self.map.tiles[((y as i32 + iy) * self.map.width as i32 + (x as i32 + ix)) as usize] == TileType::Wall {
+                            if ix == 0 && iy == 0 {
+                                continue;
+                            }
+                            if self.map.tiles[((y as i32 + iy) * self.map.width as i32
+                                + (x as i32 + ix))
+                                as usize]
+                                == TileType::Wall
+                            {
                                 neighbors += 1;
                             }
                         }
                     }
                     let idx = (y * self.map.width + x) as usize;
-                    if neighbors > 4 || neighbors == 0 { new_tiles[idx] = TileType::Wall; } 
-                    else { new_tiles[idx] = TileType::Floor; }
+                    if neighbors > 4 || neighbors == 0 {
+                        new_tiles[idx] = TileType::Wall;
+                    } else {
+                        new_tiles[idx] = TileType::Floor;
+                    }
                 }
             }
             self.map.tiles = new_tiles;
         }
 
         let mut start_pos = (0, 0);
-        while self.map.tiles[(start_pos.1 * self.map.width + start_pos.0) as usize] != TileType::Floor {
-            start_pos = (rng.gen_range(1..self.map.width - 1), rng.gen_range(1..self.map.height - 1));
+        while self.map.tiles[(start_pos.1 * self.map.width + start_pos.0) as usize]
+            != TileType::Floor
+        {
+            start_pos = (
+                rng.gen_range(1..self.map.width - 1),
+                rng.gen_range(1..self.map.height - 1),
+            );
         }
         self.player_start = start_pos;
         self.stairs_up = start_pos;
 
         let mut end_pos = (0, 0);
-        while self.map.tiles[(end_pos.1 * self.map.width + end_pos.0) as usize] != TileType::Floor || end_pos == start_pos {
-            end_pos = (rng.gen_range(1..self.map.width - 1), rng.gen_range(1..self.map.height - 1));
+        while self.map.tiles[(end_pos.1 * self.map.width + end_pos.0) as usize] != TileType::Floor
+            || end_pos == start_pos
+        {
+            end_pos = (
+                rng.gen_range(1..self.map.width - 1),
+                rng.gen_range(1..self.map.height - 1),
+            );
         }
         self.stairs_down = end_pos;
 
@@ -337,14 +375,18 @@ impl MapBuilder {
     fn apply_horizontal_tunnel(&mut self, x1: i32, x2: i32, y: i32) {
         for x in min(x1, x2)..=max(x1, x2) {
             let idx = (y as u16 * self.map.width + x as u16) as usize;
-            if idx < self.map.tiles.len() { self.map.tiles[idx] = TileType::Floor; }
+            if idx < self.map.tiles.len() {
+                self.map.tiles[idx] = TileType::Floor;
+            }
         }
     }
 
     fn apply_vertical_tunnel(&mut self, y1: i32, y2: i32, x: i32) {
         for y in min(y1, y2)..=max(y1, y2) {
             let idx = (y as u16 * self.map.width + x as u16) as usize;
-            if idx < self.map.tiles.len() { self.map.tiles[idx] = TileType::Floor; }
+            if idx < self.map.tiles.len() {
+                self.map.tiles[idx] = TileType::Floor;
+            }
         }
     }
 }
@@ -366,7 +408,11 @@ mod tests {
         mb.build(1);
         let (x, y) = mb.player_start;
         let idx = (y * mb.map.width + x) as usize;
-        assert_eq!(mb.map.tiles[idx], TileType::Floor, "Player should start on a floor tile");
+        assert_eq!(
+            mb.map.tiles[idx],
+            TileType::Floor,
+            "Player should start on a floor tile"
+        );
     }
 
     #[test]
@@ -384,8 +430,12 @@ mod tests {
         mb.build(1); // Ensure Rooms theme
         if matches!(mb.theme, LevelTheme::Rooms) {
             for (x, y) in &mb.door_spawns {
-                assert!(mb.is_legal_door(*x, *y), 
-                    "Door at ({}, {}) does not meet legality criteria", x, y);
+                assert!(
+                    mb.is_legal_door(*x, *y),
+                    "Door at ({}, {}) does not meet legality criteria",
+                    x,
+                    y
+                );
             }
         }
     }

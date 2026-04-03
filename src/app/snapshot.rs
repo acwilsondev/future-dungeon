@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::components::*;
 use crate::map::Map;
+use serde::{Deserialize, Serialize};
 
 /// A snapshot of an entity for serialization
 #[derive(Serialize, Deserialize, Clone)]

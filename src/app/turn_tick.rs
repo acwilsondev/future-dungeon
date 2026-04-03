@@ -49,14 +49,20 @@ impl App {
         for id in to_remove_light {
             self.world.remove_one::<LightSource>(id).ok();
             if id == player_id {
-                self.log.push("Your torch flickers and goes out!".to_string());
-                self.world.insert_one(id, LightSource { 
-                    range: 2, 
-                    base_range: 2, 
-                    color: (150, 150, 100), 
-                    remaining_turns: None, 
-                    flicker: false 
-                }).ok();
+                self.log
+                    .push("Your torch flickers and goes out!".to_string());
+                self.world
+                    .insert_one(
+                        id,
+                        LightSource {
+                            range: 2,
+                            base_range: 2,
+                            color: (150, 150, 100),
+                            remaining_turns: None,
+                            flicker: false,
+                        },
+                    )
+                    .ok();
             }
         }
         if any_light_changed {
@@ -65,19 +71,27 @@ impl App {
     }
 
     fn apply_passive_equipment_effects(&mut self, player_id: hecs::Entity) {
-        if self.turn_count % 5 == 0 {
+        if self.turn_count.is_multiple_of(5) {
             let mut regen = false;
             for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
                 if backpack.owner == player_id {
-                    let name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or_default();
-                    if name == "Ring of Regeneration" { regen = true; break; }
+                    let name = self
+                        .world
+                        .get::<&Name>(id)
+                        .map(|n| n.0.clone())
+                        .unwrap_or_default();
+                    if name == "Ring of Regeneration" {
+                        regen = true;
+                        break;
+                    }
                 }
             }
             if regen {
                 if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                     if stats.hp < stats.max_hp {
                         stats.hp += 1;
-                        self.log.push("The Ring of Regeneration heals you.".to_string());
+                        self.log
+                            .push("The Ring of Regeneration heals you.".to_string());
                     }
                 }
             }
@@ -89,7 +103,9 @@ impl App {
         for (id, _) in self.world.query::<&Noise>().iter() {
             to_despawn_noise.push(id);
         }
-        for id in to_despawn_noise { self.world.despawn(id).expect("Failed to despawn noise"); }
+        for id in to_despawn_noise {
+            self.world.despawn(id).expect("Failed to despawn noise");
+        }
     }
 
     fn apply_status_effects(&mut self, player_id: hecs::Entity) {
@@ -104,22 +120,28 @@ impl App {
             if let Ok(mut poison) = self.world.get::<&mut Poison>(id) {
                 poison_damage.push((id, poison.damage));
                 poison.turns -= 1;
-                if poison.turns <= 0 { to_remove_poison.push(id); }
+                if poison.turns <= 0 {
+                    to_remove_poison.push(id);
+                }
             }
             if let Ok(mut confusion) = self.world.get::<&mut Confusion>(id) {
                 confusion.turns -= 1;
-                if confusion.turns <= 0 { to_remove_confusion.push(id); }
+                if confusion.turns <= 0 {
+                    to_remove_confusion.push(id);
+                }
             }
             if let Ok(mut strength) = self.world.get::<&mut Strength>(id) {
                 strength.turns -= 1;
-                if strength.turns <= 0 { 
+                if strength.turns <= 0 {
                     strength_expiration.push((id, strength.amount));
-                    to_remove_strength.push(id); 
+                    to_remove_strength.push(id);
                 }
             }
             if let Ok(mut speed) = self.world.get::<&mut Speed>(id) {
                 speed.turns -= 1;
-                if speed.turns <= 0 { to_remove_speed.push(id); }
+                if speed.turns <= 0 {
+                    to_remove_speed.push(id);
+                }
             }
         }
 
@@ -127,8 +149,12 @@ impl App {
             if let Ok(mut stats) = self.world.get::<&mut CombatStats>(id) {
                 stats.hp -= damage;
                 if id == player_id {
-                    self.log.push(format!("You suffer {} damage from poison!", damage));
-                    if stats.hp <= 0 { self.death = true; self.state = RunState::Dead; }
+                    self.log
+                        .push(format!("You suffer {} damage from poison!", damage));
+                    if stats.hp <= 0 {
+                        self.death = true;
+                        self.state = RunState::Dead;
+                    }
                 }
             }
         }
@@ -137,30 +163,38 @@ impl App {
             if let Ok(mut stats) = self.world.get::<&mut CombatStats>(id) {
                 stats.power -= amount;
                 if id == player_id {
-                    self.log.push("You feel your extra strength wear off.".to_string());
+                    self.log
+                        .push("You feel your extra strength wear off.".to_string());
                 }
             }
         }
 
-        for id in to_remove_poison { self.world.remove_one::<Poison>(id).ok(); }
-        for id in to_remove_confusion { 
-            self.world.remove_one::<Confusion>(id).ok(); 
+        for id in to_remove_poison {
+            self.world.remove_one::<Poison>(id).ok();
+        }
+        for id in to_remove_confusion {
+            self.world.remove_one::<Confusion>(id).ok();
             if id == player_id {
                 self.log.push("You are no longer confused.".to_string());
             } else {
-                self.log.push("A monster snaps out of confusion.".to_string());
+                self.log
+                    .push("A monster snaps out of confusion.".to_string());
             }
         }
-        for id in to_remove_strength { self.world.remove_one::<Strength>(id).ok(); }
-        for id in to_remove_speed { self.world.remove_one::<Speed>(id).ok(); }
+        for id in to_remove_strength {
+            self.world.remove_one::<Strength>(id).ok();
+        }
+        for id in to_remove_speed {
+            self.world.remove_one::<Speed>(id).ok();
+        }
     }
 
     fn handle_dead_monsters_from_poison(&mut self) {
         let mut to_despawn = Vec::new();
         let mut total_xp: i32 = 0;
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
-            if stats.hp <= 0 { 
-                to_despawn.push(id); 
+            if stats.hp <= 0 {
+                to_despawn.push(id);
                 if self.world.get::<&LastHitByPlayer>(id).is_ok() {
                     if let Ok(exp) = self.world.get::<&Experience>(id) {
                         total_xp = total_xp.saturating_add(exp.xp_reward);
@@ -168,13 +202,19 @@ impl App {
                 }
             }
         }
-        for id in to_despawn { 
-            let name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Monster".to_string());
+        for id in to_despawn {
+            let name = self
+                .world
+                .get::<&Name>(id)
+                .map(|n| n.0.clone())
+                .unwrap_or("Monster".to_string());
             self.log.push(format!("{} dies from poison!", name));
-            self.world.despawn(id).expect("Failed to despawn monster"); 
+            self.world.despawn(id).expect("Failed to despawn monster");
             self.monsters_killed += 1;
         }
         self.update_blocked_and_opaque();
-        if total_xp > 0 { self.add_player_xp(total_xp); }
+        if total_xp > 0 {
+            self.add_player_xp(total_xp);
+        }
     }
 }

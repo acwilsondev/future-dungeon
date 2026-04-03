@@ -1,32 +1,44 @@
-use crate::app::{App, RunState, EntitySnapshot, LevelData};
+use crate::app::{App, EntitySnapshot, LevelData, RunState};
 use crate::components::*;
 
 impl App {
     pub fn go_to_level(&mut self, destination: (u16, Branch)) {
         let from = (self.dungeon_level, self.current_branch);
-        
+
         if self.dungeon_level <= 1 && destination.0 < 1 {
             if self.escaping {
                 self.state = RunState::Victory;
-                self.log.push("You escape the dungeon with the Amulet! You win!".to_string());
+                self.log
+                    .push("You escape the dungeon with the Amulet! You win!".to_string());
             } else {
-                self.log.push("You cannot go further up without the Amulet!".to_string());
+                self.log
+                    .push("You cannot go further up without the Amulet!".to_string());
             }
             return;
         }
 
         self.pack_entities();
         let current_entities = self.entities.clone();
-        let player_snapshot = current_entities.iter().find(|e| e.is_player).cloned().expect("Player entity not found during level transition");
-        let level_entities: Vec<EntitySnapshot> = current_entities.into_iter().filter(|e| !e.is_player).collect();
+        let player_snapshot = current_entities
+            .iter()
+            .find(|e| e.is_player)
+            .cloned()
+            .expect("Player entity not found during level transition");
+        let level_entities: Vec<EntitySnapshot> = current_entities
+            .into_iter()
+            .filter(|e| !e.is_player)
+            .collect();
 
-        self.levels.insert((self.dungeon_level, self.current_branch), LevelData {
-            map: self.map.clone(),
-            entities: level_entities,
-        });
+        self.levels.insert(
+            (self.dungeon_level, self.current_branch),
+            LevelData {
+                map: self.map.clone(),
+                entities: level_entities,
+            },
+        );
 
         let going_down = destination.0 > self.dungeon_level;
-        
+
         self.dungeon_level = destination.0;
         self.current_branch = destination.1;
 
@@ -36,7 +48,7 @@ impl App {
             self.entities.push(player_snapshot);
             self.unpack_entities();
             let mut stairs_pos = (0, 0);
-            
+
             if going_down {
                 for (_, (pos, stairs)) in self.world.query::<(&Position, &UpStairs)>().iter() {
                     if stairs.destination == from {
@@ -71,9 +83,15 @@ impl App {
         };
 
         if going_down {
-            self.log.push(format!("You descend to level {} of {}.", self.dungeon_level, branch_name));
+            self.log.push(format!(
+                "You descend to level {} of {}.",
+                self.dungeon_level, branch_name
+            ));
         } else {
-            self.log.push(format!("You ascend to level {} of {}.", self.dungeon_level, branch_name));
+            self.log.push(format!(
+                "You ascend to level {} of {}.",
+                self.dungeon_level, branch_name
+            ));
         }
     }
 

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use bracket_pathfinding::prelude::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TileType {
@@ -66,7 +66,9 @@ impl Algorithm2D for Map {
 
 impl BaseMap for Map {
     fn is_opaque(&self, idx: usize) -> bool {
-        if idx >= self.opaque.len() { return true; }
+        if idx >= self.opaque.len() {
+            return true;
+        }
         self.opaque[idx]
     }
 }

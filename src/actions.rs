@@ -8,13 +8,13 @@ pub enum Action {
     OpenLogHistory,
     OpenBestiary,
     TryLevelTransition,
-    
+
     // UI Actions
     CloseMenu,
     MenuUp,
     MenuDown,
     MenuSelect,
     ToggleShopMode,
-    
+
     Wait,
 }

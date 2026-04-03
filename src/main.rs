@@ -1,13 +1,13 @@
-mod app;
-mod renderer;
-mod engine;
-mod persistence;
-mod map_builder;
-mod components;
 mod actions;
+mod app;
+mod components;
+mod content;
+mod engine;
 mod input;
 mod map;
-mod content;
+mod map_builder;
+mod persistence;
+mod renderer;
 mod spawner;
 
 use anyhow::Result;
@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 fn main() -> Result<()> {
     let mut engine = Engine::new()?;
-    
+
     // Try to load an existing game, otherwise start a new one
     let mut app = match persistence::load_game() {
         Ok(Some(app)) => app,
