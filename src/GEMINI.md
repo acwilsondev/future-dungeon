@@ -23,6 +23,7 @@ This document outlines the best practices, testing strategies, and documentation
 ### Unit Testing
 - Small, focused tests should be placed in the same file as the code they test, inside a `#[cfg(test)] mod tests` block.
 - Aim for high coverage of game logic (combat calculations, movement validation).
+- We should target 80% code coverage across the repo.
 
 ### Integration Testing
 - More complex scenarios (dungeon generation, multi-turn interactions) should be placed in the `tests/` directory.
