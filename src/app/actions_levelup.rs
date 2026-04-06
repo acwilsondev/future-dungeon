@@ -16,10 +16,8 @@ impl App {
                 }
             }
             Action::MenuSelect => {
-                let player_id = self
-                    .get_player_id()
-                    .expect("Player not found during level up");
-                match self.level_up_cursor {
+                if let Some(player_id) = self.get_player_id() {
+                    match self.level_up_cursor {
                     0 => {
                         if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                             stats.max_hp += 10;
@@ -62,6 +60,7 @@ impl App {
                             .push("You chose Thick Skin! Defense increased.".to_string());
                     }
                     _ => {}
+                    }
                 }
                 self.state = RunState::MonsterTurn;
             }

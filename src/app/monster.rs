@@ -9,9 +9,10 @@ impl App {
             return;
         }
 
-        let player_id = self
-            .get_player_id()
-            .expect("Player not found in monster_turn");
+        let Some(player_id) = self.get_player_id() else {
+            log::error!("Player not found in monster_turn");
+            return;
+        };
 
         // Handle Speed status
         if self.world.get::<&Speed>(player_id).is_ok() && self.speed_toggle {

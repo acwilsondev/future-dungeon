@@ -48,9 +48,7 @@ impl App {
             }
 
             if can_see_player {
-                self.world
-                    .insert_one(id, AlertState::Aggressive)
-                    .expect("Failed to update AlertState");
+                let _ = self.world.insert_one(id, AlertState::Aggressive);
             } else {
                 // Check for noise
                 let idx = (pos.y * self.map.width + pos.x) as usize;
@@ -63,9 +61,7 @@ impl App {
                         .map(|p| (p.x, p.y));
                     if let Some((px, py)) = p_pos_data {
                         current_alert = AlertState::Curious { x: px, y: py };
-                        self.world
-                            .insert_one(id, current_alert)
-                            .expect("Failed to update AlertState");
+                        let _ = self.world.insert_one(id, current_alert);
                     }
                 }
             }
@@ -103,7 +99,9 @@ impl App {
             }
         }
         for id in to_despawn {
-            self.world.despawn(id).expect("Failed to despawn monster");
+            if let Err(e) = self.world.despawn(id) {
+                log::error!("Failed to despawn monster {:?}: {}", id, e);
+            }
             self.monsters_killed += 1;
         }
         self.update_blocked_and_opaque();

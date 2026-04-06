@@ -6,8 +6,12 @@ impl App {
     pub fn move_player(&mut self, dx: i16, dy: i16) {
         let (new_x, new_y, player_power) = {
             let (power, _) = self.get_player_stats();
-            let mut player_query = self.world.query::<(&Position, &Player)>();
-            let (_, (pos, _)) = player_query.iter().next().expect("Player not found");
+            let Some(player_id) = self.get_player_id() else {
+                return;
+            };
+            let Ok(pos) = self.world.get::<&Position>(player_id) else {
+                return;
+            };
             (
                 (pos.x as i16 + dx).max(0) as u16,
                 (pos.y as i16 + dy).max(0) as u16,
@@ -106,18 +110,14 @@ impl App {
             }
 
             if !monster_died && monster_damaged {
-                self.world
-                    .insert_one(target_id, LastHitByPlayer)
-                    .expect("Failed to insert LastHitByPlayer");
-                self.world
-                    .insert_one(target_id, AlertState::Aggressive)
-                    .expect("Failed to alert monster");
+                let _ = self.world.insert_one(target_id, LastHitByPlayer);
+                let _ = self.world.insert_one(target_id, AlertState::Aggressive);
             }
             if monster_died {
                 self.log.push(format!("{} dies!", monster_name));
-                self.world
-                    .despawn(target_id)
-                    .expect("Failed to despawn monster");
+                if let Err(e) = self.world.despawn(target_id) {
+                    log::error!("Failed to despawn monster {:?}: {}", target_id, e);
+                }
                 self.monsters_killed += 1;
                 self.add_player_xp(xp_reward);
                 self.update_blocked_and_opaque();
@@ -152,13 +152,13 @@ impl App {
         }
 
         if !self.map.blocked[(new_y * self.map.width + new_x) as usize] {
-            let player_id = {
-                let mut player_query = self.world.query::<(&mut Position, &Player)>();
-                let (player_id, (pos, _)) = player_query.iter().next().expect("Player not found");
+            let Some(player_id) = self.get_player_id() else {
+                return;
+            };
+            if let Ok(mut pos) = self.world.get::<&mut Position>(player_id) {
                 pos.x = new_x;
                 pos.y = new_y;
-                player_id
-            };
+            }
             self.generate_noise(new_x, new_y, 3.0); // Moving is quiet but not silent
 
             // Gold pickup - ensure we don't pick up the player!
@@ -174,7 +174,9 @@ impl App {
                     player_gold.amount += amount;
                     self.log.push(format!("You pick up {} gold.", amount));
                 }
-                self.world.despawn(id).expect("Failed to despawn gold");
+                if let Err(e) = self.world.despawn(id) {
+                    log::error!("Failed to despawn gold entity {:?}: {}", id, e);
+                }
             }
 
             let mut total_damage = 0;
@@ -231,7 +233,9 @@ impl App {
                 drop(stats_query);
             }
             for trap_id in triggered_traps {
-                self.world.despawn(trap_id).expect("Failed to despawn trap");
+                if let Err(e) = self.world.despawn(trap_id) {
+                    log::error!("Failed to despawn trap entity {:?}: {}", trap_id, e);
+                }
             }
 
             for poison in poisons_to_apply {
@@ -347,4 +351,3 @@ mod tests {
         assert_eq!(player_pos.x, 10); // Player should NOT move when attacking
     }
 }
-

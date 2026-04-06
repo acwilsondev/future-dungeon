@@ -296,7 +296,7 @@ fn draw_sidebar(
         sidebar_layout[1],
     );
 
-    let player_id = app.get_player_id().expect("Player not found in render");
+    let Some(player_id) = app.get_player_id() else { return; };
     let (level, xp, next_xp) = if let Ok(exp) = app.world.get::<&Experience>(player_id) {
         (exp.level, exp.xp, exp.next_level_xp)
     } else {
@@ -466,7 +466,7 @@ pub fn render(app: &App, frame: &mut Frame) {
     });
 
     let mut player_query = app.world.query::<(&Position, &Player, &CombatStats)>();
-    let (_, (player_pos, _, player_stats)) = player_query.iter().next().expect("Player not found");
+    let Some((_, (player_pos, _, player_stats))) = player_query.iter().next() else { return; };
 
     let view_w = inner_map.width as i32;
     let view_h = inner_map.height as i32;
@@ -619,7 +619,7 @@ fn render_shop(app: &App, frame: &mut Frame) {
     let area = centered_rect(70, 70, frame.size());
     frame.render_widget(Clear, area);
 
-    let player_id = app.get_player_id().expect("Player not found in render");
+    let Some(player_id) = app.get_player_id() else { return; };
     let player_gold = app
         .world
         .get::<&Gold>(player_id)
@@ -721,7 +721,7 @@ fn render_inventory(app: &App, frame: &mut Frame) {
     };
     let block = Block::default().borders(Borders::ALL).title(title);
 
-    let player_id = app.get_player_id().expect("Player not found in render");
+    let Some(player_id) = app.get_player_id() else { return; };
     let items: Vec<(hecs::Entity, String)> = app
         .world
         .query::<(&Item, &InBackpack)>()
@@ -995,19 +995,21 @@ fn render_death_screen(app: &App, frame: &mut Frame) {
     let area = centered_rect(50, 40, frame.size());
     frame.render_widget(Clear, area);
 
-    let player_id = app
-        .get_player_id()
-        .expect("Player not found in death screen");
-    let gold = app
-        .world
-        .get::<&Gold>(player_id)
-        .map(|g| g.amount)
-        .unwrap_or(0);
-    let level = app
-        .world
-        .get::<&Experience>(player_id)
-        .map(|e| e.level)
-        .unwrap_or(1);
+    let (gold, level) = if let Some(player_id) = app.get_player_id() {
+        let gold = app
+            .world
+            .get::<&Gold>(player_id)
+            .map(|g| g.amount)
+            .unwrap_or(0);
+        let level = app
+            .world
+            .get::<&Experience>(player_id)
+            .map(|e| e.level)
+            .unwrap_or(1);
+        (gold, level)
+    } else {
+        (0, 1)
+    };
 
     let text = vec![
         Line::from(Span::styled(
@@ -1042,19 +1044,21 @@ fn render_victory_screen(app: &App, frame: &mut Frame) {
     let area = centered_rect(50, 45, frame.size());
     frame.render_widget(Clear, area);
 
-    let player_id = app
-        .get_player_id()
-        .expect("Player not found in victory screen");
-    let gold = app
-        .world
-        .get::<&Gold>(player_id)
-        .map(|g| g.amount)
-        .unwrap_or(0);
-    let level = app
-        .world
-        .get::<&Experience>(player_id)
-        .map(|e| e.level)
-        .unwrap_or(1);
+    let (gold, level) = if let Some(player_id) = app.get_player_id() {
+        let gold = app
+            .world
+            .get::<&Gold>(player_id)
+            .map(|g| g.amount)
+            .unwrap_or(0);
+        let level = app
+            .world
+            .get::<&Experience>(player_id)
+            .map(|e| e.level)
+            .unwrap_or(1);
+        (gold, level)
+    } else {
+        (0, 1)
+    };
 
     let text = vec![
         Line::from(Span::styled(

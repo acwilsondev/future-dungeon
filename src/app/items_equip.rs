@@ -13,9 +13,9 @@ impl App {
             return false;
         }
 
-        self.world
-            .remove_one::<Equipped>(item_id)
-            .expect("Failed to remove Equipped component");
+        if let Err(e) = self.world.remove_one::<Equipped>(item_id) {
+            log::error!("Failed to remove Equipped component from {:?}: {}", item_id, e);
+        }
         self.log.push(format!("You unequip the {}.", item_name));
         self.refresh_player_render();
         true
@@ -23,11 +23,14 @@ impl App {
 
     pub fn equip_item(&mut self, item_id: hecs::Entity) {
         let (player_id, slot) = {
-            let player_id = self.get_player_id().expect("Player not found");
-            let equippable = self
-                .world
-                .get::<&Equippable>(item_id)
-                .expect("Item not equippable");
+            let Some(player_id) = self.get_player_id() else {
+                log::error!("Player not found during equip_item");
+                return;
+            };
+            let Ok(equippable) = self.world.get::<&Equippable>(item_id) else {
+                log::error!("Item {:?} not equippable during equip_item", item_id);
+                return;
+            };
             (player_id, equippable.slot)
         };
 
@@ -46,9 +49,9 @@ impl App {
             }
         }
 
-        self.world
-            .insert_one(item_id, Equipped { slot })
-            .expect("Failed to insert Equipped component");
+        if let Err(e) = self.world.insert_one(item_id, Equipped { slot }) {
+            log::error!("Failed to insert Equipped component for {:?}: {}", item_id, e);
+        }
         let item_name = self.get_item_name(item_id);
         self.log.push(format!("You equip the {}.", item_name));
         self.identify_item(item_id);

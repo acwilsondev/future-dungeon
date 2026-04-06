@@ -36,11 +36,12 @@ impl App {
             }
             MonsterAction::Attack(target_id) => {
                 let (monster_name, monster_power) = {
-                    let stats = self
-                        .world
-                        .get::<&CombatStats>(id)
-                        .expect("Monster has no stats");
-                    let name = self.world.get::<&Name>(id).expect("Monster has no name");
+                    let Ok(stats) = self.world.get::<&CombatStats>(id) else {
+                        return;
+                    };
+                    let Ok(name) = self.world.get::<&Name>(id) else {
+                        return;
+                    };
                     (name.0.clone(), stats.power)
                 };
                 let target_name = self
@@ -110,11 +111,12 @@ impl App {
             }
             MonsterAction::RangedAttack(target_id) => {
                 let (monster_name, rw) = {
-                    let name = self.world.get::<&Name>(id).expect("Monster has no name");
-                    let r = self
-                        .world
-                        .get::<&RangedWeapon>(id)
-                        .expect("Monster has no ranged weapon");
+                    let Ok(name) = self.world.get::<&Name>(id) else {
+                        return;
+                    };
+                    let Ok(r) = self.world.get::<&RangedWeapon>(id) else {
+                        return;
+                    };
                     (name.0.clone(), *r)
                 };
                 let target_name = self

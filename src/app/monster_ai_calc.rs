@@ -80,9 +80,7 @@ impl App {
             let dist =
                 ((pos.x as f32 - x as f32).powi(2) + (pos.y as f32 - y as f32).powi(2)).sqrt();
             if dist < 1.5 {
-                self.world
-                    .insert_one(id, AlertState::Sleeping)
-                    .expect("Failed to update AlertState");
+                let _ = self.world.insert_one(id, AlertState::Sleeping);
                 return None;
             } else {
                 target = Some((id, Position { x, y }));
@@ -230,4 +228,3 @@ mod tests {
         assert_eq!(action, Some(MonsterAction::Move(-1, 0)));
     }
 }
-

@@ -240,7 +240,13 @@ impl App {
 
         if let Some(player) = player_entity {
             for id in in_backpack_markers {
-                self.world.insert_one(id, InBackpack { owner: player })?;
+                if let Err(e) = self.world.insert_one(id, InBackpack { owner: player }) {
+                    log::error!(
+                        "Failed to re-insert InBackpack component for entity {:?}: {}",
+                        id,
+                        e
+                    );
+                }
             }
         } else {
             return Err(anyhow::anyhow!("Player entity not found in snapshot"));

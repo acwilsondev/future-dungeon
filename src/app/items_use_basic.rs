@@ -3,7 +3,10 @@ use crate::components::*;
 
 impl App {
     pub fn use_item(&mut self, item_id: hecs::Entity) {
-        let player_id = self.get_player_id().expect("Player not found");
+        let Some(player_id) = self.get_player_id() else {
+            log::error!("Player not found during use_item");
+            return;
+        };
         let item_name = self.get_item_name(item_id);
         let real_name = self
             .world
@@ -47,9 +50,7 @@ impl App {
 
         let poison_effect = self.world.get::<&Poison>(item_id).ok().map(|p| *p);
         if let Some(poison) = poison_effect {
-            self.world
-                .insert_one(player_id, poison)
-                .expect("Failed to insert Poison component");
+            let _ = self.world.insert_one(player_id, poison);
             self.log
                 .push(format!("You are poisoned by the {}!", item_name));
             handled = true;
@@ -57,9 +58,7 @@ impl App {
 
         let strength_effect = self.world.get::<&Strength>(item_id).ok().map(|s| *s);
         if let Some(strength) = strength_effect {
-            self.world
-                .insert_one(player_id, strength)
-                .expect("Failed to insert Strength component");
+            let _ = self.world.insert_one(player_id, strength);
             if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                 stats.power += strength.amount;
             }
@@ -70,9 +69,7 @@ impl App {
 
         let speed_effect = self.world.get::<&Speed>(item_id).ok().map(|s| *s);
         if let Some(speed) = speed_effect {
-            self.world
-                .insert_one(player_id, speed)
-                .expect("Failed to insert Speed component");
+            let _ = self.world.insert_one(player_id, speed);
             self.log
                 .push(format!("The {} makes you feel incredibly fast!", item_name));
             handled = true;
@@ -115,9 +112,9 @@ impl App {
         if handled {
             self.identify_item(item_id);
             if self.world.get::<&Consumable>(item_id).is_ok() {
-                self.world
-                    .despawn(item_id)
-                    .expect("Failed to despawn item after use");
+                if let Err(e) = self.world.despawn(item_id) {
+                    log::error!("Failed to despawn consumable item after use: {}", e);
+                }
                 self.state = RunState::MonsterTurn;
             }
         }

@@ -1,3 +1,4 @@
+#![deny(clippy::all)]
 mod actions;
 mod app;
 mod components;

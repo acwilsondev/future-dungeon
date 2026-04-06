@@ -46,11 +46,13 @@ pub fn move_player(world: &mut World, dx: i16, dy: i16, log: &mut Vec<String>, e
             }
         }
         if !dead {
-            world.insert_one(target_id, LastHitByPlayer).expect("Failed to insert LastHitByPlayer");
+            let _ = world.insert_one(target_id, LastHitByPlayer);
         }
         if dead {
             log.push(format!("{} dies!", monster_name));
-            world.despawn(target_id).expect("Failed to despawn monster");
+            if let Err(e) = world.despawn(target_id) {
+                log::error!("Failed to despawn monster {:?}: {}", target_id, e);
+            }
             // XP handling would need to be passed in or handled by App
             // For now, let's assume App handles XP after this returns or we pass a callback
         }

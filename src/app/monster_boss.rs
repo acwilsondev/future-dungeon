@@ -36,21 +36,22 @@ impl App {
                             .content
                             .monsters
                             .iter()
-                            .find(|m| m.name == minion_name)
-                            .expect("Minion not found");
-                        for (dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
-                            let (mx, my) = (
-                                (pos.x as i16 + dx).max(0) as u16,
-                                (pos.y as i16 + dy).max(0) as u16,
-                            );
-                            if !self.map.blocked[(my * self.map.width + mx) as usize] {
-                                crate::spawner::spawn_monster(
-                                    &mut self.world,
-                                    mx,
-                                    my,
-                                    minion_raw,
-                                    self.dungeon_level,
+                            .find(|m| m.name == minion_name);
+                        if let Some(minion_raw) = minion_raw {
+                            for (dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
+                                let (mx, my) = (
+                                    (pos.x as i16 + dx).max(0) as u16,
+                                    (pos.y as i16 + dy).max(0) as u16,
                                 );
+                                if !self.map.blocked[(my * self.map.width + mx) as usize] {
+                                    crate::spawner::spawn_monster(
+                                        &mut self.world,
+                                        mx,
+                                        my,
+                                        minion_raw,
+                                        self.dungeon_level,
+                                    );
+                                }
                             }
                         }
                     }

@@ -5,7 +5,10 @@ use rand::Rng;
 impl App {
     pub fn on_turn_tick(&mut self) {
         self.turn_count += 1;
-        let player_id = self.get_player_id().expect("Player not found in turn tick");
+        let Some(player_id) = self.get_player_id() else {
+            log::error!("Player not found in turn tick");
+            return;
+        };
 
         self.update_light_sources(player_id);
         self.apply_passive_equipment_effects(player_id);
@@ -104,7 +107,9 @@ impl App {
             to_despawn_noise.push(id);
         }
         for id in to_despawn_noise {
-            self.world.despawn(id).expect("Failed to despawn noise");
+            if let Err(e) = self.world.despawn(id) {
+                log::error!("Failed to despawn noise entity {:?}: {}", id, e);
+            }
         }
     }
 
@@ -209,7 +214,9 @@ impl App {
                 .map(|n| n.0.clone())
                 .unwrap_or("Monster".to_string());
             self.log.push(format!("{} dies from poison!", name));
-            self.world.despawn(id).expect("Failed to despawn monster");
+            if let Err(e) = self.world.despawn(id) {
+                log::error!("Failed to despawn monster {:?}: {}", id, e);
+            }
             self.monsters_killed += 1;
         }
         self.update_blocked_and_opaque();

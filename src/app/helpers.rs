@@ -12,11 +12,12 @@ impl App {
     }
 
     pub fn get_player_stats(&self) -> (i32, i32) {
-        let player_id = self.get_player_id().expect("Player not found");
-        let base_stats = self
-            .world
-            .get::<&CombatStats>(player_id)
-            .expect("Player has no CombatStats");
+        let Some(player_id) = self.get_player_id() else {
+            return (0, 0);
+        };
+        let Ok(base_stats) = self.world.get::<&CombatStats>(player_id) else {
+            return (0, 0);
+        };
         let mut power = base_stats.power;
         let mut defense = base_stats.defense;
 
@@ -58,7 +59,9 @@ impl App {
     }
 
     pub fn refresh_player_render(&mut self) {
-        let player_id = self.get_player_id().expect("Player not found");
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
         if let Ok(mut render) = self.world.get::<&mut Renderable>(player_id) {
             render.fg = Color::Yellow;
             render.glyph = '@';
@@ -85,7 +88,9 @@ impl App {
     }
 
     pub fn add_player_xp(&mut self, xp: i32) {
-        let player_id = self.get_player_id().expect("Player not found");
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
         if let Ok(mut exp) = self.world.get::<&mut Experience>(player_id) {
             exp.xp += xp;
             if exp.xp >= exp.next_level_xp {

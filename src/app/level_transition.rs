@@ -58,7 +58,8 @@ impl App {
                         stairs_pos = (pos.x, pos.y); // Fallback
                     }
                 } else {
-                    for (_, (pos, stairs)) in self.world.query::<(&Position, &DownStairs)>().iter() {
+                    for (_, (pos, stairs)) in self.world.query::<(&Position, &DownStairs)>().iter()
+                    {
                         if stairs.destination == from {
                             stairs_pos = (pos.x, pos.y);
                             break;
@@ -98,8 +99,12 @@ impl App {
 
     pub fn try_level_transition(&mut self) {
         let player_pos = {
-            let mut player_query = self.world.query::<(&Position, &Player)>();
-            let (_, (pos, _)) = player_query.iter().next().expect("Player not found");
+            let Some(player_id) = self.get_player_id() else {
+                return;
+            };
+            let Ok(pos) = self.world.get::<&Position>(player_id) else {
+                return;
+            };
             *pos
         };
         let mut transition_down = None;
@@ -123,5 +128,86 @@ impl App {
         } else {
             self.log.push("There are no stairs here.".to_string());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::map::TileType;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = TileType::Floor;
+        }
+        app.update_blocked_and_opaque();
+        app
+    }
+
+    #[test]
+    fn test_level_transition_persistence() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Gold { amount: 0 },
+            Renderable {
+                glyph: '@',
+                fg: ratatui::prelude::Color::Yellow,
+            },
+            RenderOrder::Player,
+        ));
+
+        app.world.spawn((
+            Item,
+            Name("Test Sword".to_string()),
+            Weapon { power_bonus: 2 },
+            InBackpack { owner: player },
+            Equippable {
+                slot: EquipmentSlot::Melee,
+            },
+            Equipped {
+                slot: EquipmentSlot::Melee,
+            },
+            Renderable {
+                glyph: '/',
+                fg: ratatui::prelude::Color::White,
+            },
+            RenderOrder::Item,
+        ));
+
+        // Sanity check
+        assert_eq!(app.world.query::<&Player>().iter().count(), 1);
+        assert_eq!(app.world.query::<&InBackpack>().iter().count(), 1);
+
+        app.go_to_level((2, Branch::Main));
+
+        // After transition, player and item should still exist
+        let mut player_query = app.world.query::<&Player>();
+        let (new_player_id, _) = player_query
+            .iter()
+            .next()
+            .unwrap_or_else(|| panic!("Player lost during transition"));
+
+        let mut item_query = app.world.query::<(&Name, &InBackpack, &Equipped)>();
+        let mut found_item = false;
+        for (_id, (name, backpack, _)) in item_query.iter() {
+            if name.0 == "Test Sword" {
+                assert_eq!(backpack.owner, new_player_id);
+                found_item = true;
+                break;
+            }
+        }
+        assert!(found_item, "Item lost during transition");
     }
 }

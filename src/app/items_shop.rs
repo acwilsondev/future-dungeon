@@ -4,9 +4,13 @@ use crate::components::*;
 impl App {
     pub fn pick_up_item(&mut self) {
         let (player_pos, player_id) = {
-            let mut player_query = self.world.query::<(&Position, &Player)>();
-            let (id, (pos, _)) = player_query.iter().next().expect("Player not found");
-            (*pos, id)
+            let Some(player_id) = self.get_player_id() else {
+                return;
+            };
+            let Ok(pos) = self.world.get::<&Position>(player_id) else {
+                return;
+            };
+            (*pos, player_id)
         };
         let mut item_to_pick = None;
         for (id, (pos, _)) in self.world.query::<(&Position, &Item)>().iter() {
@@ -17,12 +21,8 @@ impl App {
         }
         if let Some(item_id) = item_to_pick {
             let item_name = self.get_item_name(item_id);
-            self.world
-                .remove_one::<Position>(item_id)
-                .expect("Failed to remove Position component");
-            self.world
-                .insert_one(item_id, InBackpack { owner: player_id })
-                .expect("Failed to insert InBackpack component");
+            let _ = self.world.remove_one::<Position>(item_id);
+            let _ = self.world.insert_one(item_id, InBackpack { owner: player_id });
             self.log.push(format!("You pick up the {}.", item_name));
             self.generate_noise(player_pos.x, player_pos.y, 2.0);
 
@@ -40,7 +40,9 @@ impl App {
     }
 
     pub fn buy_item(&mut self, item_id: hecs::Entity) {
-        let player_id = self.get_player_id().expect("Player not found");
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
         let price = self
             .world
             .get::<&ItemValue>(item_id)
@@ -48,11 +50,11 @@ impl App {
             .unwrap_or(0);
 
         let can_afford = {
-            let player_gold = self
-                .world
-                .get::<&Gold>(player_id)
-                .expect("Player has no gold component");
-            player_gold.amount >= price
+            if let Ok(player_gold) = self.world.get::<&Gold>(player_id) {
+                player_gold.amount >= price
+            } else {
+                false
+            }
         };
 
         if can_afford {
@@ -64,9 +66,7 @@ impl App {
                 .push(format!("You buy the {} for {} gold.", item_name, price));
 
             // Transfer item
-            self.world
-                .insert_one(item_id, InBackpack { owner: player_id })
-                .expect("Failed to insert InBackpack component");
+            let _ = self.world.insert_one(item_id, InBackpack { owner: player_id });
         } else {
             self.log.push("You cannot afford that!".to_string());
         }
@@ -77,7 +77,9 @@ impl App {
             self.log.push("You cannot sell equipped items!".to_string());
             return;
         }
-        let player_id = self.get_player_id().expect("Player not found");
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
         let price = self
             .world
             .get::<&ItemValue>(item_id)
@@ -94,6 +96,8 @@ impl App {
         self.log
             .push(format!("You sell the {} for {} gold.", item_name, price));
 
-        self.world.despawn(item_id).expect("Failed to despawn item");
+        if let Err(e) = self.world.despawn(item_id) {
+            log::error!("Failed to despawn sold item {:?}: {}", item_id, e);
+        }
     }
 }

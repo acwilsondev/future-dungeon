@@ -45,7 +45,10 @@ pub struct App {
     pub world: World,
     pub map: Map,
     pub entities: Vec<EntitySnapshot>,
-    #[serde(serialize_with = "serialize_levels", deserialize_with = "deserialize_levels")]
+    #[serde(
+        serialize_with = "serialize_levels",
+        deserialize_with = "deserialize_levels"
+    )]
     pub levels: HashMap<(u16, Branch), LevelData>,
     pub log: Vec<String>,
     pub dungeon_level: u16,
@@ -147,7 +150,8 @@ pub fn serialize_levels<S>(
 where
     S: serde::Serializer,
 {
-    let vec: Vec<((u16, Branch), LevelData)> = levels.iter().map(|(k, v)| (*k, v.clone())).collect();
+    let vec: Vec<((u16, Branch), LevelData)> =
+        levels.iter().map(|(k, v)| (*k, v.clone())).collect();
     vec.serialize(serializer)
 }
 

@@ -604,16 +604,16 @@
       "obfuscated_name": null,
       "cursed": false,
       "slot": "Light",
-      "light": [
-        10,
-        [
+      "light": {
+        "range": 10,
+        "color": [
           255,
           255,
           100
         ],
-        2000,
-        true
-      ]
+        "turns": 2000,
+        "flicker": true
+      }
     },
     {
       "name": "Identification Scroll",

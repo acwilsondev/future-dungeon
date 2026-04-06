@@ -77,9 +77,9 @@ impl App {
                     .map(|(id, _)| id)
                     .next();
                 if let Some(aid) = ammo_id {
-                    self.world
-                        .despawn(aid)
-                        .expect("Failed to despawn ammunition");
+                    if let Err(e) = self.world.despawn(aid) {
+                        log::error!("Failed to despawn ammunition: {}", e);
+                    }
                 }
             }
 
@@ -108,12 +108,8 @@ impl App {
                             duration: 10,
                         });
                     }
-                    self.world
-                        .insert_one(target_id, LastHitByPlayer)
-                        .expect("Failed to insert LastHitByPlayer");
-                    self.world
-                        .insert_one(target_id, AlertState::Aggressive)
-                        .expect("Failed to alert monster");
+                    let _ = self.world.insert_one(target_id, LastHitByPlayer);
+                    let _ = self.world.insert_one(target_id, AlertState::Aggressive);
                 }
             } else if let Some(turns) = confusion_turns {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
@@ -125,12 +121,8 @@ impl App {
                 for target_id in targets {
                     self.log
                         .push(format!("The monster is confused by the {}!", item_name));
-                    self.world
-                        .insert_one(target_id, Confusion { turns })
-                        .expect("Failed to insert Confusion component");
-                    self.world
-                        .insert_one(target_id, AlertState::Aggressive)
-                        .expect("Failed to alert monster");
+                    let _ = self.world.insert_one(target_id, Confusion { turns });
+                    let _ = self.world.insert_one(target_id, AlertState::Aggressive);
                 }
             } else if let Some(poison) = poison_effect {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
@@ -142,15 +134,9 @@ impl App {
                 for target_id in targets {
                     self.log
                         .push(format!("The monster is poisoned by the {}!", item_name));
-                    self.world
-                        .insert_one(target_id, poison)
-                        .expect("Failed to insert Poison component");
-                    self.world
-                        .insert_one(target_id, LastHitByPlayer)
-                        .expect("Failed to insert LastHitByPlayer");
-                    self.world
-                        .insert_one(target_id, AlertState::Aggressive)
-                        .expect("Failed to alert monster");
+                    let _ = self.world.insert_one(target_id, poison);
+                    let _ = self.world.insert_one(target_id, LastHitByPlayer);
+                    let _ = self.world.insert_one(target_id, AlertState::Aggressive);
                 }
             } else {
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
@@ -175,12 +161,8 @@ impl App {
                             duration: 5,
                         });
                     }
-                    self.world
-                        .insert_one(target_id, LastHitByPlayer)
-                        .expect("Failed to insert LastHitByPlayer");
-                    self.world
-                        .insert_one(target_id, AlertState::Aggressive)
-                        .expect("Failed to alert monster");
+                    let _ = self.world.insert_one(target_id, LastHitByPlayer);
+                    let _ = self.world.insert_one(target_id, AlertState::Aggressive);
                 }
             }
 
@@ -195,7 +177,9 @@ impl App {
                 }
             }
             for id in to_despawn {
-                self.world.despawn(id).expect("Failed to despawn monster");
+                if let Err(e) = self.world.despawn(id) {
+                    log::error!("Failed to despawn monster: {}", e);
+                }
                 self.monsters_killed += 1;
             }
             self.update_blocked_and_opaque();
@@ -207,9 +191,9 @@ impl App {
             self.identify_item(item_id);
 
             if is_ranged_weapon.is_none() {
-                self.world
-                    .despawn(item_id)
-                    .expect("Failed to despawn consumable item after use");
+                if let Err(e) = self.world.despawn(item_id) {
+                    log::error!("Failed to despawn consumable item after use: {}", e);
+                }
             }
             if self.state != RunState::LevelUp {
                 self.state = RunState::MonsterTurn;

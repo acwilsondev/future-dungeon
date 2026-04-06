@@ -31,6 +31,14 @@ pub struct RawMonster {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawLightSource {
+    pub range: i32,
+    pub color: (u8, u8, u8),
+    pub turns: Option<i32>,
+    pub flicker: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct RawItem {
     pub name: String,
     pub glyph: char,
@@ -53,7 +61,7 @@ pub struct RawItem {
     pub cursed: Option<bool>,
     pub slot: Option<crate::components::EquipmentSlot>,
     pub branches: Option<Vec<String>>,
-    pub light: Option<(i32, (u8, u8, u8), Option<i32>, bool)>, // range, color, turns, flicker
+    pub light: Option<RawLightSource>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
