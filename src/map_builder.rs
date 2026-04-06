@@ -439,4 +439,23 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_map_builder_caves() {
+        let mut mb = MapBuilder::new(80, 50);
+        mb.build(9); // Caves theme (9 is multiple of 3 but not 3 or 6)
+        assert!(matches!(mb.theme, LevelTheme::Caves));
+        let (x, y) = mb.player_start;
+        assert_eq!(mb.map.get_tile(x, y), TileType::Floor);
+    }
+
+    #[test]
+    fn test_map_builder_boss_arena() {
+        let mut mb = MapBuilder::new(80, 50);
+        mb.build(3); // BossArena theme
+        assert!(matches!(mb.theme, LevelTheme::BossArena));
+        assert!(mb.boss_spawn.is_some());
+        let (x, y) = mb.player_start;
+        assert_eq!(mb.map.get_tile(x, y), TileType::Floor);
+    }
 }

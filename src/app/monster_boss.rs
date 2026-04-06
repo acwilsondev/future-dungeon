@@ -68,3 +68,99 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = crate::map::TileType::Floor;
+        }
+        app.update_blocked_and_opaque();
+        app
+    }
+
+    #[test]
+    fn test_boss_phase_trigger() {
+        let mut app = setup_test_app();
+        let boss = app.world.spawn((
+            Boss {
+                phases: vec![BossPhase {
+                    hp_threshold: 10,
+                    action: BossPhaseAction::Enrage,
+                    triggered: false,
+                }],
+            },
+            CombatStats { hp: 15, max_hp: 20, defense: 0, power: 5 },
+            Name("Test Boss".to_string())
+        ));
+
+        // Not triggered yet
+        app.process_boss_phases(boss);
+        {
+            let stats = app.world.get::<&CombatStats>(boss).unwrap();
+            assert_eq!(stats.power, 5);
+        }
+
+        // Drop HP
+        if let Ok(mut stats) = app.world.get::<&mut CombatStats>(boss) {
+            stats.hp = 5;
+        }
+
+        app.process_boss_phases(boss);
+        {
+            let stats = app.world.get::<&CombatStats>(boss).unwrap();
+            assert_eq!(stats.power, 9); // Enraged: +4
+        }
+    }
+
+    #[test]
+    fn test_boss_summon_minions() {
+        let mut app = setup_test_app();
+        // Load some dummy content for minions
+        app.content.monsters.push(crate::content::RawMonster {
+            name: "Goblin".to_string(),
+            glyph: 'g',
+            color: (0, 255, 0),
+            hp: 5,
+            defense: 0,
+            power: 1,
+            viewshed: 8,
+            spawn_chance: 1.0,
+            min_floor: 1,
+            max_floor: 10,
+            personality: Personality::Brave,
+            faction: FactionKind::Orcs,
+            xp_reward: 5,
+            ranged: None,
+            is_boss: None,
+            phases: None,
+            guaranteed_loot: None,
+            branches: None,
+        });
+
+        let boss = app.world.spawn((
+            Boss {
+                phases: vec![BossPhase {
+                    hp_threshold: 10,
+                    action: BossPhaseAction::SummonMinions,
+                    triggered: false,
+                }],
+            },
+            CombatStats { hp: 5, max_hp: 20, defense: 0, power: 5 },
+            Position { x: 10, y: 10 },
+            Name("Goblin King".to_string())
+        ));
+
+        app.process_boss_phases(boss);
+
+        // Should have spawned 4 minions around (10,10)
+        let monster_count = app.world.query::<&Monster>().iter().count();
+        assert!(monster_count >= 4);
+    }
+}

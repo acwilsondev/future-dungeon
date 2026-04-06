@@ -1121,3 +1121,84 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: RatatuiRect) -> RatatuiRect 
         ])
         .split(popup_layout[1])[1]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::prelude::Color;
+    use ratatui::layout::Rect as RatatuiRect;
+
+    #[test]
+    fn test_apply_lighting() {
+        let white = Color::Rgb(255, 255, 255);
+        let dark_white = apply_lighting(white, 0.5);
+        assert_eq!(dark_white, Color::Rgb(127, 127, 127));
+
+        let indexed = Color::Indexed(10);
+        let dark_indexed = apply_lighting(indexed, 0.1);
+        assert_eq!(dark_indexed, Color::Indexed(232));
+    }
+
+    #[test]
+    fn test_centered_rect() {
+        let r = RatatuiRect::new(0, 0, 100, 100);
+        let centered = centered_rect(50, 50, r);
+        assert_eq!(centered.x, 25);
+        assert_eq!(centered.y, 25);
+        assert_eq!(centered.width, 50);
+        assert_eq!(centered.height, 50);
+    }
+
+    #[test]
+    fn test_render_basic() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+        let mut app = App::new_random();
+        app.map = crate::map::Map::new(80, 50);
+        app.world.spawn((Position { x: 10, y: 10 }, Player, Viewshed { visible_tiles: 8 }));
+
+        let backend = TestBackend::new(80, 50);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|f| {
+                render(&mut app, f);
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn test_render_states() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+        let mut app = App::new_random();
+        app.map = crate::map::Map::new(80, 50);
+        app.world.spawn((Position { x: 10, y: 10 }, Player));
+
+        let backend = TestBackend::new(80, 50);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let states = [
+            RunState::ShowInventory,
+            RunState::ShowHelp,
+            RunState::ShowTargeting,
+            RunState::LevelUp,
+            RunState::ShowShop,
+            RunState::ShowLogHistory,
+            RunState::ShowBestiary,
+            RunState::ShowIdentify,
+            RunState::ShowAlchemy,
+            RunState::Dead,
+            RunState::Victory,
+        ];
+
+        for state in states {
+            app.state = state;
+            terminal
+                .draw(|f| {
+                    render(&mut app, f);
+                })
+                .unwrap();
+        }
+    }
+}

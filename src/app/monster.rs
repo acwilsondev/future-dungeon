@@ -103,3 +103,150 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = crate::map::TileType::Floor;
+        }
+        app.update_blocked_and_opaque();
+        app
+    }
+
+    #[test]
+    fn test_monster_turn_basic() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
+            Gold { amount: 0 },
+            Faction(FactionKind::Player),
+        ));
+        let _monster = app.world.spawn((
+            Monster,
+            Name("Orc".to_string()),
+            Position { x: 11, y: 10 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 3 },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Aggressive,
+            Faction(FactionKind::Orcs),
+            AIPersonality(Personality::Brave),
+        ));
+
+        app.monster_turn();
+
+        let player_stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(player_stats.hp, 17); // 20 - 3 = 17
+        assert_eq!(app.state, RunState::AwaitingInput);
+    }
+
+    #[test]
+    fn test_monster_turn_player_speed() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
+            Speed { turns: 5 },
+            Gold { amount: 0 },
+            Faction(FactionKind::Player),
+        ));
+        app.speed_toggle = true; // Initial state
+
+        app.monster_turn();
+
+        // Should return early due to speed
+        let player_stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(player_stats.hp, 20); // No damage
+        assert_eq!(app.speed_toggle, false);
+        assert_eq!(app.state, RunState::AwaitingInput);
+    }
+
+    #[test]
+    fn test_monster_turn_vaults_double_turn() {
+        let mut app = setup_test_app();
+        app.current_branch = Branch::Vaults;
+        app.turn_count = 1; // Will become 2 during on_turn_tick, triggering double turn
+
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
+            Gold { amount: 0 },
+            Faction(FactionKind::Player),
+        ));
+        let _monster = app.world.spawn((
+            Monster,
+            Name("Orc".to_string()),
+            Position { x: 11, y: 10 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 3 },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Aggressive,
+            Faction(FactionKind::Orcs),
+            AIPersonality(Personality::Brave),
+        ));
+
+
+        app.monster_turn();
+
+        let player_stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(player_stats.hp, 14); // 20 - 3 - 3 = 14 (two hits)
+        assert_eq!(app.turn_count, 3); // 1 + 1 (first turn) + 1 (second turn)
+    }
+
+    #[test]
+    fn test_wisp_movement() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let wisp = app.world.spawn((Wisp, Position { x: 10, y: 10 }));
+
+        app.monster_turn();
+
+        let pos = app.world.get::<&Position>(wisp).unwrap();
+        // Wisp should have moved randomly (or stayed if RNG 0,0)
+        assert!(pos.x >= 9 && pos.x <= 11);
+        assert!(pos.y >= 9 && pos.y <= 11);
+    }
+
+    #[test]
+    fn test_merchant_actor() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let _merchant = app.world.spawn((
+            Merchant,
+            Position { x: 10, y: 10 },
+            Name("Merchant".to_string()),
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Sleeping,
+            Faction(FactionKind::Player),
+            AIPersonality(Personality::Brave),
+        ));
+
+        app.monster_turn();
+        // Merchant should be processed (but sleeping so no action)
+        assert_eq!(app.state, RunState::AwaitingInput);
+    }
+}

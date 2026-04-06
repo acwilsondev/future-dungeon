@@ -48,3 +48,47 @@ impl App {
         self.effects = still_active;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::prelude::Color;
+
+    #[test]
+    fn test_flash_effect_progression() {
+        let mut app = App::new_random();
+        app.effects.push(VisualEffect::Flash {
+            x: 0, y: 0, glyph: '*', fg: Color::Red, bg: None, duration: 2
+        });
+
+        app.on_tick();
+        assert_eq!(app.effects.len(), 1);
+        if let VisualEffect::Flash { duration, .. } = app.effects[0] {
+            assert_eq!(duration, 1);
+        }
+
+        app.on_tick();
+        assert_eq!(app.effects.len(), 0);
+    }
+
+    #[test]
+    fn test_projectile_effect_progression() {
+        let mut app = App::new_random();
+        app.effects.push(VisualEffect::Projectile {
+            path: vec![(0,0), (1,1)],
+            glyph: '/',
+            fg: Color::White,
+            frame: 0,
+            speed: 1,
+        });
+
+        app.on_tick();
+        assert_eq!(app.effects.len(), 1);
+        if let VisualEffect::Projectile { frame, .. } = app.effects[0] {
+            assert_eq!(frame, 1);
+        }
+
+        app.on_tick();
+        assert_eq!(app.effects.len(), 0); // frame 2 >= 2*1
+    }
+}

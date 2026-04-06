@@ -88,9 +88,7 @@ impl App {
         }
 
         if let Some((target_id, target_pos)) = target {
-            let mut move_vec = None;
-            let mut attack = false;
-
+            // Check for flee
             if (personality.0 == Personality::Cowardly
                 && stats.hp < stats.max_hp / 2
                 && !is_merchant)
@@ -108,32 +106,10 @@ impl App {
                 } else if pos.y > target_pos.y {
                     dy = 1;
                 }
-                move_vec = Some((dx, dy));
-            } else if min_dist < 1.5 {
-                attack = true;
-            } else if !is_merchant {
-                let mut dx = 0;
-                let mut dy = 0;
-                if pos.x < target_pos.x {
-                    dx = 1;
-                } else if pos.x > target_pos.x {
-                    dx = -1;
-                }
-                if pos.y < target_pos.y {
-                    dy = 1;
-                } else if pos.y > target_pos.y {
-                    dy = -1;
-                }
-                move_vec = Some((dx, dy));
-            }
-
-            if attack {
-                return Some(MonsterAction::Attack(target_id));
-            } else if let Some((dx, dy)) = move_vec {
                 return Some(MonsterAction::Move(dx, dy));
             }
 
-            // Ranged attack check
+            // Check for ranged attack
             if personality.0 == Personality::Tactical
                 && min_dist > 1.5
                 && min_dist < 8.0
@@ -156,6 +132,28 @@ impl App {
                     return Some(MonsterAction::RangedAttack(target_id));
                 }
             }
+
+            // Check for melee attack
+            if min_dist < 1.5 {
+                return Some(MonsterAction::Attack(target_id));
+            }
+
+            // Move towards target
+            if !is_merchant {
+                let mut dx = 0;
+                let mut dy = 0;
+                if pos.x < target_pos.x {
+                    dx = 1;
+                } else if pos.x > target_pos.x {
+                    dx = -1;
+                }
+                if pos.y < target_pos.y {
+                    dy = 1;
+                } else if pos.y > target_pos.y {
+                    dy = -1;
+                }
+                return Some(MonsterAction::Move(dx, dy));
+            }
         }
         None
     }
@@ -170,6 +168,10 @@ mod tests {
         let mut app = App::new_random();
         app.world = World::new();
         app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = crate::map::TileType::Floor;
+        }
+        app.map.populate_blocked_and_opaque();
         app
     }
 
@@ -226,5 +228,152 @@ mod tests {
         let action = app.calculate_monster_action(monster, player);
         // Should move from 12,10 towards 10,10 -> dx = -1
         assert_eq!(action, Some(MonsterAction::Move(-1, 0)));
+    }
+
+    #[test]
+    fn test_monster_confusion() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            Faction(FactionKind::Player),
+        ));
+        let monster = app.world.spawn((
+            Position { x: 15, y: 15 },
+            Monster,
+            Faction(FactionKind::Orcs),
+            AIPersonality(Personality::Brave),
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Aggressive,
+            Confusion { turns: 5 },
+        ));
+
+        let action = app.calculate_monster_action(monster, player);
+        if let Some(MonsterAction::Move(dx, dy)) = action {
+            assert!(dx >= -1 && dx <= 1);
+            assert!(dy >= -1 && dy <= 1);
+        } else {
+            panic!("Confused monster should move randomly");
+        }
+    }
+
+    #[test]
+    fn test_monster_sleeping() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            Faction(FactionKind::Player),
+        ));
+        let monster = app.world.spawn((
+            Position { x: 11, y: 10 },
+            Monster,
+            Faction(FactionKind::Orcs),
+            AIPersonality(Personality::Brave),
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Sleeping,
+        ));
+
+        let action = app.calculate_monster_action(monster, player);
+        assert_eq!(action, None);
+    }
+
+    #[test]
+    fn test_monster_curious() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            Faction(FactionKind::Player),
+        ));
+        let monster = app.world.spawn((
+            Position { x: 15, y: 15 },
+            Monster,
+            Faction(FactionKind::Orcs),
+            AIPersonality(Personality::Brave),
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Curious { x: 10, y: 10 },
+        ));
+
+        let action = app.calculate_monster_action(monster, player);
+        // Should move towards 10,10 from 15,15 -> dx=-1, dy=-1
+        assert_eq!(action, Some(MonsterAction::Move(-1, -1)));
+    }
+
+    #[test]
+    fn test_monster_cowardly_fleeing() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            Faction(FactionKind::Player),
+        ));
+        let monster = app.world.spawn((
+            Position { x: 11, y: 10 },
+            Monster,
+            Faction(FactionKind::Orcs),
+            AIPersonality(Personality::Cowardly),
+            CombatStats {
+                hp: 2,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            }, // Low HP
+            Viewshed { visible_tiles: 8 },
+            AlertState::Aggressive,
+        ));
+
+        let action = app.calculate_monster_action(monster, player);
+        // Should flee from 10,10 -> at 11,10 it should move dx=1
+        assert_eq!(action, Some(MonsterAction::Move(1, 0)));
+    }
+
+    #[test]
+    fn test_monster_ranged_attack() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            Faction(FactionKind::Player),
+        ));
+        let monster = app.world.spawn((
+            Position { x: 15, y: 10 },
+            Monster,
+            Faction(FactionKind::Orcs),
+            AIPersonality(Personality::Tactical),
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Aggressive,
+            RangedWeapon {
+                range: 8,
+                damage_bonus: 2,
+            },
+        ));
+
+        let action = app.calculate_monster_action(monster, player);
+        assert_eq!(action, Some(MonsterAction::RangedAttack(player)));
     }
 }

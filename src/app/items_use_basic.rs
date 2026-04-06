@@ -217,4 +217,59 @@ mod tests {
         assert_eq!(app.state, RunState::ShowIdentify);
         assert_eq!(app.targeting_item, Some(scroll));
     }
+
+    #[test]
+    fn test_use_speed_potion() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let speed_potion = app.world.spawn((
+            Item,
+            Name("Potion of Speed".to_string()),
+            Speed { turns: 10 },
+            Consumable,
+            InBackpack { owner: player },
+        ));
+
+        app.use_item(speed_potion);
+        assert!(app.world.get::<&Speed>(player).is_ok());
+    }
+
+    #[test]
+    fn test_use_ranged_no_ammo() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let bow = app.world.spawn((
+            Item,
+            Name("Bow".to_string()),
+            RangedWeapon {
+                range: 8,
+                damage_bonus: 2,
+            },
+            InBackpack { owner: player },
+        ));
+
+        app.use_item(bow);
+        assert!(app.log.last().unwrap().contains("no ammunition"));
+        assert_eq!(app.state, RunState::AwaitingInput);
+    }
+
+    #[test]
+    fn test_equip_from_use() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let sword = app.world.spawn((
+            Item,
+            Name("Sword".to_string()),
+            Equippable {
+                slot: EquipmentSlot::Melee,
+            },
+            InBackpack { owner: player },
+        ));
+
+        app.use_item(sword);
+        assert!(app.world.get::<&Equipped>(sword).is_ok());
+
+        app.use_item(sword);
+        assert!(app.world.get::<&Equipped>(sword).is_err());
+    }
 }

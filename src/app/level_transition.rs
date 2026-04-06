@@ -210,4 +210,55 @@ mod tests {
         }
         assert!(found_item, "Item lost during transition");
     }
+
+    #[test]
+    fn test_try_level_transition_no_stairs() {
+        let mut app = setup_test_app();
+        app.world.spawn((Position { x: 10, y: 10 }, Player));
+        app.try_level_transition();
+        assert!(app.log.last().unwrap().contains("no stairs here"));
+    }
+
+    #[test]
+    fn test_victory_condition() {
+        let mut app = setup_test_app();
+        app.dungeon_level = 1;
+        app.current_branch = Branch::Main;
+        app.escaping = true;
+        app.go_to_level((0, Branch::Main));
+        assert_eq!(app.state, RunState::Victory);
+    }
+
+    #[test]
+    fn test_cannot_ascend_without_amulet() {
+        let mut app = setup_test_app();
+        app.dungeon_level = 1;
+        app.current_branch = Branch::Main;
+        app.escaping = false;
+        app.go_to_level((0, Branch::Main));
+        assert!(app.log.last().unwrap().contains("without the Amulet"));
+        assert_eq!(app.dungeon_level, 1);
+    }
+
+    #[test]
+    fn test_go_to_level_up_down() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Position { x: 10, y: 10 }, Player));
+
+        // Going down to level 2
+        app.go_to_level((2, Branch::Main));
+        assert_eq!(app.dungeon_level, 2);
+
+        // Add up stairs in level 2 pointing to level 1
+        app.world.spawn((
+            Position { x: 5, y: 5 },
+            UpStairs {
+                destination: (1, Branch::Main),
+            },
+        ));
+
+        // Going back up to level 1
+        app.go_to_level((1, Branch::Main));
+        assert_eq!(app.dungeon_level, 1);
+    }
 }

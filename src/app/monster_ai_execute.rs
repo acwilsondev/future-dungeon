@@ -296,4 +296,72 @@ mod tests {
         assert_eq!(stats.hp, 16); // 20 - 4 = 16
         assert!(!app.effects.is_empty()); // Projectile effect
     }
+
+    #[test]
+    fn test_monster_attacks_monster() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let monster1 = app.world.spawn((
+            Monster,
+            Name("Orc1".to_string()),
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+        ));
+        let monster2 = app.world.spawn((
+            Monster,
+            Name("Orc2".to_string()),
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+        ));
+        let mut occupied = HashSet::new();
+
+        app.execute_monster_action(
+            monster1,
+            MonsterAction::Attack(monster2),
+            player,
+            &mut occupied,
+        );
+
+        let stats2 = app.world.get::<&CombatStats>(monster2).unwrap();
+        assert_eq!(stats2.hp, 5);
+        assert!(app.log.last().unwrap().contains("Orc1 hits Orc2"));
+    }
+
+    #[test]
+    fn test_monster_kills_player() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            CombatStats {
+                hp: 2,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
+        ));
+        let monster = app.world.spawn((
+            Monster,
+            Name("Orc".to_string()),
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+        ));
+        let mut occupied = HashSet::new();
+
+        app.execute_monster_action(monster, MonsterAction::Attack(player), player, &mut occupied);
+
+        assert_eq!(app.state, RunState::Dead);
+        assert!(app.death);
+    }
 }

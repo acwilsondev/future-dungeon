@@ -282,4 +282,81 @@ mod tests {
         assert_eq!(stats.hp, 6);
         assert!(app.world.get::<&Item>(bow).is_ok()); // Not consumed
     }
+
+    #[test]
+    fn test_ranged_blocked() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        app.map.tiles[(10 * 80 + 11) as usize] = crate::map::TileType::Wall;
+        app.map.populate_blocked_and_opaque();
+
+        let wand = app.world.spawn((
+            Item,
+            Name("Wand".to_string()),
+            CombatStats {
+                hp: 0,
+                max_hp: 0,
+                defense: 0,
+                power: 5,
+            },
+        ));
+
+        app.targeting_item = Some(wand);
+        app.targeting_cursor = (15, 10);
+        app.fire_targeting_item();
+
+        assert!(app.log.last().unwrap().contains("is blocked"));
+    }
+
+    #[test]
+    fn test_ranged_confusion_poison() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let monster1 = app.world.spawn((
+            Monster,
+            Position { x: 12, y: 10 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let monster2 = app.world.spawn((
+            Monster,
+            Position { x: 10, y: 12 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+
+        let conf_scroll = app.world.spawn((
+            Item,
+            Name("Confusion Scroll".to_string()),
+            Confusion { turns: 5 },
+            Consumable,
+        ));
+
+        app.targeting_item = Some(conf_scroll);
+        app.targeting_cursor = (12, 10);
+        app.fire_targeting_item();
+        assert!(app.world.get::<&Confusion>(monster1).is_ok());
+
+        let poison_scroll = app.world.spawn((
+            Item,
+            Name("Poison Scroll".to_string()),
+            Poison {
+                damage: 2,
+                turns: 5,
+            },
+            Consumable,
+        ));
+        app.targeting_item = Some(poison_scroll);
+        app.targeting_cursor = (10, 12);
+        app.fire_targeting_item();
+        assert!(app.world.get::<&Poison>(monster2).is_ok());
+    }
 }

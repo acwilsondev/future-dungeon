@@ -58,3 +58,76 @@ impl App {
         self.refresh_player_render();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app
+    }
+
+    #[test]
+    fn test_equip_unequip_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let item = app.world.spawn((
+            Item,
+            Name("Sword".to_string()),
+            Equippable { slot: EquipmentSlot::Melee },
+            InBackpack { owner: player }
+        ));
+
+        app.equip_item(item);
+        assert!(app.world.get::<&Equipped>(item).is_ok());
+
+        let success = app.unequip_item(item);
+        assert!(success);
+        assert!(app.world.get::<&Equipped>(item).is_err());
+    }
+
+    #[test]
+    fn test_cursed_item_prevents_unequip() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let item = app.world.spawn((
+            Item,
+            Name("Cursed Sword".to_string()),
+            Equippable { slot: EquipmentSlot::Melee },
+            InBackpack { owner: player },
+            Equipped { slot: EquipmentSlot::Melee },
+            Cursed
+        ));
+
+        let success = app.unequip_item(item);
+        assert!(!success);
+        assert!(app.world.get::<&Equipped>(item).is_ok());
+    }
+
+    #[test]
+    fn test_equip_replaces_old_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let old_item = app.world.spawn((
+            Item,
+            Name("Old Sword".to_string()),
+            Equippable { slot: EquipmentSlot::Melee },
+            InBackpack { owner: player },
+            Equipped { slot: EquipmentSlot::Melee }
+        ));
+        let new_item = app.world.spawn((
+            Item,
+            Name("New Sword".to_string()),
+            Equippable { slot: EquipmentSlot::Melee },
+            InBackpack { owner: player }
+        ));
+
+        app.equip_item(new_item);
+
+        assert!(app.world.get::<&Equipped>(old_item).is_err());
+        assert!(app.world.get::<&Equipped>(new_item).is_ok());
+    }
+}

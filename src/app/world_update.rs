@@ -178,3 +178,102 @@ impl App {
         self.world.spawn((Position { x, y }, Noise { amount }));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = TileType::Floor;
+        }
+        app.update_blocked_and_opaque();
+        app
+    }
+
+    #[test]
+    fn test_blocking_entities() {
+        let mut app = setup_test_app();
+        app.world.spawn((Position { x: 10, y: 10 }, Monster, Name("M".to_string())));
+        app.world.spawn((Position { x: 11, y: 10 }, Merchant));
+        app.world.spawn((Position { x: 12, y: 10 }, AlchemyStation));
+        app.world.spawn((Position { x: 13, y: 10 }, Door { open: false }));
+        app.world.spawn((Position { x: 14, y: 10 }, Door { open: true }));
+
+        app.update_blocked_and_opaque();
+
+        assert!(app.map.blocked[(10 * 80 + 10) as usize]);
+        assert!(app.map.blocked[(10 * 80 + 11) as usize]);
+        assert!(app.map.blocked[(10 * 80 + 12) as usize]);
+        assert!(app.map.blocked[(10 * 80 + 13) as usize]);
+        assert!(!app.map.blocked[(10 * 80 + 14) as usize]);
+    }
+
+    #[test]
+    fn test_lighting_propagation() {
+        let mut app = setup_test_app();
+        app.world.spawn((
+            Position { x: 10, y: 10 },
+            LightSource {
+                range: 5,
+                base_range: 5,
+                color: (255, 255, 255),
+                remaining_turns: None,
+                flicker: false,
+            }
+        ));
+
+        app.update_lighting();
+
+        assert!(app.map.light[(10 * 80 + 10) as usize] > 1.0);
+        assert!(app.map.light[(10 * 80 + 12) as usize] > 0.5);
+        assert!(app.map.light[(10 * 80 + 16) as usize] < 0.1);
+    }
+
+    #[test]
+    fn test_sound_propagation() {
+        let mut app = setup_test_app();
+        // Place a wall between 10,10 and 12,10
+        app.map.tiles[(10 * 80 + 11) as usize] = TileType::Wall;
+        app.generate_noise(10, 10, 10.0);
+
+        app.update_sound();
+
+        let loud_idx = (10 * 80 + 10) as usize;
+        let muffled_idx = (10 * 80 + 12) as usize;
+        assert!(app.map.sound[loud_idx] > 9.0);
+        assert!(app.map.sound[muffled_idx] < 5.0); // Muffled by wall
+    }
+
+    #[test]
+    fn test_fov_with_light() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            Viewshed { visible_tiles: 10 }
+        ));
+
+        // Case 1: Player at 10,10, target at 12,10, but NO LIGHT
+        app.update_fov();
+        assert!(!app.map.visible[(10 * 80 + 12) as usize]);
+
+        // Case 2: Target is LIT by a light source
+        app.world.spawn((
+            Position { x: 12, y: 10 },
+            LightSource {
+                range: 5,
+                base_range: 5,
+                color: (255, 255, 255),
+                remaining_turns: None,
+                flicker: false,
+            }
+        ));
+        app.update_fov();
+        assert!(app.map.visible[(10 * 80 + 12) as usize]);
+    }
+}

@@ -75,3 +75,81 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setup_test_app() -> App {
+        App::new_random()
+    }
+
+    #[test]
+    fn test_open_close_menus() {
+        let mut app = setup_test_app();
+        app.state = RunState::AwaitingInput;
+
+        app.process_action(Action::OpenInventory);
+        assert_eq!(app.state, RunState::ShowInventory);
+        app.process_action(Action::CloseMenu);
+        assert_eq!(app.state, RunState::AwaitingInput);
+
+        app.process_action(Action::OpenHelp);
+        assert_eq!(app.state, RunState::ShowHelp);
+        app.process_action(Action::CloseMenu);
+        assert_eq!(app.state, RunState::AwaitingInput);
+
+        app.process_action(Action::OpenLogHistory);
+        assert_eq!(app.state, RunState::ShowLogHistory);
+        app.process_action(Action::OpenLogHistory); // Toggle off
+        assert_eq!(app.state, RunState::AwaitingInput);
+    }
+
+    #[test]
+    fn test_log_navigation() {
+        let mut app = setup_test_app();
+        app.log = vec!["1".to_string(), "2".to_string(), "3".to_string()];
+        app.state = RunState::ShowLogHistory;
+        app.log_cursor = 2;
+
+        app.process_action(Action::MenuUp);
+        assert_eq!(app.log_cursor, 1);
+        app.process_action(Action::MenuDown);
+        assert_eq!(app.log_cursor, 2);
+    }
+
+    #[test]
+    fn test_bestiary_navigation() {
+        let mut app = setup_test_app();
+        app.encountered_monsters.insert("Orc".to_string());
+        app.encountered_monsters.insert("Goblin".to_string());
+        app.state = RunState::ShowBestiary;
+        app.bestiary_cursor = 0;
+
+        app.process_action(Action::MenuDown);
+        assert_eq!(app.bestiary_cursor, 1);
+        app.process_action(Action::MenuUp);
+        assert_eq!(app.bestiary_cursor, 0);
+    }
+
+    #[test]
+    fn test_quit_action() {
+        let mut app = setup_test_app();
+        app.state = RunState::AwaitingInput;
+        app.process_action(Action::Quit);
+        assert!(app.exit);
+
+        let mut app2 = setup_test_app();
+        app2.state = RunState::Dead;
+        app2.process_action(Action::Quit);
+        assert!(app2.exit);
+    }
+
+    #[test]
+    fn test_wait_action() {
+        let mut app = setup_test_app();
+        app.state = RunState::AwaitingInput;
+        app.process_action(Action::Wait);
+        assert_eq!(app.state, RunState::MonsterTurn);
+    }
+}

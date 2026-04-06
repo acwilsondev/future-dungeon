@@ -174,4 +174,63 @@ mod tests {
         let alert = app.world.get::<&AlertState>(monster).unwrap();
         assert_eq!(*alert, AlertState::Curious { x: 10, y: 10 });
     }
+
+    #[test]
+    fn test_boss_loot_drop() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+
+        // Mock content
+        let monster_raw = crate::content::RawMonster {
+            name: "Boss".to_string(),
+            glyph: 'B',
+            color: (255, 0, 0),
+            hp: 100,
+            defense: 10,
+            power: 20,
+            viewshed: 10,
+            spawn_chance: 0.0,
+            min_floor: 1,
+            max_floor: 10,
+            personality: Personality::Brave,
+            faction: FactionKind::Orcs,
+            xp_reward: 500,
+            ranged: None,
+            is_boss: Some(true),
+            phases: None,
+            guaranteed_loot: Some("Amulet".to_string()),
+            branches: None,
+        };
+        let item_raw = crate::content::RawItem {
+            name: "Amulet".to_string(),
+            glyph: '"',
+            color: (255, 215, 0),
+            spawn_chance: 0.0,
+            min_floor: 1,
+            max_floor: 10,
+            price: 1000,
+            ..Default::default()
+        };
+        app.content.monsters = vec![monster_raw];
+        app.content.items = vec![item_raw];
+
+        let _boss = app.world.spawn((
+            Monster,
+            Name("Boss".to_string()),
+            Position { x: 10, y: 10 },
+            CombatStats {
+                hp: 0,
+                max_hp: 100,
+                defense: 10,
+                power: 20,
+            },
+        ));
+
+        app.cleanup_dead_entities();
+
+        // Check if loot was dropped
+        let mut loot_query = app.world.query::<(&Name, &Item)>();
+        let loot = loot_query.iter().find(|(_, (name, _))| name.0 == "Amulet");
+        assert!(loot.is_some());
+    }
 }

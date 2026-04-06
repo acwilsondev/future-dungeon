@@ -257,3 +257,120 @@ impl App {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::prelude::Color;
+
+    #[test]
+    fn test_comprehensive_serialization() {
+        let mut app = App::new_random();
+        app.world = World::new();
+        
+        // 1. Player entity
+        let player = app.world.spawn((
+            Player,
+            Position { x: 1, y: 2 },
+            Renderable { glyph: '@', fg: Color::White },
+            RenderOrder::Player,
+            Name("Hero".to_string()),
+            CombatStats { hp: 10, max_hp: 20, defense: 3, power: 4 },
+            Experience { level: 5, xp: 100, next_level_xp: 200, xp_reward: 0 },
+            Perks { traits: vec![Perk::Toughness] },
+            Gold { amount: 50 },
+            Viewshed { visible_tiles: 10 },
+            Faction(FactionKind::Player),
+            AIPersonality(Personality::Brave),
+            LightSource { range: 5, base_range: 5, color: (1,2,3), remaining_turns: Some(10), flicker: true },
+        ));
+
+        // 2. Item 1: Potion
+        app.world.spawn((
+            Item,
+            Position { x: 3, y: 4 },
+            Renderable { glyph: '!', fg: Color::Red },
+            RenderOrder::Item,
+            Name("Uber Potion".to_string()),
+            Potion { heal_amount: 50 },
+            AreaOfEffect { radius: 3 },
+            Confusion { turns: 5 },
+            Poison { damage: 2, turns: 3 },
+            Strength { amount: 5, turns: 10 },
+            Speed { turns: 10 },
+            ItemValue { price: 100 },
+            ObfuscatedName("Strange Potion".to_string()),
+            Consumable,
+            InBackpack { owner: player },
+        ));
+
+        // 3. Item 2: Cursed Weapon
+        app.world.spawn((
+            Item,
+            Position { x: 10, y: 10 },
+            Renderable { glyph: '/', fg: Color::White },
+            RenderOrder::Item,
+            Name("Cursed Sword".to_string()),
+            Weapon { power_bonus: 10 },
+            RangedWeapon { range: 8, damage_bonus: 10 },
+            Cursed,
+            Equippable { slot: EquipmentSlot::Melee },
+            Equipped { slot: EquipmentSlot::Melee },
+            InBackpack { owner: player },
+        ));
+
+        // 4. Environment
+        app.world.spawn((
+            Position { x: 5, y: 6 },
+            Renderable { glyph: '+', fg: Color::Gray },
+            RenderOrder::Map,
+            Door { open: false },
+            Trap { damage: 10, revealed: true },
+            DownStairs { destination: (2, Branch::Main) },
+        ));
+
+        // 5. Pack
+        app.pack_entities();
+        assert!(app.entities.len() >= 4);
+
+        // 6. Unpack into a new app
+        let mut app2 = App::new_random();
+        app2.entities = app.entities.clone();
+        app2.unpack_entities().unwrap();
+
+        // 7. Verify components on player
+        let mut player_query = app2.world.query::<(&Player, &Name, &CombatStats, &Experience, &Perks, &Gold, &Viewshed, &LightSource)>();
+        let (_, (_, name, stats, exp, perks, gold, viewshed, light)) = player_query.iter().next().unwrap();
+        assert_eq!(name.0, "Hero");
+        assert_eq!(stats.hp, 10);
+        assert_eq!(exp.level, 5);
+        assert!(perks.traits.contains(&Perk::Toughness));
+        assert_eq!(gold.amount, 50);
+        assert_eq!(viewshed.visible_tiles, 10);
+        assert_eq!(light.remaining_turns, Some(10));
+
+        // 8. Verify Potion
+        let mut potion_query = app2.world.query::<(&Potion, &AreaOfEffect, &Confusion, &Poison, &Strength, &Speed, &ItemValue, &ObfuscatedName, &Consumable)>();
+        let (_, (potion, aoe, _confusion, _poison, _strength, _speed, val, obf, _)) = potion_query.iter().next().unwrap();
+        assert_eq!(potion.heal_amount, 50);
+        assert_eq!(aoe.radius, 3);
+        assert_eq!(val.price, 100);
+        assert_eq!(obf.0, "Strange Potion");
+
+        // 9. Verify Cursed Weapon
+        let mut weapon_query = app2.world.query::<(&Weapon, &RangedWeapon, &Cursed, &Equippable, &Equipped)>();
+        let (_, (weapon, rw, _, equippable, equipped)) = weapon_query.iter().next().unwrap();
+        assert_eq!(weapon.power_bonus, 10);
+        assert_eq!(rw.damage_bonus, 10);
+        assert_eq!(equippable.slot, EquipmentSlot::Melee);
+        assert_eq!(equipped.slot, EquipmentSlot::Melee);
+        
+        // 10. Verify environment
+        let mut env_query = app2.world.query::<(&Door, &Trap, &DownStairs)>();
+        let (_, (door, trap, stairs)) = env_query.iter().next().unwrap();
+        assert!(!door.open);
+        assert_eq!(trap.damage, 10);
+        assert!(trap.revealed);
+        assert_eq!(stairs.destination, (2, Branch::Main));
+    }
+}

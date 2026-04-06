@@ -79,3 +79,117 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+
+    fn mock_key(code: KeyCode) -> KeyEvent {
+        KeyEvent {
+            code,
+            modifiers: KeyModifiers::empty(),
+            kind: KeyEventKind::Press,
+            state: KeyEventState::empty(),
+        }
+    }
+
+    #[test]
+    fn test_map_key_movement() {
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('h')), RunState::AwaitingInput), Some(Action::MovePlayer(-1, 0)));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Left), RunState::AwaitingInput), Some(Action::MovePlayer(-1, 0)));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('l')), RunState::AwaitingInput), Some(Action::MovePlayer(1, 0)));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Right), RunState::AwaitingInput), Some(Action::MovePlayer(1, 0)));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('k')), RunState::AwaitingInput), Some(Action::MovePlayer(0, -1)));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Up), RunState::AwaitingInput), Some(Action::MovePlayer(0, -1)));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('j')), RunState::AwaitingInput), Some(Action::MovePlayer(0, 1)));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Down), RunState::AwaitingInput), Some(Action::MovePlayer(0, 1)));
+    }
+
+    #[test]
+    fn test_map_key_menus() {
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('i')), RunState::AwaitingInput), Some(Action::OpenInventory));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('m')), RunState::AwaitingInput), Some(Action::OpenLogHistory));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('b')), RunState::AwaitingInput), Some(Action::OpenBestiary));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('?')), RunState::AwaitingInput), Some(Action::OpenHelp));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Enter), RunState::AwaitingInput), Some(Action::TryLevelTransition));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char(' ')), RunState::AwaitingInput), Some(Action::Wait));
+    }
+
+    #[test]
+    fn test_map_key_inventory() {
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::ShowInventory), Some(Action::CloseMenu));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('i')), RunState::ShowInventory), Some(Action::CloseMenu));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Up), RunState::ShowInventory), Some(Action::MenuUp));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Down), RunState::ShowInventory), Some(Action::MenuDown));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Enter), RunState::ShowInventory), Some(Action::MenuSelect));
+    }
+
+    #[test]
+    fn test_map_key_targeting() {
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('h')), RunState::ShowTargeting), Some(Action::MovePlayer(-1, 0)));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Enter), RunState::ShowTargeting), Some(Action::MenuSelect));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::ShowTargeting), Some(Action::CloseMenu));
+    }
+
+    #[test]
+    fn test_map_key_shop() {
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Tab), RunState::ShowShop), Some(Action::ToggleShopMode));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::ShowShop), Some(Action::CloseMenu));
+    }
+
+    #[test]
+    fn test_map_key_end_screens() {
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('q')), RunState::Dead), Some(Action::Quit));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::Victory), Some(Action::Quit));
+    }
+
+    #[test]
+    fn test_map_key_menus_more() {
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('m')), RunState::ShowLogHistory), Some(Action::CloseMenu));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::ShowLogHistory), Some(Action::CloseMenu));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Up), RunState::ShowLogHistory), Some(Action::MenuUp));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Down), RunState::ShowLogHistory), Some(Action::MenuDown));
+
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('b')), RunState::ShowBestiary), Some(Action::CloseMenu));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::ShowBestiary), Some(Action::CloseMenu));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Up), RunState::ShowBestiary), Some(Action::MenuUp));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Down), RunState::ShowBestiary), Some(Action::MenuDown));
+
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('?')), RunState::ShowHelp), Some(Action::CloseMenu));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::ShowHelp), Some(Action::CloseMenu));
+
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Enter), RunState::LevelUp), Some(Action::MenuSelect));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Up), RunState::LevelUp), Some(Action::MenuUp));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Down), RunState::LevelUp), Some(Action::MenuDown));
+
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::ShowAlchemy), Some(Action::CloseMenu));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Enter), RunState::ShowIdentify), Some(Action::MenuSelect));
+    }
+
+    #[test]
+    fn test_map_key_edge_cases() {
+        // AwaitingInput
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('q')), RunState::AwaitingInput), Some(Action::Quit));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('g')), RunState::AwaitingInput), Some(Action::PickUpItem));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('/')), RunState::AwaitingInput), Some(Action::OpenHelp));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('.')), RunState::AwaitingInput), Some(Action::Wait));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Tab), RunState::AwaitingInput), None);
+
+        // ShowShop more
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Up), RunState::ShowShop), Some(Action::MenuUp));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Down), RunState::ShowShop), Some(Action::MenuDown));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Enter), RunState::ShowShop), Some(Action::MenuSelect));
+
+        // ShowIdentify/Alchemy more
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Up), RunState::ShowIdentify), Some(Action::MenuUp));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Down), RunState::ShowIdentify), Some(Action::MenuDown));
+
+        // Dead/Victory
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Esc), RunState::Dead), Some(Action::Quit));
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('x')), RunState::Dead), None);
+
+        // Default case
+        assert_eq!(map_key_to_action(mock_key(KeyCode::Char('a')), RunState::MonsterTurn), None);
+    }
+}

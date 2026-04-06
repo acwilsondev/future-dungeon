@@ -350,4 +350,177 @@ mod tests {
         let player_pos = app.world.get::<&Position>(player).unwrap();
         assert_eq!(player_pos.x, 10); // Player should NOT move when attacking
     }
+
+    #[test]
+    fn test_player_opens_door() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Gold { amount: 0 },
+        ));
+
+        let door = app.world.spawn((
+            Position { x: 11, y: 10 },
+            Door { open: false },
+            Renderable {
+                glyph: '+',
+                fg: Color::White,
+            },
+        ));
+
+        app.move_player(1, 0);
+
+        let door_comp = app.world.get::<&Door>(door).unwrap();
+        assert!(door_comp.open);
+        let render = app.world.get::<&Renderable>(door).unwrap();
+        assert_eq!(render.glyph, '/');
+
+        let player_pos = app.world.get::<&Position>(player).unwrap();
+        assert_eq!(player_pos.x, 10); // Player stays put when opening door
+    }
+
+    #[test]
+    fn test_player_picks_up_gold() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Gold { amount: 0 },
+        ));
+
+        app.world.spawn((Position { x: 11, y: 10 }, Gold { amount: 50 }));
+
+        app.move_player(1, 0);
+
+        let player_gold = app.world.get::<&Gold>(player).unwrap();
+        assert_eq!(player_gold.amount, 50);
+
+        // Gold entity should be despawned. Player exists, and movement generated noise.
+        assert_eq!(app.world.len(), 2);
+    }
+
+    #[test]
+    fn test_player_triggers_trap() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Gold { amount: 0 },
+        ));
+
+        app.world.spawn((
+            Position { x: 11, y: 10 },
+            Trap {
+                damage: 5,
+                revealed: false,
+            },
+        ));
+
+        app.move_player(1, 0);
+
+        let player_stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(player_stats.hp, 5);
+    }
+
+    #[test]
+    fn test_player_interacts_with_merchant() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Gold { amount: 100 },
+        ));
+
+        let merchant = app.world.spawn((
+            Position { x: 11, y: 10 },
+            Merchant,
+            Name("Merchant".to_string()),
+        ));
+
+        app.move_player(1, 0);
+
+        assert_eq!(app.state, RunState::ShowShop);
+        assert_eq!(app.active_merchant, Some(merchant));
+    }
+
+    #[test]
+    fn test_player_interacts_with_alchemy_station() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Gold { amount: 0 },
+        ));
+
+        app.world.spawn((Position { x: 11, y: 10 }, AlchemyStation));
+
+        app.move_player(1, 0);
+
+        assert_eq!(app.state, RunState::ShowAlchemy);
+    }
+
+    #[test]
+    fn test_sneak_attack() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Gold { amount: 0 },
+        ));
+        let monster = app.world.spawn((
+            Position { x: 11, y: 10 },
+            Monster,
+            Name("Orc".to_string()),
+            CombatStats {
+                hp: 20,
+                max_hp: 20,
+                defense: 0,
+                power: 1,
+            },
+            AlertState::Sleeping,
+        ));
+
+        app.move_player(1, 0);
+
+        let stats = app.world.get::<&CombatStats>(monster).unwrap();
+        assert_eq!(stats.hp, 10); // 20 - (5*2) = 10
+        assert!(app.log.iter().any(|l| l.contains("Sneak Attack")));
+    }
 }

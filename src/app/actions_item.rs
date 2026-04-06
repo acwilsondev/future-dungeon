@@ -168,4 +168,75 @@ mod tests {
         assert_eq!(stats.hp, 15);
         assert!(app.world.get::<&Item>(potion).is_err());
     }
+
+    #[test]
+    fn test_identify_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let _item = app.world.spawn((
+            Item,
+            Name("Mysterious Potion".to_string()),
+            InBackpack { owner: player },
+        ));
+
+        app.inventory_cursor = 0;
+        app.handle_identify_input(Action::MenuSelect);
+
+        assert!(app.identified_items.contains("Mysterious Potion"));
+        assert_eq!(app.state, RunState::AwaitingInput);
+    }
+
+    #[test]
+    fn test_targeting_input() {
+        let mut app = setup_test_app();
+        app.map = crate::map::Map::new(80, 50);
+        app.targeting_cursor = (10, 10);
+
+        app.handle_targeting_input(Action::MovePlayer(1, 0));
+        assert_eq!(app.targeting_cursor, (11, 10));
+
+        app.handle_targeting_input(Action::MovePlayer(0, 1));
+        assert_eq!(app.targeting_cursor, (11, 11));
+    }
+
+    #[test]
+    fn test_targeting_select() {
+        let mut app = setup_test_app();
+        app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = crate::map::TileType::Floor;
+        }
+        app.map.populate_blocked_and_opaque();
+
+        let _player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let monster = app.world.spawn((
+            Monster,
+            Position { x: 12, y: 10 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+
+        let wand = app.world.spawn((
+            Item,
+            Name("Wand".to_string()),
+            CombatStats {
+                hp: 1,
+                max_hp: 1,
+                defense: 0,
+                power: 5,
+            },
+        ));
+
+        app.targeting_item = Some(wand);
+        app.targeting_cursor = (12, 10);
+
+        app.handle_targeting_input(Action::MenuSelect);
+
+        let m_stats = app.world.get::<&CombatStats>(monster).unwrap();
+        assert_eq!(m_stats.hp, 5);
+    }
 }

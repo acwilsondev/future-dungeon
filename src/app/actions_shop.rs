@@ -80,3 +80,106 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app
+    }
+
+    #[test]
+    fn test_shop_navigation() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let merchant = app.world.spawn((Merchant,));
+        app.active_merchant = Some(merchant);
+        app.world.spawn((Item, InBackpack { owner: merchant }));
+        app.world.spawn((Item, InBackpack { owner: merchant }));
+
+        app.shop_mode = 0; // Buy mode
+        app.handle_shop_input(Action::MenuDown);
+        assert_eq!(app.shop_cursor, 1);
+
+        app.handle_shop_input(Action::MenuUp);
+        assert_eq!(app.shop_cursor, 0);
+    }
+
+    #[test]
+    fn test_shop_toggle_mode() {
+        let mut app = setup_test_app();
+        app.shop_mode = 0;
+        app.handle_shop_input(Action::ToggleShopMode);
+        assert_eq!(app.shop_mode, 1);
+        app.handle_shop_input(Action::ToggleShopMode);
+        assert_eq!(app.shop_mode, 0);
+    }
+
+    #[test]
+    fn test_shop_buy_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Gold { amount: 100 }, Position { x: 0, y: 0 }));
+        let merchant = app.world.spawn((Merchant,));
+        app.active_merchant = Some(merchant);
+        let item = app.world.spawn((
+            Item,
+            InBackpack { owner: merchant },
+            ItemValue { price: 50 },
+            Name("Shiny Sword".to_string())
+        ));
+
+        app.shop_mode = 0;
+        app.shop_cursor = 0;
+        app.handle_shop_input(Action::MenuSelect);
+
+        let backpack = app.world.get::<&InBackpack>(item).unwrap();
+        assert_eq!(backpack.owner, player);
+        let gold = app.world.get::<&Gold>(player).unwrap();
+        assert_eq!(gold.amount, 50);
+    }
+
+    #[test]
+    fn test_shop_buy_item_fail_no_gold() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Gold { amount: 10 }, Position { x: 0, y: 0 }));
+        let merchant = app.world.spawn((Merchant,));
+        app.active_merchant = Some(merchant);
+        let item = app.world.spawn((
+            Item,
+            InBackpack { owner: merchant },
+            ItemValue { price: 50 },
+            Name("Expensive Sword".to_string())
+        ));
+
+        app.shop_mode = 0;
+        app.shop_cursor = 0;
+        app.handle_shop_input(Action::MenuSelect);
+
+        let backpack = app.world.get::<&InBackpack>(item).unwrap();
+        assert_eq!(backpack.owner, merchant); // Still with merchant
+    }
+
+    #[test]
+    fn test_shop_sell_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Gold { amount: 0 }, Position { x: 0, y: 0 }));
+        let item = app.world.spawn((
+            Item,
+            InBackpack { owner: player },
+            ItemValue { price: 50 },
+            Name("Old Boots".to_string())
+        ));
+
+        app.shop_mode = 1; // Sell mode
+        app.shop_cursor = 0;
+        app.handle_shop_input(Action::MenuSelect);
+
+        let gold = app.world.get::<&Gold>(player).unwrap();
+        assert_eq!(gold.amount, 25); // 50 / 2
+        assert!(app.world.get::<&Item>(item).is_err());
+    }
+}

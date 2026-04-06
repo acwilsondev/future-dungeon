@@ -104,3 +104,78 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app
+    }
+
+    #[test]
+    fn test_get_item_name_obfuscated() {
+        let mut app = setup_test_app();
+        let item = app.world.spawn((
+            Name("Mysterious Potion".to_string()),
+            ObfuscatedName("Bubbling Blue Liquid".to_string()),
+        ));
+
+        assert_eq!(app.get_item_name(item), "Bubbling Blue Liquid");
+
+        app.identify_item(item);
+        assert_eq!(app.get_item_name(item), "Mysterious Potion");
+    }
+
+    #[test]
+    fn test_refresh_player_render_light() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Renderable { glyph: '@', fg: Color::White }));
+        let torch = app.world.spawn((
+            Item,
+            Equipped { slot: EquipmentSlot::Light },
+            InBackpack { owner: player },
+            LightSource {
+                range: 10,
+                base_range: 10,
+                color: (255, 255, 255),
+                remaining_turns: None,
+                flicker: false,
+            }
+        ));
+
+        app.refresh_player_render();
+
+        {
+            let player_light = app.world.get::<&LightSource>(player).unwrap();
+            assert_eq!(player_light.range, 10);
+        }
+
+        // Remove torch, should revert to default dim light
+        app.world.despawn(torch).unwrap();
+        app.refresh_player_render();
+        {
+            let player_light2 = app.world.get::<&LightSource>(player).unwrap();
+            assert_eq!(player_light2.range, 2);
+        }
+    }
+
+    #[test]
+    fn test_add_player_xp_levelup() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Experience { level: 1, xp: 0, next_level_xp: 100, xp_reward: 0 }
+        ));
+
+        app.add_player_xp(150);
+
+        let exp = app.world.get::<&Experience>(player).unwrap();
+        assert_eq!(exp.level, 2);
+        assert_eq!(exp.xp, 50);
+        assert_eq!(app.state, crate::app::RunState::LevelUp);
+    }
+}
