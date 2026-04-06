@@ -225,3 +225,147 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app
+    }
+
+    #[test]
+    fn test_poison_status_effect() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Position { x: 0, y: 0 },
+        ));
+        app.world.insert_one(player, Poison { damage: 2, turns: 3 }).unwrap();
+
+        app.on_turn_tick();
+        {
+            let stats = app.world.get::<&CombatStats>(player).unwrap();
+            assert_eq!(stats.hp, 8);
+            let poison = app.world.get::<&Poison>(player).unwrap();
+            assert_eq!(poison.turns, 2);
+        }
+
+        app.on_turn_tick();
+        app.on_turn_tick();
+        {
+            let stats = app.world.get::<&CombatStats>(player).unwrap();
+            assert_eq!(stats.hp, 4);
+            assert!(app.world.get::<&Poison>(player).is_err());
+        }
+    }
+
+    #[test]
+    fn test_confusion_status_effect() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
+            Position { x: 0, y: 0 },
+        ));
+        app.world.insert_one(player, Confusion { turns: 2 }).unwrap();
+
+        app.on_turn_tick();
+        assert!(app.world.get::<&Confusion>(player).is_ok());
+
+        app.on_turn_tick();
+        assert!(app.world.get::<&Confusion>(player).is_err());
+    }
+
+    #[test]
+    fn test_strength_status_effect() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
+            Position { x: 0, y: 0 },
+        ));
+        app.world.insert_one(player, Strength { amount: 3, turns: 2 }).unwrap();
+        // Manually add the power bonus as would happen when using the item
+        if let Ok(mut stats) = app.world.get::<&mut CombatStats>(player) {
+            stats.power += 3;
+        }
+
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&CombatStats>(player).unwrap().power, 8);
+
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&CombatStats>(player).unwrap().power, 5);
+        assert!(app.world.get::<&Strength>(player).is_err());
+    }
+
+    #[test]
+    fn test_light_source_depletion() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            LightSource {
+                range: 10,
+                base_range: 10,
+                color: (255, 255, 255),
+                remaining_turns: Some(1002),
+                flicker: false,
+            }
+        ));
+
+        app.on_turn_tick(); // turns -> 1001
+        {
+            let light = app.world.get::<&LightSource>(player).unwrap();
+            assert_eq!(light.remaining_turns, Some(1001));
+            assert_eq!(light.base_range, 10);
+        }
+
+        app.on_turn_tick(); // turns -> 1000, trigger dimming
+        {
+            let light = app.world.get::<&LightSource>(player).unwrap();
+            assert_eq!(light.base_range, 5);
+            assert_eq!(light.range, 5);
+        }
+
+        let mut light = app.world.get::<&mut LightSource>(player).unwrap();
+        light.remaining_turns = Some(0);
+        drop(light);
+
+        app.on_turn_tick(); // turns was 0 -> exhaustion
+        {
+            let light = app.world.get::<&LightSource>(player).unwrap();
+            assert_eq!(light.remaining_turns, None); // Should have reset to default torch
+            assert_eq!(light.range, 2);
+        }
+    }
+
+    #[test]
+    fn test_monster_dies_from_poison() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let monster = app.world.spawn((
+            Monster,
+            CombatStats { hp: 1, max_hp: 10, defense: 0, power: 1 },
+            Position { x: 1, y: 1 },
+            Name("Test Monster".to_string()),
+            Experience { level: 1, xp: 0, next_level_xp: 0, xp_reward: 10 }
+        ));
+        app.world.insert_one(monster, Poison { damage: 2, turns: 5 }).unwrap();
+        app.world.insert_one(monster, LastHitByPlayer).unwrap();
+
+        app.on_turn_tick();
+        
+        assert_eq!(app.monsters_killed, 1);
+        assert!(app.world.get::<&Monster>(monster).is_err());
+    }
+}

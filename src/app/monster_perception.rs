@@ -116,3 +116,62 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = crate::map::TileType::Floor;
+        }
+        app.update_blocked_and_opaque();
+        app
+    }
+
+    #[test]
+    fn test_monster_sees_player() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let monster = app.world.spawn((
+            Monster,
+            Position { x: 12, y: 10 },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Sleeping,
+        ));
+
+        // Light the player's position
+        let idx = (10 * app.map.width + 10) as usize;
+        app.map.light[idx] = 1.0;
+
+        app.update_monster_perception(monster, player);
+
+        let alert = app.world.get::<&AlertState>(monster).unwrap();
+        assert_eq!(*alert, AlertState::Aggressive);
+    }
+
+    #[test]
+    fn test_monster_hears_noise() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let monster = app.world.spawn((
+            Monster,
+            Position { x: 20, y: 20 },
+            Viewshed { visible_tiles: 8 },
+            AlertState::Sleeping,
+        ));
+
+        // Create noise at monster position
+        let idx = (20 * app.map.width + 20) as usize;
+        app.map.sound[idx] = 2.0;
+
+        app.update_monster_perception(monster, player);
+
+        let alert = app.world.get::<&AlertState>(monster).unwrap();
+        assert_eq!(*alert, AlertState::Curious { x: 10, y: 10 });
+    }
+}

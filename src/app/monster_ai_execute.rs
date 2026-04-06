@@ -211,3 +211,89 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+    use std::collections::HashSet;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = crate::map::TileType::Floor;
+        }
+        app.update_blocked_and_opaque();
+        app
+    }
+
+    #[test]
+    fn test_monster_move_execution() {
+        let mut app = setup_test_app();
+        let monster = app.world.spawn((
+            Monster,
+            Position { x: 10, y: 10 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+        ));
+        let player = app.world.spawn((Player, Position { x: 20, y: 20 }));
+        let mut occupied = HashSet::new();
+        occupied.insert((10, 10));
+
+        app.execute_monster_action(monster, MonsterAction::Move(1, 0), player, &mut occupied);
+
+        let pos = app.world.get::<&Position>(monster).unwrap();
+        assert_eq!(pos.x, 11);
+        assert_eq!(pos.y, 10);
+        assert!(occupied.contains(&(11, 10)));
+        assert!(!occupied.contains(&(10, 10)));
+    }
+
+    #[test]
+    fn test_monster_attack_player_execution() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            CombatStats { hp: 20, max_hp: 20, defense: 2, power: 5 }
+        ));
+        let monster = app.world.spawn((
+            Monster,
+            Name("Orc".to_string()),
+            Position { x: 11, y: 10 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 6 }
+        ));
+        let mut occupied = HashSet::new();
+
+        app.execute_monster_action(monster, MonsterAction::Attack(player), player, &mut occupied);
+
+        let stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(stats.hp, 16); // 20 - (6-2) = 16
+        assert!(!app.log.is_empty());
+    }
+
+    #[test]
+    fn test_monster_ranged_attack_execution() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 }
+        ));
+        let monster = app.world.spawn((
+            Monster,
+            Name("Archer".to_string()),
+            Position { x: 15, y: 10 },
+            RangedWeapon { range: 8, damage_bonus: 4 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+        ));
+        let mut occupied = HashSet::new();
+
+        app.execute_monster_action(monster, MonsterAction::RangedAttack(player), player, &mut occupied);
+
+        let stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(stats.hp, 16); // 20 - 4 = 16
+        assert!(!app.effects.is_empty()); // Projectile effect
+    }
+}

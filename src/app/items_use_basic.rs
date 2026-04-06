@@ -120,3 +120,101 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app
+    }
+
+    #[test]
+    fn test_use_health_potion() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            CombatStats { hp: 5, max_hp: 20, defense: 0, power: 5 },
+            Position { x: 0, y: 0 },
+        ));
+        let potion = app.world.spawn((
+            Item,
+            Name("Health Potion".to_string()),
+            Potion { heal_amount: 10 },
+            Consumable,
+            InBackpack { owner: player },
+        ));
+
+        app.use_item(potion);
+
+        let stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(stats.hp, 15);
+        assert!(app.world.get::<&Item>(potion).is_err()); // Consumed
+        assert_eq!(app.state, RunState::MonsterTurn);
+    }
+
+    #[test]
+    fn test_use_poison_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
+            Position { x: 0, y: 0 },
+        ));
+        let bad_item = app.world.spawn((
+            Item,
+            Name("Bad Mushroom".to_string()),
+            Poison { damage: 2, turns: 5 },
+            Consumable,
+            InBackpack { owner: player },
+        ));
+
+        app.use_item(bad_item);
+
+        assert!(app.world.get::<&Poison>(player).is_ok());
+        assert!(app.world.get::<&Item>(bad_item).is_err());
+    }
+
+    #[test]
+    fn test_use_strength_potion() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
+            Position { x: 0, y: 0 },
+        ));
+        let strength_potion = app.world.spawn((
+            Item,
+            Name("Potion of Strength".to_string()),
+            Strength { amount: 2, turns: 10 },
+            Consumable,
+            InBackpack { owner: player },
+        ));
+
+        app.use_item(strength_potion);
+
+        let stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(stats.power, 7);
+        assert!(app.world.get::<&Strength>(player).is_ok());
+    }
+
+    #[test]
+    fn test_use_identify_scroll() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let scroll = app.world.spawn((
+            Item,
+            Name("Identification Scroll".to_string()),
+            Consumable,
+            InBackpack { owner: player },
+        ));
+
+        app.use_item(scroll);
+
+        assert_eq!(app.state, RunState::ShowIdentify);
+        assert_eq!(app.targeting_item, Some(scroll));
+    }
+}

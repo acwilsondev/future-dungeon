@@ -119,3 +119,53 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app
+    }
+
+    #[test]
+    fn test_inventory_navigation() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        app.world.spawn((Item, InBackpack { owner: player }));
+        app.world.spawn((Item, InBackpack { owner: player }));
+
+        app.handle_inventory_input(Action::MenuDown);
+        assert_eq!(app.inventory_cursor, 1);
+
+        app.handle_inventory_input(Action::MenuUp);
+        assert_eq!(app.inventory_cursor, 0);
+    }
+
+    #[test]
+    fn test_inventory_use_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            CombatStats { hp: 5, max_hp: 20, defense: 0, power: 5 },
+            Position { x: 0, y: 0 }
+        ));
+        let potion = app.world.spawn((
+            Item,
+            Name("Health Potion".to_string()),
+            Potion { heal_amount: 10 },
+            Consumable,
+            InBackpack { owner: player }
+        ));
+
+        app.inventory_cursor = 0;
+        app.handle_inventory_input(Action::MenuSelect);
+
+        let stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(stats.hp, 15);
+        assert!(app.world.get::<&Item>(potion).is_err());
+    }
+}

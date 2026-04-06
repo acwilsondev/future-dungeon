@@ -101,3 +101,71 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app
+    }
+
+    #[test]
+    fn test_pick_up_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let item = app.world.spawn((Item, Position { x: 10, y: 10 }, Name("Test Item".to_string())));
+
+        app.pick_up_item();
+
+        let backpack = app.world.get::<&InBackpack>(item).unwrap();
+        assert_eq!(backpack.owner, player);
+        assert!(app.world.get::<&Position>(item).is_err());
+    }
+
+    #[test]
+    fn test_buy_item_success() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Gold { amount: 100 }));
+        let item = app.world.spawn((Item, ItemValue { price: 40 }));
+
+        app.buy_item(item);
+
+        let backpack = app.world.get::<&InBackpack>(item).unwrap();
+        assert_eq!(backpack.owner, player);
+        let gold = app.world.get::<&Gold>(player).unwrap();
+        assert_eq!(gold.amount, 60);
+    }
+
+    #[test]
+    fn test_buy_item_fail_no_gold() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Gold { amount: 10 }));
+        let item = app.world.spawn((Item, ItemValue { price: 40 }));
+
+        app.buy_item(item);
+
+        assert!(app.world.get::<&InBackpack>(item).is_err());
+    }
+
+    #[test]
+    fn test_sell_item() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Gold { amount: 0 }));
+        let item = app.world.spawn((
+            Item,
+            InBackpack { owner: player },
+            ItemValue { price: 40 },
+            Name("Old Sword".to_string())
+        ));
+
+        app.sell_item(item);
+
+        let gold = app.world.get::<&Gold>(player).unwrap();
+        assert_eq!(gold.amount, 20); // 40 / 2
+        assert!(app.world.get::<&Item>(item).is_err()); // Despawned
+    }
+}

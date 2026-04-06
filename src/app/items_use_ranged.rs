@@ -202,3 +202,84 @@ impl App {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hecs::World;
+
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app.map = crate::map::Map::new(80, 50);
+        for t in app.map.tiles.iter_mut() {
+            *t = crate::map::TileType::Floor;
+        }
+        app.update_blocked_and_opaque();
+        app
+    }
+
+    #[test]
+    fn test_fire_scroll_aoe() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let monster1 = app.world.spawn((
+            Monster,
+            Position { x: 12, y: 10 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+        ));
+        let monster2 = app.world.spawn((
+            Monster,
+            Position { x: 13, y: 10 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+        ));
+        let scroll = app.world.spawn((
+            Item,
+            Name("Fire Scroll".to_string()),
+            AreaOfEffect { radius: 3 },
+            CombatStats { hp: 0, max_hp: 0, defense: 0, power: 8 },
+            Consumable,
+            InBackpack { owner: player }
+        ));
+
+        app.targeting_item = Some(scroll);
+        app.targeting_cursor = (12, 10);
+        app.fire_targeting_item();
+
+        let stats1 = app.world.get::<&CombatStats>(monster1).unwrap();
+        assert_eq!(stats1.hp, 2);
+        let stats2 = app.world.get::<&CombatStats>(monster2).unwrap();
+        assert_eq!(stats2.hp, 2);
+        assert!(app.world.get::<&Item>(scroll).is_err());
+    }
+
+    #[test]
+    fn test_bow_ranged_weapon() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let monster = app.world.spawn((
+            Monster,
+            Position { x: 15, y: 10 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+        ));
+        let bow = app.world.spawn((
+            Item,
+            Name("Shortbow".to_string()),
+            RangedWeapon { range: 8, damage_bonus: 4 },
+            InBackpack { owner: player }
+        ));
+        let _arrows = app.world.spawn((
+            Item,
+            Ammunition,
+            InBackpack { owner: player }
+        ));
+
+        app.targeting_item = Some(bow);
+        app.targeting_cursor = (15, 10);
+        app.fire_targeting_item();
+
+        let stats = app.world.get::<&CombatStats>(monster).unwrap();
+        assert_eq!(stats.hp, 6);
+        assert!(app.world.get::<&Item>(bow).is_ok()); // Not consumed
+    }
+}
