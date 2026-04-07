@@ -1,6 +1,7 @@
 # Bugs
 
-- [x] Player should *not* take on the appearance of armor they equip (color or glyph).
-- [x] Player should begin the game with the a torch *equipped*. Currently, they have one in their inventory, that one should be equipped from the start. 
-- [x] Player should maintain their equipped items when changing floors. Currently equipment does not persist between floors
 - [ ] Monsters should not attack Alchemy Stations.
+- [ ] Dex Mod Cap by heavier armors should apply to all Dex Mod checks
+- [ ] Light should not be a separate item slot- it should be wielded like a normal wieldable.
+- [ ] Ranged should not be a separate equipement slot- those should be two handed weapons wielded like normal wieldables
+- [ ] Weapons that only take up one slot should be equippable to either hand.

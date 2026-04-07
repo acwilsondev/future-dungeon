@@ -38,14 +38,15 @@ pub struct Boss {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EquipmentSlot {
-    Melee,
+    Head,
+    Neck,
+    Torso,
+    Hands,
+    Feet,
     MainHand,
     OffHand,
     Ranged,
-    Torso,
-    Head,
-    Hands,
-    Feet,
+    Ammo,
     LeftFinger,
     RightFinger,
     Light,
@@ -182,11 +183,13 @@ pub struct Weapon {
     pub weight: WeaponWeight,
     pub damage_n_dice: i32,
     pub damage_die_type: i32,
+    pub two_handed: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Armor {
     pub defense_bonus: i32,
+    pub max_dex_bonus: Option<i32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

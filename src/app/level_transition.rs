@@ -176,13 +176,14 @@ mod tests {
                 weight: WeaponWeight::Medium,
                 damage_n_dice: 1,
                 damage_die_type: 6,
+                two_handed: false,
             },
             InBackpack { owner: player },
             Equippable {
-                slot: EquipmentSlot::Melee,
+                slot: EquipmentSlot::MainHand,
             },
             Equipped {
-                slot: EquipmentSlot::Melee,
+                slot: EquipmentSlot::MainHand,
             },
             Renderable {
                 glyph: '/',

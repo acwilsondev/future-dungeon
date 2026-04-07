@@ -217,7 +217,10 @@
       "price": 80,
       "potion": null,
       "weapon": null,
-      "armor": 0,
+      "armor": {
+        "defense_bonus": 0,
+        "max_dex_bonus": null
+      },
       "ranged": null,
       "ranged_weapon": null,
       "aoe": null,
@@ -298,7 +301,8 @@
         "power_bonus": 0,
         "weight": "Light",
         "n_dice": 1,
-        "die_type": 4
+        "die_type": 4,
+        "two_handed": false
       },
       "armor": null,
       "ranged": null,
@@ -313,7 +317,7 @@
       "max_floor": 5,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "Melee"
+      "slot": "MainHand"
     },
     {
       "name": "Venomous Dagger",
@@ -329,7 +333,8 @@
         "power_bonus": 0,
         "weight": "Light",
         "n_dice": 1,
-        "die_type": 4
+        "die_type": 4,
+        "two_handed": false
       },
       "armor": null,
       "ranged": null,
@@ -347,7 +352,7 @@
       "max_floor": 3,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "Melee"
+      "slot": "MainHand"
     },
     {
       "name": "King's Armor",
@@ -360,7 +365,10 @@
       "price": 100,
       "potion": null,
       "weapon": null,
-      "armor": 5,
+      "armor": {
+        "defense_bonus": 5,
+        "max_dex_bonus": null
+      },
       "ranged": null,
       "ranged_weapon": null,
       "aoe": null,
@@ -574,7 +582,10 @@
       "price": 15,
       "potion": null,
       "weapon": null,
-      "armor": 1,
+      "armor": {
+        "defense_bonus": 1,
+        "max_dex_bonus": null
+      },
       "ranged": null,
       "ranged_weapon": null,
       "aoe": null,
@@ -662,7 +673,10 @@
       "price": 5,
       "potion": null,
       "weapon": null,
-      "armor": -5,
+      "armor": {
+        "defense_bonus": -5,
+        "max_dex_bonus": null
+      },
       "ranged": null,
       "ranged_weapon": null,
       "aoe": null,
@@ -688,7 +702,10 @@
       "price": 10,
       "potion": null,
       "weapon": null,
-      "armor": 1,
+      "armor": {
+        "defense_bonus": 1,
+        "max_dex_bonus": null
+      },
       "ranged": null,
       "ranged_weapon": null,
       "aoe": null,
@@ -714,7 +731,10 @@
       "price": 15,
       "potion": null,
       "weapon": null,
-      "armor": 2,
+      "armor": {
+        "defense_bonus": 2,
+        "max_dex_bonus": null
+      },
       "ranged": null,
       "ranged_weapon": null,
       "aoe": null,
@@ -740,7 +760,10 @@
       "price": 10,
       "potion": null,
       "weapon": null,
-      "armor": 1,
+      "armor": {
+        "defense_bonus": 1,
+        "max_dex_bonus": null
+      },
       "ranged": null,
       "ranged_weapon": null,
       "aoe": null,
@@ -795,7 +818,8 @@
         "power_bonus": 3,
         "weight": "Medium",
         "n_dice": 1,
-        "die_type": 4
+        "die_type": 4,
+        "two_handed": false
       },
       "armor": null,
       "ranged": null,
@@ -810,7 +834,7 @@
       "max_floor": 999,
       "obfuscated_name": "Cold Stick",
       "cursed": false,
-      "slot": "Melee",
+      "slot": "MainHand",
       "branches": [
         "Vaults"
       ]
@@ -829,7 +853,8 @@
         "power_bonus": 0,
         "weight": "Medium",
         "n_dice": 1,
-        "die_type": 6
+        "die_type": 6,
+        "two_handed": false
       },
       "armor": null,
       "ranged": null,
@@ -844,10 +869,100 @@
       "max_floor": 999,
       "obfuscated_name": "Thorny Whip",
       "cursed": false,
-      "slot": "Melee",
+      "slot": "MainHand",
       "branches": [
         "Gardens"
       ]
+    },
+    {
+      "name": "Greatsword",
+      "glyph": "/",
+      "color": [
+        192,
+        192,
+        192
+      ],
+      "price": 50,
+      "potion": null,
+      "weapon": {
+        "power_bonus": 2,
+        "weight": "Heavy",
+        "n_dice": 2,
+        "die_type": 6,
+        "two_handed": true
+      },
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.1,
+      "min_floor": 3,
+      "max_floor": 999,
+      "obfuscated_name": "Huge Blade",
+      "cursed": false,
+      "slot": "MainHand"
+    },
+    {
+      "name": "Plate Armor",
+      "glyph": "[",
+      "color": [
+        128,
+        128,
+        128
+      ],
+      "price": 100,
+      "potion": null,
+      "weapon": null,
+      "armor": {
+        "defense_bonus": 8,
+        "max_dex_bonus": 1
+      },
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.05,
+      "min_floor": 5,
+      "max_floor": 999,
+      "obfuscated_name": "Heavy Mail",
+      "cursed": false,
+      "slot": "Torso"
+    },
+    {
+      "name": "Shield",
+      "glyph": "[",
+      "color": [
+        139,
+        69,
+        19
+      ],
+      "price": 20,
+      "potion": null,
+      "weapon": null,
+      "armor": {
+        "defense_bonus": 2,
+        "max_dex_bonus": null
+      },
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.2,
+      "min_floor": 1,
+      "max_floor": 999,
+      "obfuscated_name": "Wooden Board",
+      "cursed": false,
+      "slot": "OffHand"
     }
   ]
 }

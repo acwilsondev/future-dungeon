@@ -11,37 +11,76 @@ impl App {
             .map(|(id, _)| id)
     }
 
-    pub fn get_player_stats(&self) -> (i32, i32) {
+    pub fn get_player_stats(&self) -> (i32, i32, i32) {
         let Some(player_id) = self.get_player_id() else {
-            return (0, 0);
+            return (0, 0, 0);
         };
-        let Ok(base_stats) = self.world.get::<&CombatStats>(player_id) else {
-            return (0, 0);
+        let (power, av) = {
+            let mut p = 0;
+            let mut a = 0;
+            if let Ok(stats) = self.world.get::<&CombatStats>(player_id) {
+                p = stats.power;
+                a = stats.defense;
+            }
+            (p, a)
         };
-        let mut power = base_stats.power;
-        let mut defense = base_stats.defense;
+
+        let mut total_power = power;
+        let mut total_av = av;
 
         // Add attribute bonuses
+        let mut str_mod = 0;
+        let mut dex_mod = 0;
         if let Ok(attr) = self.world.get::<&Attributes>(player_id) {
-            power += Attributes::get_modifier(attr.strength);
-            defense += Attributes::get_modifier(attr.dexterity);
+            str_mod = Attributes::get_modifier(attr.strength);
+            dex_mod = Attributes::get_modifier(attr.dexterity);
         }
 
         // Add equipment bonuses
-        for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
-            if backpack.owner == player_id {
-                if let Ok(weapon) = self.world.get::<&Weapon>(id) {
-                    power += weapon.power_bonus;
-                }
-                if let Ok(armor) = self.world.get::<&Armor>(id) {
-                    defense += armor.defense_bonus;
-                }
-                if let Ok(strength) = self.world.get::<&Strength>(id) {
-                    power += strength.amount;
+        let mut weapon_equipped = false;
+        let mut max_dex = None;
+
+        for (id, (eq, _)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+            if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
+                if backpack.owner == player_id {
+                    if let Ok(weapon) = self.world.get::<&Weapon>(id) {
+                        if eq.slot == EquipmentSlot::MainHand {
+                            total_power += weapon.power_bonus;
+                            let mut m = str_mod;
+                            if weapon.weight == WeaponWeight::Light {
+                                m = dex_mod;
+                            }
+                            if weapon.two_handed {
+                                m = (m as f32 * 1.5) as i32;
+                            }
+                            total_power += m;
+                            weapon_equipped = true;
+                        }
+                    }
+                    if let Ok(armor) = self.world.get::<&Armor>(id) {
+                        total_av += armor.defense_bonus;
+                        if let Some(limit) = armor.max_dex_bonus {
+                            max_dex = Some(max_dex.map(|m| i32::min(m, limit)).unwrap_or(limit));
+                        }
+                    }
+                    if let Ok(strength) = self.world.get::<&Strength>(id) {
+                        total_power += strength.amount;
+                    }
                 }
             }
         }
-        (power, defense)
+
+        if !weapon_equipped {
+            total_power += str_mod;
+        }
+
+        let mut capped_dex = dex_mod;
+        if let Some(limit) = max_dex {
+            capped_dex = capped_dex.min(limit);
+        }
+        let dodge_dc = 10 + capped_dex;
+
+        (total_power, total_av, dodge_dc)
     }
 
     pub fn recalculate_player_max_hp(&mut self) {

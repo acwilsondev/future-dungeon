@@ -318,10 +318,12 @@ fn draw_sidebar(
             .label(format!("{}/{}", player_stats.hp, player_stats.max_hp)),
         sidebar_layout[0],
     );
+    let (player_power, player_av, dodge_dc) = app.get_player_stats();
+
     frame.render_widget(
         Paragraph::new(format!(
-            "ATK: {}  DEF: {}",
-            player_stats.power, player_stats.defense
+            "POW: {} AV: {} DC: {}",
+            player_power, player_av, dodge_dc
         )),
         sidebar_layout[1],
     );
@@ -823,13 +825,17 @@ fn render_inventory(app: &App, frame: &mut Frame) {
         let mut equipment_list = Vec::new();
         let slots = [
             (EquipmentSlot::Head, "Head"),
+            (EquipmentSlot::Neck, "Neck"),
             (EquipmentSlot::Torso, "Torso"),
             (EquipmentSlot::Hands, "Hands"),
             (EquipmentSlot::Feet, "Feet"),
-            (EquipmentSlot::Melee, "Melee"),
+            (EquipmentSlot::MainHand, "Main Hand"),
+            (EquipmentSlot::OffHand, "Off Hand"),
             (EquipmentSlot::Ranged, "Ranged"),
+            (EquipmentSlot::Ammo, "Ammo"),
             (EquipmentSlot::LeftFinger, "L.Finger"),
             (EquipmentSlot::RightFinger, "R.Finger"),
+            (EquipmentSlot::Light, "Light"),
         ];
 
         for (slot, label) in slots {
@@ -846,7 +852,7 @@ fn render_inventory(app: &App, frame: &mut Frame) {
 
             equipment_list.push(Line::from(vec![
                 Span::styled(
-                    format!("{:<9}: ", label),
+                    format!("{:<10}: ", label),
                     Style::default().add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(equipped_name, Style::default().fg(equipped_color)),
@@ -896,14 +902,15 @@ fn render_inventory(app: &App, frame: &mut Frame) {
                 if let Ok(weapon) = app.world.get::<&Weapon>(*item_id) {
                     tooltip.push(Line::from(vec![
                         Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)),
-                        Span::raw("Melee Weapon"),
+                        Span::raw(format!("{:?} Melee Weapon{}", weapon.weight, if weapon.two_handed { " (2H)" } else { "" })),
                     ]));
                     tooltip.push(Line::from(vec![
-                        Span::styled("Bonus: ", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled("Damage: ", Style::default().add_modifier(Modifier::BOLD)),
                         Span::styled(
-                            format!("+{} Power", weapon.power_bonus),
+                            format!("{}d{}", weapon.damage_n_dice, weapon.damage_die_type),
                             Style::default().fg(Color::Red),
                         ),
+                        Span::raw(format!(" + {} power", weapon.power_bonus)),
                     ]));
                 }
                 if let Ok(armor) = app.world.get::<&Armor>(*item_id) {
@@ -918,6 +925,12 @@ fn render_inventory(app: &App, frame: &mut Frame) {
                             Style::default().fg(Color::Blue),
                         ),
                     ]));
+                    if let Some(max_dex) = armor.max_dex_bonus {
+                        tooltip.push(Line::from(vec![
+                            Span::styled("Max DEX Bonus: ", Style::default().add_modifier(Modifier::BOLD)),
+                            Span::raw(format!("{}", max_dex)),
+                        ]));
+                    }
                 }
                 if let Ok(ranged) = app.world.get::<&Ranged>(*item_id) {
                     tooltip.push(Line::from(vec![

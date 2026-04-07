@@ -149,10 +149,14 @@ pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Ent
             weight: w.weight,
             damage_n_dice: w.n_dice,
             damage_die_type: w.die_type,
+            two_handed: w.two_handed,
         });
     }
-    if let Some(d) = raw.armor {
-        cb.add(Armor { defense_bonus: d });
+    if let Some(a) = &raw.armor {
+        cb.add(Armor {
+            defense_bonus: a.defense_bonus,
+            max_dex_bonus: a.max_dex_bonus,
+        });
     }
     if let Some(r) = raw.ranged {
         cb.add(Ranged { range: r });
@@ -398,10 +402,14 @@ pub fn spawn_item_in_backpack(
             weight: w.weight,
             damage_n_dice: w.n_dice,
             damage_die_type: w.die_type,
+            two_handed: w.two_handed,
         });
     }
-    if let Some(d) = raw.armor {
-        cb.add(Armor { defense_bonus: d });
+    if let Some(a) = &raw.armor {
+        cb.add(Armor {
+            defense_bonus: a.defense_bonus,
+            max_dex_bonus: a.max_dex_bonus,
+        });
     }
     if let Some(r) = raw.ranged {
         cb.add(Ranged { range: r });

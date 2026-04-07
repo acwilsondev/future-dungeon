@@ -18,6 +18,20 @@ pub struct AttackResult {
 }
 
 impl App {
+    pub fn get_max_dex_bonus(&self, entity: hecs::Entity) -> Option<i32> {
+        let mut min_max = None;
+        for (id, (_eq, armor)) in self.world.query::<(&Equipped, &Armor)>().iter() {
+            if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
+                if backpack.owner == entity {
+                    if let Some(limit) = armor.max_dex_bonus {
+                        min_max = Some(min_max.map(|m| i32::min(m, limit)).unwrap_or(limit));
+                    }
+                }
+            }
+        }
+        min_max
+    }
+
     pub fn resolve_attack(
         &mut self,
         attacker: hecs::Entity,
@@ -36,7 +50,7 @@ impl App {
             .unwrap_or("Something".to_string());
 
         // 1. Determine Attacker Modifier and Damage Dice
-        let attr_mod;
+        let mut attr_mod;
         let mut damage_dice = (1, 4); // Default 1d4
         let mut power_bonus = 0;
 
@@ -51,6 +65,9 @@ impl App {
                 WeaponWeight::Light => self.get_attribute_modifier(attacker, |a| a.dexterity),
                 _ => self.get_attribute_modifier(attacker, |a| a.strength),
             };
+            if w.two_handed {
+                attr_mod = (attr_mod as f32 * 1.5) as i32;
+            }
             damage_dice = (w.damage_n_dice, w.damage_die_type);
             power_bonus = w.power_bonus;
         } else {
@@ -66,8 +83,11 @@ impl App {
         let mut hit = false;
         let mut critical = false;
 
-        // Target Dodge DC (10 + DEX mod)
-        let target_dex_mod = self.get_attribute_modifier(target, |a| a.dexterity);
+        // Target Dodge DC (10 + capped DEX mod)
+        let mut target_dex_mod = self.get_attribute_modifier(target, |a| a.dexterity);
+        if let Some(limit) = self.get_max_dex_bonus(target) {
+            target_dex_mod = target_dex_mod.min(limit);
+        }
         let dodge_dc = 10 + target_dex_mod;
 
         if roll == 20 {
@@ -78,7 +98,6 @@ impl App {
         } else if roll + attr_mod >= dodge_dc {
             hit = true;
         }
-
 
         // 3. Damage Calculation
         let mut damage = 0;
@@ -115,9 +134,7 @@ impl App {
     pub fn get_equipped_weapon(&self, entity: hecs::Entity) -> Option<Weapon> {
         for (id, (eq, weapon)) in self.world.query::<(&Equipped, &Weapon)>().iter() {
             if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
-                if backpack.owner == entity
-                    && (eq.slot == EquipmentSlot::Melee || eq.slot == EquipmentSlot::MainHand)
-                {
+                if backpack.owner == entity && eq.slot == EquipmentSlot::MainHand {
                     return Some(*weapon);
                 }
             }
@@ -148,28 +165,21 @@ impl App {
     }
 
     pub fn get_target_av(&self, entity: hecs::Entity) -> i32 {
-        if self.world.get::<&Player>(entity).is_ok() {
-            let (_, def) = self.get_player_stats();
-            def
-        } else {
-            let mut def = self
-                .world
-                .get::<&CombatStats>(entity)
-                .map(|s| s.defense)
-                .unwrap_or(0);
-            if let Ok(attr) = self.world.get::<&Attributes>(entity) {
-                def += Attributes::get_modifier(attr.dexterity);
-            }
-            // Monster equipment
-            for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+        let mut def = self
+            .world
+            .get::<&CombatStats>(entity)
+            .map(|s| s.defense)
+            .unwrap_or(0);
+
+        // Sum all equipped armor/shields
+        for (id, (_eq, armor)) in self.world.query::<(&Equipped, &Armor)>().iter() {
+            if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
                 if backpack.owner == entity {
-                    if let Ok(armor) = self.world.get::<&Armor>(id) {
-                        def += armor.defense_bonus;
-                    }
+                    def += armor.defense_bonus;
                 }
             }
-            def
         }
+        def
     }
 
     pub fn apply_attack_result(&mut self, target: hecs::Entity, res: &AttackResult, x: u16, y: u16) {
@@ -248,9 +258,10 @@ mod tests {
                 weight: WeaponWeight::Medium,
                 damage_n_dice: 1,
                 damage_die_type: 8,
+                two_handed: false,
             },
-            Equippable { slot: EquipmentSlot::Melee },
-            Equipped { slot: EquipmentSlot::Melee },
+            Equippable { slot: EquipmentSlot::MainHand },
+            Equipped { slot: EquipmentSlot::MainHand },
             InBackpack { owner: player },
         ));
 

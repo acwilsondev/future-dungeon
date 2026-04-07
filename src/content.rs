@@ -44,6 +44,13 @@ pub struct RawWeapon {
     pub weight: crate::components::WeaponWeight,
     pub n_dice: i32,
     pub die_type: i32,
+    pub two_handed: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawArmor {
+    pub defense_bonus: i32,
+    pub max_dex_bonus: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -57,7 +64,7 @@ pub struct RawItem {
     pub price: i32,
     pub potion: Option<i32>,
     pub weapon: Option<RawWeapon>,
-    pub armor: Option<i32>,
+    pub armor: Option<RawArmor>,
     pub ranged: Option<i32>,
     pub ranged_weapon: Option<(i32, i32)>,
     pub aoe: Option<i32>,

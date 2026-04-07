@@ -22,7 +22,7 @@ impl App {
     }
 
     pub fn equip_item(&mut self, item_id: hecs::Entity) {
-        let (player_id, slot) = {
+        let (player_id, slot, is_two_handed) = {
             let Some(player_id) = self.get_player_id() else {
                 log::error!("Player not found during equip_item");
                 return;
@@ -31,19 +31,45 @@ impl App {
                 log::error!("Item {:?} not equippable during equip_item", item_id);
                 return;
             };
-            (player_id, equippable.slot)
+            let two_handed = self.world.get::<&Weapon>(item_id).map(|w| w.two_handed).unwrap_or(false);
+            (player_id, equippable.slot, two_handed)
         };
 
-        // Find if something is already in that slot
-        let mut to_unequip = None;
+        // Handle slot conflicts
+        let mut to_unequip = Vec::new();
+
+        // 1. Items in the same slot
         for (id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
             if backpack.owner == player_id && eq.slot == slot {
-                to_unequip = Some(id);
-                break;
+                to_unequip.push(id);
             }
         }
 
-        if let Some(old_item) = to_unequip {
+        // 2. Two-handed conflicts
+        if slot == EquipmentSlot::MainHand && is_two_handed {
+            // New item is 2H MainHand, unequip anything in OffHand
+            for (id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+                if backpack.owner == player_id && eq.slot == EquipmentSlot::OffHand {
+                    to_unequip.push(id);
+                }
+            }
+        } else if slot == EquipmentSlot::OffHand {
+            // New item is OffHand, unequip any 2H weapon in MainHand
+            for (id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+                if backpack.owner == player_id && eq.slot == EquipmentSlot::MainHand {
+                    if let Ok(weapon) = self.world.get::<&Weapon>(id) {
+                        if weapon.two_handed {
+                            to_unequip.push(id);
+                        }
+                    }
+                }
+            }
+        } else if slot == EquipmentSlot::MainHand && !is_two_handed {
+            // New item is 1H MainHand, if OffHand has something that is NOT compatible (none currently, but good to be safe)
+            // Actually, if we had a "requires both hands" armor maybe? Not for now.
+        }
+
+        for old_item in to_unequip {
             if !self.unequip_item(old_item) {
                 return; // Couldn't unequip cursed item
             }
@@ -77,7 +103,7 @@ mod tests {
         let item = app.world.spawn((
             Item,
             Name("Sword".to_string()),
-            Equippable { slot: EquipmentSlot::Melee },
+            Equippable { slot: EquipmentSlot::MainHand },
             InBackpack { owner: player }
         ));
 
@@ -96,9 +122,9 @@ mod tests {
         let item = app.world.spawn((
             Item,
             Name("Cursed Sword".to_string()),
-            Equippable { slot: EquipmentSlot::Melee },
+            Equippable { slot: EquipmentSlot::MainHand },
             InBackpack { owner: player },
-            Equipped { slot: EquipmentSlot::Melee },
+            Equipped { slot: EquipmentSlot::MainHand },
             Cursed
         ));
 
@@ -114,14 +140,14 @@ mod tests {
         let old_item = app.world.spawn((
             Item,
             Name("Old Sword".to_string()),
-            Equippable { slot: EquipmentSlot::Melee },
+            Equippable { slot: EquipmentSlot::MainHand },
             InBackpack { owner: player },
-            Equipped { slot: EquipmentSlot::Melee }
+            Equipped { slot: EquipmentSlot::MainHand }
         ));
         let new_item = app.world.spawn((
             Item,
             Name("New Sword".to_string()),
-            Equippable { slot: EquipmentSlot::Melee },
+            Equippable { slot: EquipmentSlot::MainHand },
             InBackpack { owner: player }
         ));
 

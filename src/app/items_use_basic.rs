@@ -261,7 +261,7 @@ mod tests {
             Item,
             Name("Sword".to_string()),
             Equippable {
-                slot: EquipmentSlot::Melee,
+                slot: EquipmentSlot::MainHand,
             },
             InBackpack { owner: player },
         ));

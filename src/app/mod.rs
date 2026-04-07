@@ -180,11 +180,17 @@ impl App {
     fn load_content() -> Content {
         let path = std::path::Path::new("content.json");
         if path.exists() {
-            if let Ok(json) = std::fs::read_to_string(path) {
-                if let Ok(content) = serde_json::from_str(&json) {
-                    return content;
+            match std::fs::read_to_string(path) {
+                Ok(json) => {
+                    match serde_json::from_str::<Content>(&json) {
+                        Ok(content) => return content,
+                        Err(e) => log::error!("Failed to parse content.json: {}", e),
+                    }
                 }
+                Err(e) => log::error!("Failed to read content.json: {}", e),
             }
+        } else {
+            log::warn!("content.json not found at {:?}", path);
         }
         Content::default()
     }

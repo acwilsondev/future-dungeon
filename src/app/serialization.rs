@@ -342,11 +342,12 @@ mod tests {
                 weight: WeaponWeight::Heavy,
                 damage_n_dice: 2,
                 damage_die_type: 6,
+                two_handed: true,
             },
             RangedWeapon { range: 8, damage_bonus: 10 },
             Cursed,
-            Equippable { slot: EquipmentSlot::Melee },
-            Equipped { slot: EquipmentSlot::Melee },
+            Equippable { slot: EquipmentSlot::MainHand },
+            Equipped { slot: EquipmentSlot::MainHand },
             InBackpack { owner: player },
         ));
 
@@ -393,8 +394,8 @@ mod tests {
         let (_, (weapon, rw, _, equippable, equipped)) = weapon_query.iter().next().unwrap();
         assert_eq!(weapon.power_bonus, 10);
         assert_eq!(rw.damage_bonus, 10);
-        assert_eq!(equippable.slot, EquipmentSlot::Melee);
-        assert_eq!(equipped.slot, EquipmentSlot::Melee);
+        assert_eq!(equippable.slot, EquipmentSlot::MainHand);
+        assert_eq!(equipped.slot, EquipmentSlot::MainHand);
         
         // 10. Verify environment
         let mut env_query = app2.world.query::<(&Door, &Trap, &DownStairs)>();

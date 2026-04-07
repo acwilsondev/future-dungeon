@@ -1,7 +1,6 @@
 use crate::app::{App, RunState};
 use crate::components::*;
 use rand::Rng;
-use ratatui::prelude::Color;
 
 impl App {
     fn get_interactable_at(&self, x: u16, y: u16) -> Option<hecs::Entity> {
@@ -160,7 +159,7 @@ impl App {
 
     pub fn move_player(&mut self, dx: i16, dy: i16) {
         let (new_x, new_y, player_power) = {
-            let (power, _) = self.get_player_stats();
+            let (power, _av, _dc) = self.get_player_stats();
             let Some(player_id) = self.get_player_id() else {
                 return;
             };
@@ -249,6 +248,7 @@ mod tests {
     use crate::components::{CombatStats, Player, Position};
     use crate::map::TileType;
     use hecs::World;
+    use ratatui::prelude::Color;
 
     fn setup_test_app() -> App {
         let mut app = App::new_test(42);

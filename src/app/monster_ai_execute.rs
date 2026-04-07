@@ -80,8 +80,8 @@ impl App {
                     .unwrap_or("Something".to_string());
 
                 let target_defense = if self.world.get::<&Player>(target_id).is_ok() {
-                    let (_, def) = self.get_player_stats();
-                    def
+                    let (_, av, _) = self.get_player_stats();
+                    av
                 } else {
                     let mut d = self.world
                         .get::<&CombatStats>(target_id)
