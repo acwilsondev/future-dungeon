@@ -37,6 +37,8 @@ impl App {
         attacker: hecs::Entity,
         target: hecs::Entity,
         specific_weapon: Option<hecs::Entity>,
+        disadvantage_count: u32,
+        is_ranged: bool,
     ) -> AttackResult {
         let attacker_name = self
             .world
@@ -54,13 +56,29 @@ impl App {
         let mut damage_dice = (1, 4); // Default 1d4
         let mut power_bonus = 0;
 
-        let weapon = if let Some(weapon_id) = specific_weapon {
-            self.world.get::<&Weapon>(weapon_id).ok().map(|w| *w)
-        } else {
-            self.get_equipped_weapon(attacker)
-        };
+        let weapon_entity = specific_weapon.or_else(|| self.get_equipped_weapon_entity(attacker));
+        let ranged_weapon = weapon_entity.and_then(|id| self.world.get::<&RangedWeapon>(id).ok().map(|rw| *rw));
+        let weapon = weapon_entity.and_then(|id| self.world.get::<&Weapon>(id).ok().map(|w| *w));
 
-        if let Some(w) = weapon {
+        if let Some(rw) = ranged_weapon {
+            if is_ranged {
+                // Ranged Attack
+                attr_mod = self.get_attribute_modifier(attacker, |a| a.dexterity);
+                damage_dice = (1, 6); // Default ranged damage
+                if let Some(w) = weapon {
+                    damage_dice = (w.damage_n_dice, w.damage_die_type);
+                }
+                power_bonus = rw.damage_bonus;
+            } else {
+                // Improvised Melee with Ranged Weapon
+                attr_mod = self.get_attribute_modifier(attacker, |a| a.strength);
+                if let Some(w) = weapon {
+                    damage_dice = (w.damage_n_dice, w.damage_die_type);
+                    power_bonus = w.power_bonus;
+                }
+            }
+        } else if let Some(w) = weapon {
+            // Melee Attack with non-ranged weapon
             attr_mod = match w.weight {
                 WeaponWeight::Light => self.get_attribute_modifier(attacker, |a| a.dexterity),
                 _ => self.get_attribute_modifier(attacker, |a| a.strength),
@@ -79,7 +97,12 @@ impl App {
         }
 
         // 2. Attack Roll (1d20 + mod)
-        let roll = self.rng.gen_range(1..=20);
+        let mut rolls = Vec::new();
+        for _ in 0..=disadvantage_count {
+            rolls.push(self.rng.gen_range(1..=20));
+        }
+        let roll = *rolls.iter().min().unwrap();
+        
         let mut hit = false;
         let mut critical = false;
 
@@ -129,6 +152,17 @@ impl App {
             damage_mod: attr_mod + power_bonus,
             target_av,
         }
+    }
+
+    pub fn get_equipped_weapon_entity(&self, entity: hecs::Entity) -> Option<hecs::Entity> {
+        for (id, (eq, _weapon)) in self.world.query::<(&Equipped, &Weapon)>().iter() {
+            if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
+                if backpack.owner == entity && eq.slot == EquipmentSlot::MainHand {
+                    return Some(id);
+                }
+            }
+        }
+        None
     }
 
     pub fn get_equipped_weapon(&self, entity: hecs::Entity) -> Option<Weapon> {
@@ -240,7 +274,7 @@ mod tests {
             CombatStats { hp: 10, max_hp: 10, defense: 0, power: 0 },
         ));
 
-        let res = app.resolve_attack(attacker, target, None);
+        let res = app.resolve_attack(attacker, target, None, 0, false);
         assert_eq!(res.attacker_name, "Attacker");
         assert_eq!(res.target_name, "Target");
         assert!(res.attack_roll >= 1 && res.attack_roll <= 20);

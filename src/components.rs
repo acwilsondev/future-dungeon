@@ -132,6 +132,7 @@ pub struct Ranged {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RangedWeapon {
     pub range: i32,
+    pub range_increment: i32,
     pub damage_bonus: i32,
 }
 

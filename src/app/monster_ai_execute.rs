@@ -35,7 +35,7 @@ impl App {
                 }
             }
             MonsterAction::Attack(target_id) => {
-                let res = self.resolve_attack(id, target_id, None);
+                let res = self.resolve_attack(id, target_id, None, 0, false);
                 let (tx, ty) = if let Ok(pos) = self.world.get::<&Position>(target_id) {
                     (pos.x, pos.y)
                 } else {
@@ -64,84 +64,38 @@ impl App {
                 }
             }
             MonsterAction::RangedAttack(target_id) => {
-                let (monster_name, rw) = {
-                    let Ok(name) = self.world.get::<&Name>(id) else {
-                        return;
-                    };
-                    let Ok(r) = self.world.get::<&RangedWeapon>(id) else {
-                        return;
-                    };
-                    (name.0.clone(), *r)
-                };
-                let target_name = self
-                    .world
-                    .get::<&Name>(target_id)
-                    .map(|n| n.0.clone())
-                    .unwrap_or("Something".to_string());
-
-                let target_defense = if self.world.get::<&Player>(target_id).is_ok() {
-                    let (_, av, _) = self.get_player_stats();
-                    av
-                } else {
-                    let mut d = self.world
-                        .get::<&CombatStats>(target_id)
-                        .map(|s| s.defense)
-                        .unwrap_or(0);
-                    if let Ok(attr) = self.world.get::<&Attributes>(target_id) {
-                        d += Attributes::get_modifier(attr.dexterity);
-                    }
-                    d
-                };
-
-                let damage = (rw.damage_bonus - target_defense).max(0);
-
-                let target_hp = {
-                    if let Ok(mut target_stats) = self.world.get::<&mut CombatStats>(target_id) {
-                        target_stats.hp -= damage;
-                        target_stats.hp
+                let (tx, ty, disadvantage) = {
+                    let Ok(m_pos) = self.world.get::<&Position>(id) else { return; };
+                    let Ok(t_pos) = self.world.get::<&Position>(target_id) else { return; };
+                    let Ok(rw) = self.world.get::<&RangedWeapon>(id) else { return; };
+                    
+                    let dist = (((m_pos.x as f32 - t_pos.x as f32).powi(2) + (m_pos.y as f32 - t_pos.y as f32).powi(2)).sqrt()) as i32;
+                    let d = if dist > rw.range {
+                        ((dist - rw.range) / rw.range_increment) as u32 + 1
                     } else {
                         0
-                    }
+                    };
+                    (t_pos.x, t_pos.y, d)
                 };
 
+                let res = self.resolve_attack(id, target_id, Some(id), disadvantage, true);
+                self.apply_attack_result(target_id, &res, tx, ty);
+
                 if target_id == player_id {
-                    self.log.push(format!(
-                        "{} fires at you for {} damage!",
-                        monster_name, damage
-                    ));
-                    if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
-                        self.effects.push(VisualEffect::Flash {
-                            x: p_pos.x,
-                            y: p_pos.y,
-                            glyph: '!',
-                            fg: Color::Red,
-                            bg: Some(Color::Indexed(232)),
-                            duration: 5,
-                        });
-                    }
+                    let target_hp = self.world.get::<&CombatStats>(target_id).map(|s| s.hp).unwrap_or(0);
                     if target_hp <= 0 {
                         self.log.push("You are dead!".to_string());
                         self.state = RunState::Dead;
                         self.death = true;
                     }
                 } else {
-                    self.log.push(format!(
-                        "{} fires at {} for {} damage!",
-                        monster_name, target_name, damage
-                    ));
-                    if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
-                        self.effects.push(VisualEffect::Flash {
-                            x: t_pos.x,
-                            y: t_pos.y,
-                            glyph: '*',
-                            fg: Color::Red,
-                            bg: None,
-                            duration: 5,
-                        });
-                    }
-                    self.world.remove_one::<LastHitByPlayer>(target_id).ok();
+                    let target_hp = self.world.get::<&CombatStats>(target_id).map(|s| s.hp).unwrap_or(0);
                     if target_hp <= 0 {
-                        self.log.push(format!("{} dies!", target_name));
+                        self.log.push(format!("{} dies!", res.target_name));
+                        if let Err(e) = self.world.despawn(target_id) {
+                            log::error!("Failed to despawn monster killed by monster: {}", e);
+                        }
+                        self.update_blocked_and_opaque();
                     }
                 }
 
@@ -239,13 +193,15 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 }
+            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            CombatStats { hp: 100, max_hp: 100, defense: 0, power: 5 }
         ));
         let monster = app.world.spawn((
             Monster,
             Name("Archer".to_string()),
             Position { x: 15, y: 10 },
-            RangedWeapon { range: 8, damage_bonus: 4 },
+            Attributes { strength: 10, dexterity: 50, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            RangedWeapon { range: 8, range_increment: 12, damage_bonus: 4 },
             CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
         ));
         let mut occupied = HashSet::new();
@@ -253,7 +209,7 @@ mod tests {
         app.execute_monster_action(monster, MonsterAction::RangedAttack(player), player, &mut occupied);
 
         let stats = app.world.get::<&CombatStats>(player).unwrap();
-        assert_eq!(stats.hp, 16); // 20 - 4 = 16
+        assert!(stats.hp < 100);
         assert!(!app.effects.is_empty()); // Projectile effect
     }
 
@@ -329,3 +285,4 @@ mod tests {
         assert!(app.death);
     }
 }
+

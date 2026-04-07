@@ -66,7 +66,7 @@ pub struct RawItem {
     pub weapon: Option<RawWeapon>,
     pub armor: Option<RawArmor>,
     pub ranged: Option<i32>,
-    pub ranged_weapon: Option<(i32, i32)>,
+    pub ranged_weapon: Option<(i32, i32, i32)>,
     pub aoe: Option<i32>,
     pub confusion: Option<i32>,
     pub poison: Option<(i32, i32)>,

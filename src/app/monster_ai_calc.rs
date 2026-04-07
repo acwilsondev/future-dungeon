@@ -393,6 +393,7 @@ mod tests {
             AlertState::Aggressive,
             RangedWeapon {
                 range: 8,
+                range_increment: 12,
                 damage_bonus: 2,
             },
         ));

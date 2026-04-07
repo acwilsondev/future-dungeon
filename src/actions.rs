@@ -17,4 +17,5 @@ pub enum Action {
     ToggleShopMode,
 
     Wait,
+    Target,
 }

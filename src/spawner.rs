@@ -98,6 +98,7 @@ pub fn spawn_monster(
     if let Some(r) = raw.ranged {
         cb.add(RangedWeapon {
             range: r as i32,
+            range_increment: r as i32,
             damage_bonus: power,
         });
     }
@@ -161,9 +162,10 @@ pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Ent
     if let Some(r) = raw.ranged {
         cb.add(Ranged { range: r });
     }
-    if let Some((r, d)) = raw.ranged_weapon {
+    if let Some((r, inc, d)) = raw.ranged_weapon {
         cb.add(RangedWeapon {
             range: r,
+            range_increment: inc,
             damage_bonus: d,
         });
     }
@@ -414,9 +416,10 @@ pub fn spawn_item_in_backpack(
     if let Some(r) = raw.ranged {
         cb.add(Ranged { range: r });
     }
-    if let Some((r, d)) = raw.ranged_weapon {
+    if let Some((r, inc, d)) = raw.ranged_weapon {
         cb.add(RangedWeapon {
             range: r,
+            range_increment: inc,
             damage_bonus: d,
         });
     }

@@ -24,7 +24,7 @@ impl App {
 
     fn handle_combat(&mut self, target_id: hecs::Entity, _player_power: i32, x: u16, y: u16) {
         let player_id = self.get_player_id().unwrap();
-        let mut res = self.resolve_attack(player_id, target_id, None);
+        let mut res = self.resolve_attack(player_id, target_id, None, 0, false);
 
         // Sneak Attack? (Keep this as special player ability)
         if let Ok(alert) = self.world.get::<&AlertState>(target_id) {
@@ -42,7 +42,7 @@ impl App {
             let dex_mod = self.get_attribute_modifier(player_id, |a| a.dexterity);
             let chance = 10 + (dex_mod * 10); // 10% base + 10% per DEX mod
             if self.rng.gen_range(1..=100) <= chance {
-                let off_res = self.resolve_attack(player_id, target_id, Some(off_hand_id));
+                let off_res = self.resolve_attack(player_id, target_id, Some(off_hand_id), 0, false);
                 self.apply_attack_result(target_id, &off_res, x, y);
             }
         }

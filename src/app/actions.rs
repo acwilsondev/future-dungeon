@@ -70,6 +70,7 @@ impl App {
                 self.bestiary_cursor = 0;
             }
             Action::TryLevelTransition => self.try_level_transition(),
+            Action::Target => self.trigger_ranged_targeting(),
             Action::Wait => self.state = RunState::MonsterTurn,
             _ => {}
         }

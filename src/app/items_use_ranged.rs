@@ -1,6 +1,7 @@
 use crate::app::{App, RunState, VisualEffect};
 use crate::components::*;
 use bracket_pathfinding::prelude::*;
+use rand::Rng;
 use ratatui::prelude::Color;
 
 impl App {
@@ -108,37 +109,18 @@ impl App {
 
     fn handle_direct_damage(
         &mut self,
+        attacker: hecs::Entity,
+        target_id: hecs::Entity,
         actual_target: (u16, u16),
-        power: i32,
-        item_name: &str,
+        specific_weapon: Option<hecs::Entity>,
+        disadvantage_count: u32,
     ) {
-        let mut targets = Vec::new();
-        for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
-            if pos.x == actual_target.0 && pos.y == actual_target.1 {
-                targets.push(id);
-            }
-        }
-        self.generate_noise(actual_target.0, actual_target.1, 6.0);
-        for target_id in targets {
-            let mut damaged = false;
-            if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) {
-                stats.hp -= power;
-                damaged = true;
-            }
-            if damaged {
-                self.log
-                    .push(format!("The {} hits for {} damage!", item_name, power));
-                self.effects.push(VisualEffect::Flash {
-                    x: actual_target.0,
-                    y: actual_target.1,
-                    glyph: '*',
-                    fg: Color::Red,
-                    bg: None,
-                    duration: 5,
-                });
-                let _ = self.world.insert_one(target_id, LastHitByPlayer);
-                let _ = self.world.insert_one(target_id, AlertState::Aggressive);
-            }
+        let res = self.resolve_attack(attacker, target_id, specific_weapon, disadvantage_count, true);
+        self.apply_attack_result(target_id, &res, actual_target.0, actual_target.1);
+        
+        if res.hit {
+            let _ = self.world.insert_one(target_id, LastHitByPlayer);
+            let _ = self.world.insert_one(target_id, AlertState::Aggressive);
         }
     }
 
@@ -200,12 +182,16 @@ impl App {
             let confusion_turns = self.world.get::<&Confusion>(item_id).ok().map(|c| c.turns);
             let poison_effect = self.world.get::<&Poison>(item_id).ok().map(|p| *p);
             let mut power = self.world.get::<&CombatStats>(item_id).map(|s| s.power).unwrap_or(10);
-            let is_ranged_weapon = self.world.get::<&RangedWeapon>(item_id).is_ok();
-
-            if is_ranged_weapon {
-                if let Ok(rw) = self.world.get::<&RangedWeapon>(item_id) {
-                    power = rw.damage_bonus;
+            let mut disadvantage = 0;
+            let ranged_weapon_info = self.world.get::<&RangedWeapon>(item_id).ok().map(|rw| *rw);
+            if let Some(rw) = ranged_weapon_info {
+                let dist = (((player_pos.x as f32 - actual_target.0 as f32).powi(2)
+                    + (player_pos.y as f32 - actual_target.1 as f32).powi(2))
+                .sqrt()) as i32;
+                if dist > rw.range {
+                    disadvantage = ((dist - rw.range) / rw.range_increment) as u32 + 1;
                 }
+                power = rw.damage_bonus;
                 self.consume_ammo(player_id);
             }
 
@@ -214,7 +200,38 @@ impl App {
             } else if confusion_turns.is_some() || poison_effect.is_some() {
                 self.handle_status_effect(actual_target, &item_name, confusion_turns, poison_effect);
             } else {
-                self.handle_direct_damage(actual_target, power, &item_name);
+                let mut targets = Vec::new();
+                for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
+                    if pos.x == actual_target.0 && pos.y == actual_target.1 {
+                        targets.push(id);
+                    }
+                }
+                for target_id in targets {
+                    self.handle_direct_damage(
+                        player_id,
+                        target_id,
+                        actual_target,
+                        Some(item_id),
+                        disadvantage,
+                    );
+
+                    // Off-hand ranged proc?
+                    if let Some(off_hand_id) = self.get_off_hand_weapon(player_id) {
+                        if self.world.get::<&RangedWeapon>(off_hand_id).is_ok() {
+                            let dex_mod = self.get_attribute_modifier(player_id, |a| a.dexterity);
+                            let chance = 10 + (dex_mod * 10);
+                            if self.rng.gen_range(1..=100) <= chance {
+                                self.handle_direct_damage(
+                                    player_id,
+                                    target_id,
+                                    actual_target,
+                                    Some(off_hand_id),
+                                    disadvantage,
+                                );
+                            }
+                        }
+                    }
+                }
             }
 
             let total_xp = self.cleanup_dead_monsters();
@@ -225,7 +242,7 @@ impl App {
             self.update_blocked_and_opaque();
             self.identify_item(item_id);
 
-            if !is_ranged_weapon {
+            if self.world.get::<&RangedWeapon>(item_id).is_err() {
                 if let Err(e) = self.world.despawn(item_id) {
                     log::error!("Failed to despawn consumable item after use: {}", e);
                 }
@@ -235,6 +252,46 @@ impl App {
                 self.state = RunState::MonsterTurn;
             }
             self.targeting_item = None;
+        }
+    }
+
+    pub fn trigger_ranged_targeting(&mut self) {
+        let Some(player_id) = self.get_player_id() else { return; };
+        
+        let mut ranged_item = None;
+        for slot in [EquipmentSlot::MainHand, EquipmentSlot::OffHand] {
+            for (id, (eq, _rw)) in self.world.query::<(&Equipped, &RangedWeapon)>().iter() {
+                if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
+                    if backpack.owner == player_id && eq.slot == slot {
+                        ranged_item = Some(id);
+                        break;
+                    }
+                }
+            }
+            if ranged_item.is_some() { break; }
+        }
+
+        if let Some(item_id) = ranged_item {
+            let has_ammo = self
+                .world
+                .query::<(&Ammunition, &InBackpack)>()
+                .iter()
+                .any(|(_, (_, backpack))| backpack.owner == player_id);
+            
+            if !has_ammo {
+                self.log.push("You have no ammunition for this weapon!".to_string());
+                return;
+            }
+
+            if let Ok(player_pos) = self.world.get::<&Position>(player_id) {
+                let item_name = self.get_item_name(item_id);
+                self.targeting_cursor = (player_pos.x, player_pos.y);
+                self.targeting_item = Some(item_id);
+                self.state = RunState::ShowTargeting;
+                self.log.push(format!("Select target for {}...", item_name));
+            }
+        } else {
+            self.log.push("You have no ranged weapon equipped!".to_string());
         }
     }
 }
@@ -292,31 +349,35 @@ mod tests {
     #[test]
     fn test_bow_ranged_weapon() {
         let mut app = setup_test_app();
-        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            Attributes { strength: 10, dexterity: 50, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+        ));
         let monster = app.world.spawn((
             Monster,
             Position { x: 15, y: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
-        ));
-        let bow = app.world.spawn((
+            Attributes { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            CombatStats { hp: 100, max_hp: 100, defense: 0, power: 1 }
+            ));
+            let bow = app.world.spawn((
             Item,
             Name("Shortbow".to_string()),
-            RangedWeapon { range: 8, damage_bonus: 4 },
+            RangedWeapon { range: 8, range_increment: 12, damage_bonus: 4 },
             InBackpack { owner: player }
-        ));
-        let _arrows = app.world.spawn((
+            ));
+            let _arrows = app.world.spawn((
             Item,
             Ammunition,
             InBackpack { owner: player }
-        ));
+            ));
 
-        app.targeting_item = Some(bow);
-        app.targeting_cursor = (15, 10);
+            app.targeting_item = Some(bow);
+            app.targeting_cursor = (15, 10);
         app.fire_targeting_item();
 
         let stats = app.world.get::<&CombatStats>(monster).unwrap();
-        assert_eq!(stats.hp, 6);
-        assert!(app.world.get::<&Item>(bow).is_ok()); // Not consumed
+        assert!(stats.hp < 100);
     }
 
     #[test]

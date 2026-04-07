@@ -344,7 +344,7 @@ mod tests {
                 damage_die_type: 6,
                 two_handed: true,
             },
-            RangedWeapon { range: 8, damage_bonus: 10 },
+            RangedWeapon { range: 8, range_increment: 12, damage_bonus: 10 },
             Cursed,
             Equippable { slot: EquipmentSlot::MainHand },
             Equipped { slot: EquipmentSlot::MainHand },

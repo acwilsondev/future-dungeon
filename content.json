@@ -526,11 +526,18 @@
       ],
       "price": 25,
       "potion": null,
-      "weapon": null,
+      "weapon": {
+        "power_bonus": 0,
+        "weight": "Medium",
+        "n_dice": 1,
+        "die_type": 4,
+        "two_handed": true
+      },
       "armor": null,
       "ranged": null,
       "ranged_weapon": [
         8,
+        12,
         4
       ],
       "aoe": null,
@@ -543,7 +550,79 @@
       "max_floor": 999,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "Ranged"
+      "slot": "MainHand"
+    },
+    {
+      "name": "Longbow",
+      "glyph": ")",
+      "color": [
+        139,
+        69,
+        19
+      ],
+      "price": 50,
+      "potion": null,
+      "weapon": {
+        "power_bonus": 0,
+        "weight": "Heavy",
+        "n_dice": 1,
+        "die_type": 6,
+        "two_handed": true
+      },
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": [
+        15,
+        20,
+        8
+      ],
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.1,
+      "min_floor": 3,
+      "max_floor": 999,
+      "obfuscated_name": null,
+      "cursed": false,
+      "slot": "MainHand"
+    },
+    {
+      "name": "Hand Crossbow",
+      "glyph": ")",
+      "color": [
+        0,
+        255,
+        255
+      ],
+      "price": 40,
+      "potion": null,
+      "weapon": {
+        "power_bonus": 0,
+        "weight": "Light",
+        "n_dice": 1,
+        "die_type": 2,
+        "two_handed": false
+      },
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": [
+        6,
+        10,
+        3
+      ],
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.1,
+      "min_floor": 2,
+      "max_floor": 999,
+      "obfuscated_name": null,
+      "cursed": false,
+      "slot": "MainHand"
     },
     {
       "name": "Arrows",
@@ -569,7 +648,7 @@
       "max_floor": 999,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": null
+      "slot": "Ammo"
     },
     {
       "name": "Leather Armor",

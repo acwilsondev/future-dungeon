@@ -16,6 +16,7 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
             KeyCode::Char('m') => Some(Action::OpenLogHistory),
             KeyCode::Char('b') => Some(Action::OpenBestiary),
             KeyCode::Enter => Some(Action::TryLevelTransition),
+            KeyCode::Char('f') => Some(Action::Target),
             KeyCode::Char(' ') | KeyCode::Char('.') => Some(Action::Wait),
             _ => None,
         },

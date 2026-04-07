@@ -831,7 +831,6 @@ fn render_inventory(app: &App, frame: &mut Frame) {
             (EquipmentSlot::Feet, "Feet"),
             (EquipmentSlot::MainHand, "Main Hand"),
             (EquipmentSlot::OffHand, "Off Hand"),
-            (EquipmentSlot::Ranged, "Ranged"),
             (EquipmentSlot::Ammo, "Ammo"),
             (EquipmentSlot::LeftFinger, "L.Finger"),
             (EquipmentSlot::RightFinger, "R.Finger"),

@@ -208,13 +208,18 @@ mod tests {
         }
         app.map.populate_blocked_and_opaque();
 
-        let _player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            Attributes { strength: 10, dexterity: 50, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+        ));
         let monster = app.world.spawn((
             Monster,
             Position { x: 12, y: 10 },
+            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
             CombatStats {
-                hp: 10,
-                max_hp: 10,
+                hp: 100,
+                max_hp: 100,
                 defense: 0,
                 power: 1,
             },
@@ -223,12 +228,18 @@ mod tests {
         let wand = app.world.spawn((
             Item,
             Name("Wand".to_string()),
-            CombatStats {
-                hp: 1,
-                max_hp: 1,
-                defense: 0,
-                power: 5,
+            RangedWeapon {
+                range: 10,
+                range_increment: 10,
+                damage_bonus: 5,
             },
+            Weapon {
+                power_bonus: 0,
+                weight: WeaponWeight::Light,
+                damage_n_dice: 0,
+                damage_die_type: 0,
+                two_handed: false,
+            }
         ));
 
         app.targeting_item = Some(wand);
@@ -237,6 +248,6 @@ mod tests {
         app.handle_targeting_input(Action::MenuSelect);
 
         let m_stats = app.world.get::<&CombatStats>(monster).unwrap();
-        assert_eq!(m_stats.hp, 5);
+        assert!(m_stats.hp < 100);
     }
 }

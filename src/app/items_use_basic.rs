@@ -243,6 +243,7 @@ mod tests {
             Name("Bow".to_string()),
             RangedWeapon {
                 range: 8,
+                range_increment: 12,
                 damage_bonus: 2,
             },
             InBackpack { owner: player },
