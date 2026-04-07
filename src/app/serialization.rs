@@ -10,6 +10,7 @@ impl App {
             let pos = self.world.get::<&Position>(id).ok().map(|p| *p);
             let name = self.world.get::<&Name>(id).ok().map(|n| (*n).clone());
             let stats = self.world.get::<&CombatStats>(id).ok().map(|s| *s);
+            let attributes = self.world.get::<&Attributes>(id).ok().map(|a| *a);
             let potion = self.world.get::<&Potion>(id).ok().map(|p| *p);
             let weapon = self.world.get::<&Weapon>(id).ok().map(|w| *w);
             let armor = self.world.get::<&Armor>(id).ok().map(|a| *a);
@@ -48,6 +49,7 @@ impl App {
                 render_order: *render_order,
                 name,
                 stats,
+                attributes,
                 potion,
                 weapon,
                 armor,
@@ -110,6 +112,9 @@ impl App {
     fn add_combat_and_stat_components(cb: &mut hecs::EntityBuilder, e: &EntitySnapshot) {
         if let Some(stats) = e.stats {
             cb.add(stats);
+        }
+        if let Some(attributes) = e.attributes {
+            cb.add(attributes);
         }
         if let Some(faction) = e.faction {
             cb.add(faction);

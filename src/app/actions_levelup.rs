@@ -11,56 +11,42 @@ impl App {
                 }
             }
             Action::MenuDown => {
-                if self.level_up_cursor < 3 {
+                if self.level_up_cursor < 5 {
                     self.level_up_cursor += 1;
                 }
             }
             Action::MenuSelect => {
                 if let Some(player_id) = self.get_player_id() {
-                    match self.level_up_cursor {
-                    0 => {
-                        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
-                            stats.max_hp += 10;
-                            stats.hp += 10;
+                    if let Ok(mut attr) = self.world.get::<&mut Attributes>(player_id) {
+                        match self.level_up_cursor {
+                            0 => {
+                                attr.strength += 1;
+                                self.log.push("Strength increased!".to_string());
+                            }
+                            1 => {
+                                attr.dexterity += 1;
+                                self.log.push("Dexterity increased!".to_string());
+                            }
+                            2 => {
+                                attr.constitution += 1;
+                                self.log.push("Constitution increased!".to_string());
+                            }
+                            3 => {
+                                attr.intelligence += 1;
+                                self.log.push("Intelligence increased!".to_string());
+                            }
+                            4 => {
+                                attr.wisdom += 1;
+                                self.log.push("Wisdom increased!".to_string());
+                            }
+                            5 => {
+                                attr.charisma += 1;
+                                self.log.push("Charisma increased!".to_string());
+                            }
+                            _ => {}
                         }
-                        if let Ok(mut perks) = self.world.get::<&mut Perks>(player_id) {
-                            perks.traits.push(Perk::Toughness);
-                        }
-                        self.log
-                            .push("You chose Toughness! Max HP increased.".to_string());
                     }
-                    1 => {
-                        if let Ok(mut viewshed) = self.world.get::<&mut Viewshed>(player_id) {
-                            viewshed.visible_tiles += 2;
-                        }
-                        if let Ok(mut perks) = self.world.get::<&mut Perks>(player_id) {
-                            perks.traits.push(Perk::EagleEye);
-                        }
-                        self.log
-                            .push("You chose Eagle Eye! FOV increased.".to_string());
-                    }
-                    2 => {
-                        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
-                            stats.power += 2;
-                        }
-                        if let Ok(mut perks) = self.world.get::<&mut Perks>(player_id) {
-                            perks.traits.push(Perk::Strong);
-                        }
-                        self.log
-                            .push("You chose Strong! Power increased.".to_string());
-                    }
-                    3 => {
-                        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
-                            stats.defense += 1;
-                        }
-                        if let Ok(mut perks) = self.world.get::<&mut Perks>(player_id) {
-                            perks.traits.push(Perk::ThickSkin);
-                        }
-                        self.log
-                            .push("You chose Thick Skin! Defense increased.".to_string());
-                    }
-                    _ => {}
-                    }
+                    self.recalculate_player_max_hp();
                 }
                 self.state = RunState::MonsterTurn;
             }
@@ -91,54 +77,58 @@ mod tests {
     }
 
     #[test]
-    fn test_level_up_perks() {
+    fn test_level_up_attributes() {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
             CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
-            Viewshed { visible_tiles: 8 },
-            Perks { traits: Vec::new() },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            Experience {
+                level: 1,
+                xp: 0,
+                next_level_xp: 100,
+                xp_reward: 0,
+            },
             Position { x: 0, y: 0 }
         ));
 
-        // Test perk 0: Toughness
+        // Test choice 0: Strength
         app.level_up_cursor = 0;
         app.handle_level_up_input(Action::MenuSelect);
         {
-            let stats = app.world.get::<&CombatStats>(player).unwrap();
-            assert_eq!(stats.max_hp, 20);
-            let perks = app.world.get::<&Perks>(player).unwrap();
-            assert!(perks.traits.contains(&Perk::Toughness));
+            let attr = app.world.get::<&Attributes>(player).unwrap();
+            assert_eq!(attr.strength, 11);
         }
 
-        // Test perk 1: Eagle Eye
-        app.level_up_cursor = 1;
-        app.handle_level_up_input(Action::MenuSelect);
-        {
-            let viewshed = app.world.get::<&Viewshed>(player).unwrap();
-            assert_eq!(viewshed.visible_tiles, 10);
-            let perks = app.world.get::<&Perks>(player).unwrap();
-            assert!(perks.traits.contains(&Perk::EagleEye));
-        }
-
-        // Test perk 2: Strong
+        // Test choice 2: Constitution (affects HP)
         app.level_up_cursor = 2;
         app.handle_level_up_input(Action::MenuSelect);
         {
+            let attr = app.world.get::<&Attributes>(player).unwrap();
+            assert_eq!(attr.constitution, 11);
+            // CON mod is still 0 at 11.
+            // recalculate_max_hp: 22 + (1 * 8) + (1 * 0) = 30
             let stats = app.world.get::<&CombatStats>(player).unwrap();
-            assert_eq!(stats.power, 7);
-            let perks = app.world.get::<&Perks>(player).unwrap();
-            assert!(perks.traits.contains(&Perk::Strong));
+            assert_eq!(stats.max_hp, 30);
         }
 
-        // Test perk 3: Thick Skin
-        app.level_up_cursor = 3;
+        // Increase CON to 12 (mod 1)
+        app.level_up_cursor = 2;
         app.handle_level_up_input(Action::MenuSelect);
         {
+            let attr = app.world.get::<&Attributes>(player).unwrap();
+            assert_eq!(attr.constitution, 12);
+            // CON mod is now 1.
+            // recalculate_max_hp: 22 + (1 * 8) + (1 * 1) = 31
             let stats = app.world.get::<&CombatStats>(player).unwrap();
-            assert_eq!(stats.defense, 1);
-            let perks = app.world.get::<&Perks>(player).unwrap();
-            assert!(perks.traits.contains(&Perk::ThickSkin));
+            assert_eq!(stats.max_hp, 31);
         }
     }
 }

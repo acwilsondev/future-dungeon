@@ -42,7 +42,11 @@ impl App {
                     let Ok(name) = self.world.get::<&Name>(id) else {
                         return;
                     };
-                    (name.0.clone(), stats.power)
+                    let mut p = stats.power;
+                    if let Ok(attr) = self.world.get::<&Attributes>(id) {
+                        p += Attributes::get_modifier(attr.strength);
+                    }
+                    (name.0.clone(), p)
                 };
                 let target_name = self
                     .world
@@ -54,10 +58,14 @@ impl App {
                     let (_, def) = self.get_player_stats();
                     def
                 } else {
-                    self.world
+                    let mut d = self.world
                         .get::<&CombatStats>(target_id)
                         .map(|s| s.defense)
-                        .unwrap_or(0)
+                        .unwrap_or(0);
+                    if let Ok(attr) = self.world.get::<&Attributes>(target_id) {
+                        d += Attributes::get_modifier(attr.dexterity);
+                    }
+                    d
                 };
 
                 let damage = (monster_power - target_defense).max(0);
@@ -129,10 +137,14 @@ impl App {
                     let (_, def) = self.get_player_stats();
                     def
                 } else {
-                    self.world
+                    let mut d = self.world
                         .get::<&CombatStats>(target_id)
                         .map(|s| s.defense)
-                        .unwrap_or(0)
+                        .unwrap_or(0);
+                    if let Ok(attr) = self.world.get::<&Attributes>(target_id) {
+                        d += Attributes::get_modifier(attr.dexterity);
+                    }
+                    d
                 };
 
                 let damage = (rw.damage_bonus - target_defense).max(0);

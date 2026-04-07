@@ -182,6 +182,22 @@ pub struct InBackpack {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Attributes {
+    pub strength: i32,
+    pub dexterity: i32,
+    pub constitution: i32,
+    pub intelligence: i32,
+    pub wisdom: i32,
+    pub charisma: i32,
+}
+
+impl Attributes {
+    pub fn get_modifier(score: i32) -> i32 {
+        (score - 10) / 2
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CombatStats {
     pub max_hp: i32,
     pub hp: i32,

@@ -11,6 +11,8 @@ pub struct EntitySnapshot {
     pub name: Option<Name>,
     pub stats: Option<CombatStats>,
     #[serde(default)]
+    pub attributes: Option<Attributes>,
+    #[serde(default)]
     pub potion: Option<Potion>,
     #[serde(default)]
     pub weapon: Option<Weapon>,

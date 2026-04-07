@@ -21,6 +21,12 @@ impl App {
         let mut power = base_stats.power;
         let mut defense = base_stats.defense;
 
+        // Add attribute bonuses
+        if let Ok(attr) = self.world.get::<&Attributes>(player_id) {
+            power += Attributes::get_modifier(attr.strength);
+            defense += Attributes::get_modifier(attr.dexterity);
+        }
+
         // Add equipment bonuses
         for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
             if backpack.owner == player_id {
@@ -36,6 +42,26 @@ impl App {
             }
         }
         (power, defense)
+    }
+
+    pub fn recalculate_player_max_hp(&mut self) {
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
+        let (level, con_mod) = {
+            let exp = self.world.get::<&Experience>(player_id).ok().map(|e| e.level).unwrap_or(1);
+            let attr = self.world.get::<&Attributes>(player_id).ok().map(|a| a.constitution).unwrap_or(10);
+            (exp, Attributes::get_modifier(attr))
+        };
+
+        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
+            let old_max = stats.max_hp;
+            stats.max_hp = 22 + (level * 8) + (level * con_mod);
+            let diff = stats.max_hp - old_max;
+            if diff > 0 {
+                stats.hp += diff;
+            }
+        }
     }
 
     pub fn get_item_name(&self, item_id: hecs::Entity) -> String {

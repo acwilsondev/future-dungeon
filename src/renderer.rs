@@ -292,6 +292,7 @@ fn draw_sidebar(
         .constraints([
             Constraint::Length(3), // HP
             Constraint::Length(1), // Stats
+            Constraint::Length(7), // Attributes
             Constraint::Length(1), // XP
             Constraint::Length(3), // Noise
             Constraint::Min(0),    // Status/Perks
@@ -326,6 +327,24 @@ fn draw_sidebar(
     );
 
     let Some(player_id) = app.get_player_id() else { return; };
+
+    let attr_text = if let Ok(attr) = app.world.get::<&Attributes>(player_id) {
+        format!(
+            "STR: {:2} ({:2})\nDEX: {:2} ({:2})\nCON: {:2} ({:2})\nINT: {:2} ({:2})\nWIS: {:2} ({:2})\nCHA: {:2} ({:2})",
+            attr.strength, Attributes::get_modifier(attr.strength),
+            attr.dexterity, Attributes::get_modifier(attr.dexterity),
+            attr.constitution, Attributes::get_modifier(attr.constitution),
+            attr.intelligence, Attributes::get_modifier(attr.intelligence),
+            attr.wisdom, Attributes::get_modifier(attr.wisdom),
+            attr.charisma, Attributes::get_modifier(attr.charisma),
+        )
+    } else {
+        "Attributes missing".to_string()
+    };
+    frame.render_widget(
+        Paragraph::new(attr_text).block(Block::default().title("Attributes")),
+        sidebar_layout[2],
+    );
     let (level, xp, next_xp) = if let Ok(exp) = app.world.get::<&Experience>(player_id) {
         (exp.level, exp.xp, exp.next_level_xp)
     } else {
@@ -334,7 +353,7 @@ fn draw_sidebar(
 
     frame.render_widget(
         Paragraph::new(format!("Level: {}  XP: {}/{}", level, xp, next_xp)),
-        sidebar_layout[2],
+        sidebar_layout[3],
     );
 
     let player_idx = (player_pos.y * app.map.width + player_pos.x) as usize;
@@ -361,7 +380,7 @@ fn draw_sidebar(
             .gauge_style(Style::default().fg(noise_color).bg(Color::Indexed(233)))
             .percent(noise_percent)
             .label(noise_label),
-        sidebar_layout[3],
+        sidebar_layout[4],
     );
 
     let mut status_lines = Vec::new();
@@ -717,13 +736,15 @@ fn render_level_up(app: &App, frame: &mut Frame) {
     frame.render_widget(Clear, area);
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(" Level Up! Choose a Perk ");
+        .title(" Level Up! Increase an Attribute ");
 
     let options = vec![
-        ListItem::new("Toughness (+10 Max HP)"),
-        ListItem::new("Eagle Eye (+2 FOV)"),
-        ListItem::new("Strong (+2 Power)"),
-        ListItem::new("Thick Skin (+1 Defense)"),
+        ListItem::new("Strength (+1 STR)"),
+        ListItem::new("Dexterity (+1 DEX)"),
+        ListItem::new("Constitution (+1 CON)"),
+        ListItem::new("Intelligence (+1 INT)"),
+        ListItem::new("Wisdom (+1 WIS)"),
+        ListItem::new("Charisma (+1 CHA)"),
     ];
 
     let mut state = ListState::default();

@@ -23,6 +23,14 @@ pub fn spawn_player(world: &mut World, x: u16, y: u16) -> hecs::Entity {
             flicker: false,
         },
         Name("Player".to_string()),
+        Attributes {
+            strength: 10,
+            dexterity: 10,
+            constitution: 10,
+            intelligence: 10,
+            wisdom: 10,
+            charisma: 10,
+        },
         CombatStats {
             max_hp: 30,
             hp: 30,
@@ -66,6 +74,14 @@ pub fn spawn_monster(
     cb.add(Hearing { range: 10 });
     cb.add(AlertState::Sleeping);
     cb.add(Name(raw.name.clone()));
+    cb.add(Attributes {
+        strength: 10,
+        dexterity: 10,
+        constitution: 10,
+        intelligence: 10,
+        wisdom: 10,
+        charisma: 10,
+    });
     cb.add(CombatStats {
         max_hp: hp,
         hp,
