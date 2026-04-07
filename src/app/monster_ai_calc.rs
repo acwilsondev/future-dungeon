@@ -148,10 +148,9 @@ impl App {
         };
 
         if self.world.get::<&Confusion>(id).is_ok() {
-            let mut rng = rand::thread_rng();
             return Some(MonsterAction::Move(
-                rng.gen_range(-1..=1),
-                rng.gen_range(-1..=1),
+                self.rng.gen_range(-1..=1),
+                self.rng.gen_range(-1..=1),
             ));
         }
 
@@ -190,7 +189,7 @@ mod tests {
     use hecs::World;
 
     fn setup_test_app() -> App {
-        let mut app = App::new_random();
+        let mut app = App::new_test(42);
         app.world = World::new();
         app.map = crate::map::Map::new(80, 50);
         for t in app.map.tiles.iter_mut() {

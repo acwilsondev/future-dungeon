@@ -38,6 +38,14 @@ pub struct RawLightSource {
     pub flicker: bool,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawWeapon {
+    pub power_bonus: i32,
+    pub weight: crate::components::WeaponWeight,
+    pub n_dice: i32,
+    pub die_type: i32,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct RawItem {
     pub name: String,
@@ -48,7 +56,7 @@ pub struct RawItem {
     pub max_floor: u16,
     pub price: i32,
     pub potion: Option<i32>,
-    pub weapon: Option<i32>,
+    pub weapon: Option<RawWeapon>,
     pub armor: Option<i32>,
     pub ranged: Option<i32>,
     pub ranged_weapon: Option<(i32, i32)>,

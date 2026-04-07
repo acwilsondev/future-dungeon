@@ -294,7 +294,12 @@
       ],
       "price": 5,
       "potion": null,
-      "weapon": 2,
+      "weapon": {
+        "power_bonus": 0,
+        "weight": "Light",
+        "n_dice": 1,
+        "die_type": 4
+      },
       "armor": null,
       "ranged": null,
       "ranged_weapon": null,
@@ -320,7 +325,12 @@
       ],
       "price": 50,
       "potion": null,
-      "weapon": 4,
+      "weapon": {
+        "power_bonus": 0,
+        "weight": "Light",
+        "n_dice": 1,
+        "die_type": 4
+      },
       "armor": null,
       "ranged": null,
       "ranged_weapon": null,
@@ -781,7 +791,12 @@
       ],
       "price": 50,
       "potion": null,
-      "weapon": 3,
+      "weapon": {
+        "power_bonus": 3,
+        "weight": "Medium",
+        "n_dice": 1,
+        "die_type": 4
+      },
       "armor": null,
       "ranged": null,
       "ranged_weapon": null,
@@ -810,7 +825,12 @@
       ],
       "price": 45,
       "potion": null,
-      "weapon": 4,
+      "weapon": {
+        "power_bonus": 0,
+        "weight": "Medium",
+        "n_dice": 1,
+        "die_type": 6
+      },
       "armor": null,
       "ranged": null,
       "ranged_weapon": null,

@@ -143,8 +143,13 @@ pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Ent
     if let Some(h) = raw.potion {
         cb.add(Potion { heal_amount: h });
     }
-    if let Some(p) = raw.weapon {
-        cb.add(Weapon { power_bonus: p });
+    if let Some(w) = &raw.weapon {
+        cb.add(Weapon {
+            power_bonus: w.power_bonus,
+            weight: w.weight,
+            damage_n_dice: w.n_dice,
+            damage_die_type: w.die_type,
+        });
     }
     if let Some(d) = raw.armor {
         cb.add(Armor { defense_bonus: d });
@@ -387,8 +392,13 @@ pub fn spawn_item_in_backpack(
     if let Some(h) = raw.potion {
         cb.add(Potion { heal_amount: h });
     }
-    if let Some(p) = raw.weapon {
-        cb.add(Weapon { power_bonus: p });
+    if let Some(w) = &raw.weapon {
+        cb.add(Weapon {
+            power_bonus: w.power_bonus,
+            weight: w.weight,
+            damage_n_dice: w.n_dice,
+            damage_die_type: w.die_type,
+        });
     }
     if let Some(d) = raw.armor {
         cb.add(Armor { defense_bonus: d });

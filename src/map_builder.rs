@@ -69,7 +69,7 @@ impl MapBuilder {
         }
     }
 
-    pub fn build(&mut self, depth: u16) {
+    pub fn build<R: Rng>(&mut self, depth: u16, rng: &mut R) {
         if depth == 3 || depth == 6 {
             self.theme = LevelTheme::BossArena;
         } else if depth.is_multiple_of(3) {
@@ -80,10 +80,10 @@ impl MapBuilder {
 
         match self.theme {
             LevelTheme::Rooms => {
-                self.build_rooms();
-                self.place_doors();
+                self.build_rooms(rng);
+                self.place_doors(rng);
             }
-            LevelTheme::Caves => self.build_caves(),
+            LevelTheme::Caves => self.build_caves(rng),
             LevelTheme::BossArena => self.build_boss_arena(),
         }
     }
@@ -145,8 +145,7 @@ impl MapBuilder {
         false
     }
 
-    fn place_doors(&mut self) {
-        let mut rng = rand::thread_rng();
+    fn place_doors<R: Rng>(&mut self, rng: &mut R) {
         let mut candidates = Vec::new();
 
         for room in &self.rooms {
@@ -187,8 +186,7 @@ impl MapBuilder {
         }
     }
 
-    fn build_rooms(&mut self) {
-        let mut rng = rand::thread_rng();
+    fn build_rooms<R: Rng>(&mut self, rng: &mut R) {
         const MAX_ROOMS: i32 = 30;
         const MIN_SIZE: i32 = 4;
         const MAX_SIZE: i32 = 10;
@@ -284,8 +282,7 @@ impl MapBuilder {
             .push((center.0 as u16, center.1 as u16 + 1));
     }
 
-    fn build_caves(&mut self) {
-        let mut rng = rand::thread_rng();
+    fn build_caves<R: Rng>(&mut self, rng: &mut R) {
         for tile in self.map.tiles.iter_mut() {
             if rng.gen_bool(0.45) {
                 *tile = TileType::Wall;
@@ -394,18 +391,22 @@ impl MapBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand_chacha::ChaCha8Rng;
+    use rand::SeedableRng;
 
     #[test]
     fn test_map_builder_rooms() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut mb = MapBuilder::new(80, 50);
-        mb.build(1);
+        mb.build(1, &mut rng);
         assert!(!mb.rooms.is_empty() || matches!(mb.theme, LevelTheme::Caves));
     }
 
     #[test]
     fn test_player_start_on_floor() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut mb = MapBuilder::new(80, 50);
-        mb.build(1);
+        mb.build(1, &mut rng);
         let (x, y) = mb.player_start;
         let idx = (y * mb.map.width + x) as usize;
         assert_eq!(
@@ -426,8 +427,9 @@ mod tests {
 
     #[test]
     fn test_door_placement_legality() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut mb = MapBuilder::new(80, 50);
-        mb.build(1); // Ensure Rooms theme
+        mb.build(1, &mut rng); // Ensure Rooms theme
         if matches!(mb.theme, LevelTheme::Rooms) {
             for (x, y) in &mb.door_spawns {
                 assert!(
@@ -442,8 +444,9 @@ mod tests {
 
     #[test]
     fn test_map_builder_caves() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut mb = MapBuilder::new(80, 50);
-        mb.build(9); // Caves theme (9 is multiple of 3 but not 3 or 6)
+        mb.build(9, &mut rng); // Caves theme (9 is multiple of 3 but not 3 or 6)
         assert!(matches!(mb.theme, LevelTheme::Caves));
         let (x, y) = mb.player_start;
         assert_eq!(mb.map.get_tile(x, y), TileType::Floor);
@@ -451,8 +454,9 @@ mod tests {
 
     #[test]
     fn test_map_builder_boss_arena() {
+        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut mb = MapBuilder::new(80, 50);
-        mb.build(3); // BossArena theme
+        mb.build(3, &mut rng); // BossArena theme
         assert!(matches!(mb.theme, LevelTheme::BossArena));
         assert!(mb.boss_spawn.is_some());
         let (x, y) = mb.player_start;

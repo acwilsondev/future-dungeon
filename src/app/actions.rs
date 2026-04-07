@@ -81,7 +81,7 @@ mod tests {
     use super::*;
 
     fn setup_test_app() -> App {
-        App::new_random()
+        App::new_test(42)
     }
 
     #[test]

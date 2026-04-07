@@ -138,7 +138,7 @@ mod tests {
     use hecs::World;
 
     fn setup_test_app() -> App {
-        let mut app = App::new_random();
+        let mut app = App::new_test(42);
         app.world = World::new();
         app.map = crate::map::Map::new(80, 50);
         for t in app.map.tiles.iter_mut() {
@@ -171,7 +171,12 @@ mod tests {
         app.world.spawn((
             Item,
             Name("Test Sword".to_string()),
-            Weapon { power_bonus: 2 },
+            Weapon {
+                power_bonus: 2,
+                weight: WeaponWeight::Medium,
+                damage_n_dice: 1,
+                damage_die_type: 6,
+            },
             InBackpack { owner: player },
             Equippable {
                 slot: EquipmentSlot::Melee,

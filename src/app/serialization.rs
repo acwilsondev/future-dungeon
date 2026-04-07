@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     fn test_comprehensive_serialization() {
-        let mut app = App::new_random();
+        let mut app = App::new_test(42);
         app.world = World::new();
         
         // 1. Player entity
@@ -337,7 +337,12 @@ mod tests {
             Renderable { glyph: '/', fg: Color::White },
             RenderOrder::Item,
             Name("Cursed Sword".to_string()),
-            Weapon { power_bonus: 10 },
+            Weapon {
+                power_bonus: 10,
+                weight: WeaponWeight::Heavy,
+                damage_n_dice: 2,
+                damage_die_type: 6,
+            },
             RangedWeapon { range: 8, damage_bonus: 10 },
             Cursed,
             Equippable { slot: EquipmentSlot::Melee },
@@ -360,7 +365,7 @@ mod tests {
         assert!(app.entities.len() >= 4);
 
         // 6. Unpack into a new app
-        let mut app2 = App::new_random();
+        let mut app2 = App::new_test(42);
         app2.entities = app.entities.clone();
         app2.unpack_entities().unwrap();
 

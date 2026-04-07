@@ -39,15 +39,18 @@ pub struct Boss {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EquipmentSlot {
     Melee,
+    MainHand,
+    OffHand,
     Ranged,
-    Head,
     Torso,
+    Head,
     Hands,
     Feet,
     LeftFinger,
     RightFinger,
     Light,
 }
+
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Equippable {
@@ -167,8 +170,18 @@ pub struct Potion {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WeaponWeight {
+    Light,
+    Medium,
+    Heavy,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Weapon {
     pub power_bonus: i32,
+    pub weight: WeaponWeight,
+    pub damage_n_dice: i32,
+    pub damage_die_type: i32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

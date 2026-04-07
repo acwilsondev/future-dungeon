@@ -21,7 +21,6 @@ impl App {
         let mut to_remove_light = Vec::new();
         let mut any_light_changed = false;
         {
-            let mut rng = rand::thread_rng();
             for (id, light) in self.world.query::<&mut LightSource>().iter() {
                 if let Some(turns) = light.remaining_turns {
                     if turns > 0 {
@@ -40,7 +39,7 @@ impl App {
                     }
                 }
                 if light.flicker {
-                    let flicker_amount = rng.gen_range(-1..=1);
+                    let flicker_amount = self.rng.gen_range(-1..=1);
                     let new_range = (light.base_range + flicker_amount).max(1);
                     if new_range != light.range {
                         light.range = new_range;
@@ -232,7 +231,7 @@ mod tests {
     use hecs::World;
 
     fn setup_test_app() -> App {
-        let mut app = App::new_random();
+        let mut app = App::new_test(42);
         app.world = World::new();
         app
     }

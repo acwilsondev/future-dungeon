@@ -41,8 +41,6 @@ impl App {
     }
 
     fn spawn_room_features(&mut self, mb: &MapBuilder, available_items: &[&crate::content::RawItem]) {
-        let mut rng = rand::thread_rng();
-        
         // Spawn Merchant
         if mb.rooms.len() > 1 && !available_items.is_empty() {
             let room = &mb.rooms[1];
@@ -51,7 +49,7 @@ impl App {
                 crate::spawner::spawn_merchant(&mut self.world, center.0 as u16, center.1 as u16);
             for _ in 0..3 {
                 let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-                let mut roll = rng.gen_range(0.0..total_chance);
+                let mut roll = self.rng.gen_range(0.0..total_chance);
                 let mut selected_item = available_items[0];
                 for item in available_items {
                     if roll < item.spawn_chance {
@@ -89,7 +87,6 @@ impl App {
     }
 
     fn spawn_monsters(&mut self, mb: &MapBuilder, available_monsters: &[&crate::content::RawMonster]) {
-        let mut rng = rand::thread_rng();
         let mut monster_spawns = mb.monster_spawns.clone();
         if self.escaping {
             monster_spawns.extend(mb.monster_spawns.clone());
@@ -100,7 +97,7 @@ impl App {
                 break;
             }
             let total_chance: f32 = available_monsters.iter().map(|m| m.spawn_chance).sum();
-            let mut roll = rng.gen_range(0.0..total_chance);
+            let mut roll = self.rng.gen_range(0.0..total_chance);
             let mut selected_monster = available_monsters[0];
             for m in available_monsters {
                 if roll < m.spawn_chance {
@@ -141,8 +138,6 @@ impl App {
     }
 
     fn spawn_items(&mut self, mb: &MapBuilder, available_items: &[&crate::content::RawItem]) {
-        let mut rng = rand::thread_rng();
-        
         if self.dungeon_level == 10 && !self.escaping {
             if let Some(amulet) = self
                 .content
@@ -156,12 +151,12 @@ impl App {
         }
 
         for spawn in &mb.item_spawns {
-            if available_items.is_empty() || rng.gen_bool(0.2) {
-                crate::spawner::spawn_gold(&mut self.world, spawn.0, spawn.1, rng.gen_range(5..25));
+            if available_items.is_empty() || self.rng.gen_bool(0.2) {
+                crate::spawner::spawn_gold(&mut self.world, spawn.0, spawn.1, self.rng.gen_range(5..25));
                 continue;
             }
             let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-            let mut roll = rng.gen_range(0.0..total_chance);
+            let mut roll = self.rng.gen_range(0.0..total_chance);
             let mut selected_item = available_items[0];
             for item in available_items {
                 if roll < item.spawn_chance {
@@ -176,7 +171,7 @@ impl App {
 
     pub fn generate_level(&mut self, traveling_entities: Vec<EntitySnapshot>) {
         let mut mb = MapBuilder::new(80, 50);
-        mb.build(self.dungeon_level);
+        mb.build(self.dungeon_level, &mut self.rng);
         self.map = mb.map.clone();
         self.world = World::new();
 

@@ -1,4 +1,6 @@
 use hecs::World;
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -11,6 +13,7 @@ mod actions_alchemy;
 mod actions_item;
 mod actions_levelup;
 mod actions_shop;
+mod combat;
 mod helpers;
 mod items_equip;
 mod items_shop;
@@ -86,6 +89,9 @@ pub struct App {
     pub monsters_killed: u32,
     #[serde(skip)]
     pub alchemy_selection: Vec<hecs::Entity>,
+    #[serde(skip, default = "ChaCha8Rng::from_entropy")]
+    pub rng: ChaCha8Rng,
+    pub seed: u64,
     pub turn_count: u32,
 }
 
@@ -95,6 +101,7 @@ impl App {
     }
 
     pub fn new_random() -> Self {
+        let seed = rand::random::<u64>();
         let mut app = Self {
             exit: false,
             death: false,
@@ -124,6 +131,46 @@ impl App {
             escaping: false,
             monsters_killed: 0,
             alchemy_selection: Vec::new(),
+            rng: ChaCha8Rng::seed_from_u64(seed),
+            seed,
+            turn_count: 0,
+        };
+        app.generate_level(Vec::new());
+        app
+    }
+
+    pub fn new_test(seed: u64) -> Self {
+        let mut app = Self {
+            exit: false,
+            death: false,
+            world: World::new(),
+            map: Map::new(80, 50),
+            entities: Vec::new(),
+            levels: HashMap::new(),
+            log: vec!["Welcome to RustLike!".to_string()],
+            dungeon_level: 1,
+            current_branch: Branch::Main,
+            state: RunState::AwaitingInput,
+            inventory_cursor: 0,
+            targeting_cursor: (0, 0),
+            targeting_item: None,
+            speed_toggle: true,
+            level_up_cursor: 0,
+            shop_cursor: 0,
+            active_merchant: None,
+            shop_mode: 0,
+            effects: Vec::new(),
+            log_cursor: 0,
+            encountered_monsters: std::collections::HashSet::new(),
+            identified_items: std::collections::HashSet::new(),
+            bestiary_cursor: 0,
+            content: Self::load_content(),
+            fps: 0.0,
+            escaping: false,
+            monsters_killed: 0,
+            alchemy_selection: Vec::new(),
+            rng: ChaCha8Rng::seed_from_u64(seed),
+            seed,
             turn_count: 0,
         };
         app.generate_level(Vec::new());
