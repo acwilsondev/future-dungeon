@@ -97,35 +97,58 @@ impl App {
         let mut triggered_traps = Vec::new();
         let mut poisons_to_apply = Vec::new();
 
-        for (id, (t_pos, trap)) in self.world.query::<(&Position, &mut Trap)>().iter() {
+        let mut traps_at_pos = Vec::new();
+        for (id, (t_pos, trap)) in self.world.query::<(&Position, &Trap)>().iter() {
             if t_pos.x == x && t_pos.y == y {
-                let mut levitating = false;
-                for (eq_id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
-                    if backpack.owner == player_id && eq.slot == EquipmentSlot::Feet {
-                        let name = self
-                            .world
-                            .get::<&Name>(eq_id)
-                            .map(|n| n.0.clone())
-                            .unwrap_or_default();
-                        if name == "Boots of Levitation" {
-                            levitating = true;
-                            break;
-                        }
+                traps_at_pos.push((id, *trap));
+            }
+        }
+
+        for (id, trap) in traps_at_pos {
+            let mut levitating = false;
+            for (eq_id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+                if backpack.owner == player_id && eq.slot == EquipmentSlot::Feet {
+                    let name = self
+                        .world
+                        .get::<&Name>(eq_id)
+                        .map(|n| n.0.clone())
+                        .unwrap_or_default();
+                    if name == "Boots of Levitation" {
+                        levitating = true;
+                        break;
                     }
                 }
+            }
 
-                if levitating {
-                    if !trap.revealed {
-                        trap.revealed = true;
-                        self.log.push("You levitate safely over a trap!".to_string());
+            if levitating {
+                if !trap.revealed {
+                    if let Ok(mut t) = self.world.get::<&mut Trap>(id) {
+                        t.revealed = true;
                     }
-                } else {
-                    triggered_traps.push(id);
-                    total_damage += trap.damage;
-                    trap.revealed = true;
-                    if let Ok(poison) = self.world.get::<&Poison>(id) {
-                        if self.world.get::<&Poison>(player_id).is_err() {
-                            poisons_to_apply.push(*poison);
+                    self.log.push("You levitate safely over a trap!".to_string());
+                }
+            } else {
+                triggered_traps.push(id);
+                let mut damage = trap.damage;
+                if damage > 0 {
+                    if self.make_saving_throw(player_id, 12, SavingThrowKind::Dexterity) {
+                        damage /= 2;
+                        self.log.push("You dodge some of the trap's impact!".to_string());
+                    }
+                }
+                total_damage += damage;
+                
+                if let Ok(mut t) = self.world.get::<&mut Trap>(id) {
+                    t.revealed = true;
+                }
+
+                let poison_effect = self.world.get::<&Poison>(id).ok().map(|p| *p);
+                if let Some(poison) = poison_effect {
+                    if self.world.get::<&Poison>(player_id).is_err() {
+                        if !self.make_saving_throw(player_id, 13, SavingThrowKind::Constitution) {
+                            poisons_to_apply.push(poison);
+                        } else {
+                            self.log.push("You resist the poison!".to_string());
                         }
                     }
                 }

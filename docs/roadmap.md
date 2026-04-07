@@ -9,6 +9,7 @@ t = tech debt
 
 - (e) 0.4 Character Model. See [player.md](design/player.md)
 - (e) 0.5 Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
+- (e) Debug Console
 - (e) Equipment Galore!
 - (e) Main Menu
 - (t) Automated Builds & CICD

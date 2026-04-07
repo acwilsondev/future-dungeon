@@ -15,6 +15,8 @@ pub struct AttackResult {
     pub damage_dice_roll: i32,
     pub damage_mod: i32,
     pub target_av: i32,
+    pub poison: Option<Poison>,
+    pub confusion: Option<Confusion>,
 }
 
 impl App {
@@ -64,6 +66,9 @@ impl App {
             if is_ranged {
                 // Ranged Attack
                 attr_mod = self.get_attribute_modifier(attacker, |a| a.dexterity);
+                if let Some(limit) = self.get_max_dex_bonus(attacker) {
+                    attr_mod = attr_mod.min(limit);
+                }
                 damage_dice = (1, 6); // Default ranged damage
                 if let Some(w) = weapon {
                     damage_dice = (w.damage_n_dice, w.damage_die_type);
@@ -80,7 +85,13 @@ impl App {
         } else if let Some(w) = weapon {
             // Melee Attack with non-ranged weapon
             attr_mod = match w.weight {
-                WeaponWeight::Light => self.get_attribute_modifier(attacker, |a| a.dexterity),
+                WeaponWeight::Light => {
+                    let mut m = self.get_attribute_modifier(attacker, |a| a.dexterity);
+                    if let Some(limit) = self.get_max_dex_bonus(attacker) {
+                        m = m.min(limit);
+                    }
+                    m
+                }
                 _ => self.get_attribute_modifier(attacker, |a| a.strength),
             };
             if w.two_handed {
@@ -126,6 +137,9 @@ impl App {
         let mut damage = 0;
         let mut weapon_roll = 0;
         let mut target_av = 0;
+        let mut poison = None;
+        let mut confusion = None;
+
         if hit {
             for _ in 0..damage_dice.0 {
                 weapon_roll += self.rng.gen_range(1..=damage_dice.1);
@@ -137,6 +151,11 @@ impl App {
             if critical {
                 damage *= 2;
             }
+
+            // Check for status effects
+            let effect_source = weapon_entity.unwrap_or(attacker);
+            poison = self.world.get::<&Poison>(effect_source).ok().map(|p| *p);
+            confusion = self.world.get::<&Confusion>(effect_source).ok().map(|c| *c);
         }
 
         AttackResult {
@@ -151,7 +170,47 @@ impl App {
             damage_dice_roll: weapon_roll,
             damage_mod: attr_mod + power_bonus,
             target_av,
+            poison,
+            confusion,
         }
+    }
+
+    pub fn make_saving_throw(&mut self, entity: hecs::Entity, dc: i32, kind: SavingThrowKind) -> bool {
+        let mut modifier = match kind {
+            SavingThrowKind::Strength => self.get_attribute_modifier(entity, |a| a.strength),
+            SavingThrowKind::Dexterity => self.get_attribute_modifier(entity, |a| a.dexterity),
+            SavingThrowKind::Constitution => self.get_attribute_modifier(entity, |a| a.constitution),
+            SavingThrowKind::Intelligence => self.get_attribute_modifier(entity, |a| a.intelligence),
+            SavingThrowKind::Wisdom => self.get_attribute_modifier(entity, |a| a.wisdom),
+            SavingThrowKind::Charisma => self.get_attribute_modifier(entity, |a| a.charisma),
+        };
+
+        if kind == SavingThrowKind::Dexterity {
+            if let Some(limit) = self.get_max_dex_bonus(entity) {
+                modifier = modifier.min(limit);
+            }
+        }
+
+        let roll = self.rng.gen_range(1..=20);
+        let success = roll + modifier >= dc;
+
+        let name = self.world.get::<&Name>(entity).map(|n| n.0.clone()).unwrap_or("Someone".to_string());
+        let kind_str = match kind {
+            SavingThrowKind::Strength => "STR",
+            SavingThrowKind::Dexterity => "DEX",
+            SavingThrowKind::Constitution => "CON",
+            SavingThrowKind::Intelligence => "INT",
+            SavingThrowKind::Wisdom => "WIS",
+            SavingThrowKind::Charisma => "CHA",
+        };
+
+        if success {
+            self.log.push(format!("{} makes a {} save! (Roll: {}+{} vs DC:{})", name, kind_str, roll, modifier, dc));
+        } else {
+            self.log.push(format!("{} fails a {} save! (Roll: {}+{} vs DC:{})", name, kind_str, roll, modifier, dc));
+        }
+
+        success
     }
 
     pub fn get_equipped_weapon_entity(&self, entity: hecs::Entity) -> Option<hecs::Entity> {
@@ -245,6 +304,29 @@ impl App {
 
         if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target) {
             stats.hp -= res.damage;
+        }
+
+        // Apply status effects
+        if let Some(poison) = res.poison {
+            if self.world.get::<&Poison>(target).is_err() {
+                if !self.make_saving_throw(target, 12, SavingThrowKind::Constitution) {
+                    self.log.push(format!("{} is poisoned!", res.target_name));
+                    let _ = self.world.insert_one(target, poison);
+                } else {
+                    self.log.push(format!("{} resists the poison!", res.target_name));
+                }
+            }
+        }
+
+        if let Some(confusion) = res.confusion {
+            if self.world.get::<&Confusion>(target).is_err() {
+                if !self.make_saving_throw(target, 12, SavingThrowKind::Intelligence) {
+                    self.log.push(format!("{} is confused!", res.target_name));
+                    let _ = self.world.insert_one(target, confusion);
+                } else {
+                    self.log.push(format!("{} resists the confusion!", res.target_name));
+                }
+            }
         }
     }
 }

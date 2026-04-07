@@ -103,6 +103,16 @@ pub fn spawn_monster(
         });
     }
 
+    if let Some(t) = raw.confusion {
+        cb.add(Confusion { turns: t });
+    }
+    if let Some((d, t)) = raw.poison {
+        cb.add(Poison {
+            damage: d,
+            turns: t,
+        });
+    }
+
     if let Some(true) = raw.is_boss {
         let mut phases = Vec::new();
         if let Some(raw_phases) = &raw.phases {

@@ -24,6 +24,8 @@ pub struct RawMonster {
     pub faction: FactionKind,
     pub xp_reward: i32,
     pub ranged: Option<u16>,
+    pub confusion: Option<i32>,
+    pub poison: Option<(i32, i32)>,
     pub is_boss: Option<bool>,
     pub phases: Option<Vec<RawBossPhase>>,
     pub guaranteed_loot: Option<String>,

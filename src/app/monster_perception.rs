@@ -196,6 +196,8 @@ mod tests {
             faction: FactionKind::Orcs,
             xp_reward: 500,
             ranged: None,
+            confusion: None,
+            poison: None,
             is_boss: Some(true),
             phases: None,
             guaranteed_loot: Some("Amulet".to_string()),

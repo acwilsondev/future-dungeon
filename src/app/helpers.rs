@@ -103,6 +103,16 @@ impl App {
         }
     }
 
+    pub fn get_entity_name(&self, entity: hecs::Entity) -> String {
+        if let Ok(name) = self.world.get::<&Name>(entity) {
+            return name.0.clone();
+        }
+        if self.world.get::<&Player>(entity).is_ok() {
+            return "Player".to_string();
+        }
+        "Something".to_string()
+    }
+
     pub fn get_item_name(&self, item_id: hecs::Entity) -> String {
         if let Ok(name) = self.world.get::<&Name>(item_id) {
             if self.world.get::<&ObfuscatedName>(item_id).is_ok()

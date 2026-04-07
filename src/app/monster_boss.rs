@@ -138,6 +138,8 @@ mod tests {
             faction: FactionKind::Orcs,
             xp_reward: 5,
             ranged: None,
+            confusion: None,
+            poison: None,
             is_boss: None,
             phases: None,
             guaranteed_loot: None,

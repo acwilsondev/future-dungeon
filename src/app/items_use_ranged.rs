@@ -44,7 +44,7 @@ impl App {
         item_name: &str,
     ) {
         let mut targets = Vec::new();
-        for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
+        for (id, (pos, _stats)) in self.world.query::<(&Position, &CombatStats)>().iter() {
             let dist = ((pos.x as f32 - actual_target.0 as f32).powi(2)
                 + (pos.y as f32 - actual_target.1 as f32).powi(2))
             .sqrt();
@@ -52,12 +52,22 @@ impl App {
                 targets.push(id);
             }
         }
+
         self.log.push(format!("The {} explodes!", item_name));
         self.generate_noise(actual_target.0, actual_target.1, 15.0);
         for target_id in targets {
+            let mut damage = power;
+            if self.make_saving_throw(target_id, 14, SavingThrowKind::Dexterity) {
+                damage /= 2;
+                self.log.push(format!(
+                    "{} dodges some of the blast!",
+                    self.get_entity_name(target_id)
+                ));
+            }
+
             let mut flash_pos = None;
             if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) {
-                stats.hp -= power;
+                stats.hp -= damage;
                 if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
                     flash_pos = Some(*t_pos);
                 }
@@ -72,8 +82,16 @@ impl App {
                     duration: 10,
                 });
             }
-            let _ = self.world.insert_one(target_id, LastHitByPlayer);
-            let _ = self.world.insert_one(target_id, AlertState::Aggressive);
+            if self.world.get::<&Monster>(target_id).is_ok() {
+                let _ = self.world.insert_one(target_id, LastHitByPlayer);
+                let _ = self.world.insert_one(target_id, AlertState::Aggressive);
+            } else if self.world.get::<&Player>(target_id).is_ok() {
+                let stats = self.world.get::<&CombatStats>(target_id).unwrap();
+                if stats.hp <= 0 {
+                    self.death = true;
+                    self.state = RunState::Dead;
+                }
+            }
         }
     }
 
@@ -85,7 +103,7 @@ impl App {
         poison: Option<Poison>,
     ) {
         let mut targets = Vec::new();
-        for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
+        for (id, (pos, _stats)) in self.world.query::<(&Position, &CombatStats)>().iter() {
             if pos.x == actual_target.0 && pos.y == actual_target.1 {
                 targets.push(id);
             }
@@ -93,17 +111,41 @@ impl App {
         self.generate_noise(actual_target.0, actual_target.1, 4.0);
         for target_id in targets {
             if let Some(turns) = confusion {
-                self.log
-                    .push(format!("The monster is confused by the {}!", item_name));
-                let _ = self.world.insert_one(target_id, Confusion { turns });
+                if !self.make_saving_throw(target_id, 14, SavingThrowKind::Intelligence) {
+                    self.log.push(format!(
+                        "The {} is confused by the {}!",
+                        self.get_entity_name(target_id),
+                        item_name
+                    ));
+                    let _ = self.world.insert_one(target_id, Confusion { turns });
+                } else {
+                    self.log.push(format!(
+                        "{} resists the confusion!",
+                        self.get_entity_name(target_id)
+                    ));
+                }
             }
             if let Some(p) = poison {
-                self.log
-                    .push(format!("The monster is poisoned by the {}!", item_name));
-                let _ = self.world.insert_one(target_id, p);
-                let _ = self.world.insert_one(target_id, LastHitByPlayer);
+                if !self.make_saving_throw(target_id, 14, SavingThrowKind::Constitution) {
+                    self.log.push(format!(
+                        "The {} is poisoned by the {}!",
+                        self.get_entity_name(target_id),
+                        item_name
+                    ));
+                    let _ = self.world.insert_one(target_id, p);
+                    if self.world.get::<&Monster>(target_id).is_ok() {
+                        let _ = self.world.insert_one(target_id, LastHitByPlayer);
+                    }
+                } else {
+                    self.log.push(format!(
+                        "{} resists the poison!",
+                        self.get_entity_name(target_id)
+                    ));
+                }
             }
-            let _ = self.world.insert_one(target_id, AlertState::Aggressive);
+            if self.world.get::<&Monster>(target_id).is_ok() {
+                let _ = self.world.insert_one(target_id, AlertState::Aggressive);
+            }
         }
     }
 
@@ -319,11 +361,13 @@ mod tests {
         let monster1 = app.world.spawn((
             Monster,
             Position { x: 12, y: 10 },
+            Attributes { strength: 10, dexterity: -100, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
             CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
         ));
         let monster2 = app.world.spawn((
             Monster,
             Position { x: 13, y: 10 },
+            Attributes { strength: 10, dexterity: -100, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
             CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
         ));
         let scroll = app.world.spawn((
@@ -412,6 +456,7 @@ mod tests {
         let monster1 = app.world.spawn((
             Monster,
             Position { x: 12, y: 10 },
+            Attributes { strength: 10, dexterity: 10, constitution: 10, intelligence: -100, wisdom: 10, charisma: 10 },
             CombatStats {
                 hp: 10,
                 max_hp: 10,
@@ -422,6 +467,7 @@ mod tests {
         let monster2 = app.world.spawn((
             Monster,
             Position { x: 10, y: 12 },
+            Attributes { strength: 10, dexterity: 10, constitution: -100, intelligence: 10, wisdom: 10, charisma: 10 },
             CombatStats {
                 hp: 10,
                 max_hp: 10,

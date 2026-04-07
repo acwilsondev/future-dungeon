@@ -284,5 +284,34 @@ mod tests {
         assert_eq!(app.state, RunState::Dead);
         assert!(app.death);
     }
+
+    #[test]
+    fn test_monster_inflicts_poison_with_save() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Name("Player".to_string()),
+            Attributes { strength: 10, dexterity: 10, constitution: 50, intelligence: 10, wisdom: 10, charisma: 10 },
+            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 }
+        ));
+        let monster = app.world.spawn((
+            Monster,
+            Name("Spider".to_string()),
+            Attributes { strength: 50, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Poison { damage: 2, turns: 5 },
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+        ));
+        let mut occupied = HashSet::new();
+
+        app.execute_monster_action(monster, MonsterAction::Attack(player), player, &mut occupied);
+
+        let has_poison = app.world.get::<&Poison>(player).is_ok();
+        assert!(!has_poison);
+        assert!(app.log.iter().any(|l| l.contains("resists the poison")));
+
+        app.world.insert_one(player, Attributes { strength: 10, dexterity: 10, constitution: -100, intelligence: 10, wisdom: 10, charisma: 10 }).unwrap();
+        app.execute_monster_action(monster, MonsterAction::Attack(player), player, &mut occupied);
+        assert!(app.world.get::<&Poison>(player).is_ok());
+    }
 }
 
