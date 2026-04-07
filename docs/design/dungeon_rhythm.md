@@ -1,6 +1,6 @@
 # Dungeon Rhythm
 
-Defines the sequence of special floors. For the purposes of this doc, we have 
+Defines the sequence of special floors. For the purposes of this doc, we have
 
 - Floors ending in 5: Single Room. Merchant, Holy Altar (heals for now)
 - Floors divisible by 10: Normal layout. Special Boss mob
@@ -16,11 +16,11 @@ These floors have a small chance of showing up.
 ## Biomes
 
 - Normal Dungeon
-    - Crypt: Undead enemy focus
+  - Crypt: Undead enemy focus
 - Caves: Cellular automata generation, fungus lights, organic decor
-    - Wet Caves: more water than normal
+  - Wet Caves: more water than normal
 - [elemental] Temple: Symmetric and more monster/decor theming. Colored lighting.
 - Hell: reserved for late Dungeon Levels. Magma, Demonic monsters.
 - Random Modifiers:
-    - Dark [biome]: No lights generate.
-    - Bright [biome]: Extra lights
+  - Dark [biome]: No lights generate.
+  - Bright [biome]: Extra lights

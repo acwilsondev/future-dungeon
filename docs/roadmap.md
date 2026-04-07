@@ -7,13 +7,16 @@ This document outlines planned initiatives.
 e = enhancement
 t = tech debt
 
-- (e) 0.4 Character Model. See [player.md](design/player.md)
-- (e) 0.5 Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
-- (e) Debug Console
+- v0.5
+  - (e) Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
+  - (e) Debug Console
 - (e) Equipment Galore!
 - (e) Main Menu
+  - Animated menu!
+  - Load Game
+  - Options
+  - Maybe Tombstones?
 - (t) Automated Builds & CICD
-- (e) The Fighter TBD
 - (e) The Wizard TBD
 - (e) The Cleric TBD
 - (e) The Thief TBD
@@ -27,4 +30,6 @@ t = tech debt
 
 ## Completed
 
-- 
+This section documents completed epics
+
+- (e) 0.4 Character Model. See [player.md](design/player.md)

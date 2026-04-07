@@ -31,7 +31,7 @@ Finger (Right)
     Valid Items: Rings.
     Primary Stat: Magic effects.
 
-### `Wielding` Items
+## `Wielding` Items
 
 Most items can be wielded in the main/off hand. Thus, most items need a (heavy/medium/light)/damage/atr as part of their definition. Two-handed wieldables always take up both hands and cannot be equipped if there is an item in either hand.
 
@@ -42,14 +42,14 @@ Ranged weapons are Wielded. However, they have basic "improvised weapon" stats w
 ## Main Attributes
 
 - HP
-    - Begins as 24 + CON mod
-    - Goes by 8 per level
-    - All creatures get a static CON mod * level bonus to HP.
+  - Begins as 24 + CON mod
+  - Goes by 8 per level
+  - All creatures get a static CON mod * level bonus to HP.
 - Class
-    - Starting equipment and/or spells.
-    - Starting attributes are (15, 14, 13, 12, 10, 8)
-    - Leveling up grants +1 to an attribute.
-    - Classes do NOT provide other static benefits (i.e. a fighter can train to be a wizard over time).
+  - Starting equipment and/or spells.
+  - Starting attributes are (15, 14, 13, 12, 10, 8)
+  - Leveling up grants +1 to an attribute.
+  - Classes do NOT provide other static benefits (i.e. a fighter can train to be a wizard over time).
 
 Our first class will be Fighter. It assigns the following attributes:
 
@@ -67,56 +67,56 @@ Attributes give a standard D&D bonus: int((Score - 10) / 2). I think instead of 
 Each attribute generally is associated with a type of "Save", which is a protection against harm.
 
 - STR
-    - Heavy melee bonus (weapon dmg + str bonus)
-    - Heavy melee hit bonus
-    - Carry capacity
-    - SAVES: 
-        - Being pushed back
-        - pinned by a trap
-        - or grappled by a "Grappler" type enemy.
+  - Heavy melee bonus (weapon dmg + str bonus)
+  - Heavy melee hit bonus
+  - Carry capacity
+  - SAVES:
+    - Being pushed back
+    - pinned by a trap
+    - or grappled by a "Grappler" type enemy.
 - DEX
-    - Stealthiness
-    - Ranged hit bonus
-    - Ranged damage bonus
-    - Small weapon hit bonus
-    - Small weapon damage bonus
-    - Trap saves
-    - Dodge bonus
-    - Capped by heavier armors
-    - SAVES:
-        - Fireballs
-        - falling ceiling tiles
-        - arrow traps
+  - Stealthiness
+  - Ranged hit bonus
+  - Ranged damage bonus
+  - Small weapon hit bonus
+  - Small weapon damage bonus
+  - Trap saves
+  - Dodge bonus
+  - Capped by heavier armors
+  - SAVES:
+    - Fireballs
+    - falling ceiling tiles
+    - arrow traps
 - CON
-    - bonus HP (per pc level, retroactive)
-    - poison saves
-    - SAVES:
-        - Poison gas
-        - stunning blows
-        - rot
+  - bonus HP (per pc level, retroactive)
+  - poison saves
+  - SAVES:
+    - Poison gas
+    - stunning blows
+    - rot
 - INT
-    - % chance to learn scrolls
-    - % chance to identify monsters, items
-    - Arcane spell potency
-    - SAVES (uncommon):
-        - Confusion status effects
-        - "Mind Blast" spells
+  - % chance to learn scrolls
+  - % chance to identify monsters, items
+  - Arcane spell potency
+  - SAVES (uncommon):
+    - Confusion status effects
+    - "Mind Blast" spells
 - WIS
-    - Vision radius
-    - Stealth detection
-    - Trap and hidden door detection
-    - Divine spell potency
-    - SAVES (common):
-        - Fear effects
-        - magical illusions that hide enemies
+  - Vision radius
+  - Stealth detection
+  - Trap and hidden door detection
+  - Divine spell potency
+  - SAVES (common):
+    - Fear effects
+    - magical illusions that hide enemies
 - CHA
-    - Merchant price improvements
-    - Base encounter mood effect
-    - Very small, hidden chance for lucky boons
-    - SAVES (uncommon):
-        - Banishment
-        - "Charm" effects that force the player to move randomly
-        - Forced polymorph
+  - Merchant price improvements
+  - Base encounter mood effect
+  - Very small, hidden chance for lucky boons
+  - SAVES (uncommon):
+    - Banishment
+    - "Charm" effects that force the player to move randomly
+    - Forced polymorph
 
 ### Other Attributes
 
@@ -140,8 +140,8 @@ This assumes the character has one weapon equipped in its main hand.
 An attack is an action a creature can take on its turn. To make a melee attack, the active party bumps into its target. Then, it rolls `to-hit` 1d20 + [ATR] mod vs the target's Dodge DC (10 + DEX mod). If the result is greater than or equal to the DC, there is a hit.
 
 - hit is given as (1d20 + [ATR mod] >= [target ])
-    - A roll of 1 is a Critical Miss. It always misses.
-    - A roll of 20 is a Critical Hit. It always hits, and damage is rolled twice (taking the sum).
+  - A roll of 1 is a Critical Miss. It always misses.
+  - A roll of 20 is a Critical Hit. It always hits, and damage is rolled twice (taking the sum).
 - damage is given as max(1, ([attacker weapon damage roll] + [ATR mod]) - [target AV])
 
 [ATR] is determined by the `weight` (heavy | medium | light) of the weapon - most melee weapons use STR, while `light` weapons use DEX. Two handed melee weapons apply 1.5x the STR mod (all two handed melee weapons are not light)
