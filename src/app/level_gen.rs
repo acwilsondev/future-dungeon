@@ -5,68 +5,45 @@ use hecs::World;
 use rand::Rng;
 
 impl App {
-    pub fn generate_level(&mut self, traveling_entities: Vec<EntitySnapshot>) {
-        let mut mb = MapBuilder::new(80, 50);
-        mb.build(self.dungeon_level);
-        self.map = mb.map.clone();
-        self.world = World::new();
-        let mut rng = rand::thread_rng();
-
-        if !traveling_entities.is_empty() {
-            self.entities = traveling_entities;
-            if self.unpack_entities().is_ok() {
-                let mut player_query = self.world.query::<(&mut Position, &Player)>();
-                if let Some((_, (pos, _))) = player_query.iter().next() {
-                    pos.x = mb.player_start.0;
-                    pos.y = mb.player_start.1;
-                }
+    fn handle_traveling_entities(&mut self, traveling_entities: Vec<EntitySnapshot>, player_start: (u16, u16)) {
+        self.entities = traveling_entities;
+        if self.unpack_entities().is_ok() {
+            let mut player_query = self.world.query::<(&mut Position, &Player)>();
+            if let Some((_, (pos, _))) = player_query.iter().next() {
+                pos.x = player_start.0;
+                pos.y = player_start.1;
             }
-        } else {
-            let player_id =
-                crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);
-            let starting_items = ["Torch", "Health Potion", "Dagger", "Leather Armor"];
-            for item_name in starting_items {
-                if let Some(item_raw) = self
-                    .content
-                    .items
-                    .iter()
-                    .find(|i| i.name == item_name)
-                    .cloned()
+        }
+    }
+
+    fn spawn_starting_equipment(&mut self, player_id: hecs::Entity) {
+        let starting_items = ["Torch", "Health Potion", "Dagger", "Leather Armor"];
+        for item_name in starting_items {
+            if let Some(item_raw) = self
+                .content
+                .items
+                .iter()
+                .find(|i| i.name == item_name)
+                .cloned()
+            {
+                let item_id = crate::spawner::spawn_item_in_backpack(
+                    &mut self.world,
+                    player_id,
+                    &item_raw,
+                );
+                self.identified_items.insert(item_name.to_string());
+                if item_name == "Dagger" || item_name == "Leather Armor" || item_name == "Torch"
                 {
-                    let item_id = crate::spawner::spawn_item_in_backpack(
-                        &mut self.world,
-                        player_id,
-                        &item_raw,
-                    );
-                    self.identified_items.insert(item_name.to_string());
-                    if item_name == "Dagger" || item_name == "Leather Armor" || item_name == "Torch"
-                    {
-                        self.equip_item(item_id);
-                    }
+                    self.equip_item(item_id);
                 }
             }
         }
+    }
 
-        self.spawn_ambient_features(&mb);
-        self.spawn_stairs(&mb);
-
-        let branch_str = match self.current_branch {
-            Branch::Main => "Main",
-            Branch::Gardens => "Gardens",
-            Branch::Vaults => "Vaults",
-        };
-        let available_items: Vec<&crate::content::RawItem> = self
-            .content
-            .items
-            .iter()
-            .filter(|i| self.dungeon_level >= i.min_floor && self.dungeon_level <= i.max_floor)
-            .filter(|i| {
-                i.branches
-                    .as_ref()
-                    .is_none_or(|b| b.contains(&branch_str.to_string()))
-            })
-            .collect();
-
+    fn spawn_room_features(&mut self, mb: &MapBuilder, available_items: &[&crate::content::RawItem]) {
+        let mut rng = rand::thread_rng();
+        
+        // Spawn Merchant
         if mb.rooms.len() > 1 && !available_items.is_empty() {
             let room = &mb.rooms[1];
             let center = room.center();
@@ -76,7 +53,7 @@ impl App {
                 let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
                 let mut roll = rng.gen_range(0.0..total_chance);
                 let mut selected_item = available_items[0];
-                for item in &available_items {
+                for item in available_items {
                     if roll < item.spawn_chance {
                         selected_item = item;
                         break;
@@ -87,6 +64,7 @@ impl App {
             }
         }
 
+        // Spawn Alchemy Station
         if mb.rooms.len() > 2 {
             let center = mb.rooms[2].center();
             crate::spawner::spawn_alchemy_station(
@@ -95,7 +73,9 @@ impl App {
                 center.1 as u16,
             );
         }
+    }
 
+    fn spawn_environmental_features(&mut self, mb: &MapBuilder) {
         for pos in &mb.door_spawns {
             crate::spawner::spawn_door(&mut self.world, pos.0, pos.1);
         }
@@ -106,19 +86,10 @@ impl App {
                 crate::spawner::spawn_trap(&mut self.world, pos.0, pos.1);
             }
         }
+    }
 
-        let available_monsters: Vec<&crate::content::RawMonster> = self
-            .content
-            .monsters
-            .iter()
-            .filter(|m| self.dungeon_level >= m.min_floor && self.dungeon_level <= m.max_floor)
-            .filter(|m| {
-                m.branches
-                    .as_ref()
-                    .is_none_or(|b| b.contains(&branch_str.to_string()))
-            })
-            .collect();
-
+    fn spawn_monsters(&mut self, mb: &MapBuilder, available_monsters: &[&crate::content::RawMonster]) {
+        let mut rng = rand::thread_rng();
         let mut monster_spawns = mb.monster_spawns.clone();
         if self.escaping {
             monster_spawns.extend(mb.monster_spawns.clone());
@@ -131,7 +102,7 @@ impl App {
             let total_chance: f32 = available_monsters.iter().map(|m| m.spawn_chance).sum();
             let mut roll = rng.gen_range(0.0..total_chance);
             let mut selected_monster = available_monsters[0];
-            for m in &available_monsters {
+            for m in available_monsters {
                 if roll < m.spawn_chance {
                     selected_monster = m;
                     break;
@@ -167,7 +138,11 @@ impl App {
                 ));
             }
         }
+    }
 
+    fn spawn_items(&mut self, mb: &MapBuilder, available_items: &[&crate::content::RawItem]) {
+        let mut rng = rand::thread_rng();
+        
         if self.dungeon_level == 10 && !self.escaping {
             if let Some(amulet) = self
                 .content
@@ -188,7 +163,7 @@ impl App {
             let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
             let mut roll = rng.gen_range(0.0..total_chance);
             let mut selected_item = available_items[0];
-            for item in &available_items {
+            for item in available_items {
                 if roll < item.spawn_chance {
                     selected_item = item;
                     break;
@@ -197,6 +172,64 @@ impl App {
             }
             crate::spawner::spawn_item(&mut self.world, spawn.0, spawn.1, selected_item);
         }
+    }
+
+    pub fn generate_level(&mut self, traveling_entities: Vec<EntitySnapshot>) {
+        let mut mb = MapBuilder::new(80, 50);
+        mb.build(self.dungeon_level);
+        self.map = mb.map.clone();
+        self.world = World::new();
+
+        if !traveling_entities.is_empty() {
+            self.handle_traveling_entities(traveling_entities, mb.player_start);
+        } else {
+            let player_id =
+                crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);
+            self.spawn_starting_equipment(player_id);
+        }
+
+        self.spawn_ambient_features(&mb);
+        self.spawn_stairs(&mb);
+
+        let branch_str = match self.current_branch {
+            Branch::Main => "Main",
+            Branch::Gardens => "Gardens",
+            Branch::Vaults => "Vaults",
+        };
+
+        let available_items: Vec<crate::content::RawItem> = self
+            .content
+            .items
+            .iter()
+            .filter(|i| self.dungeon_level >= i.min_floor && self.dungeon_level <= i.max_floor)
+            .filter(|i| {
+                i.branches
+                    .as_ref()
+                    .is_none_or(|b| b.contains(&branch_str.to_string()))
+            })
+            .cloned()
+            .collect();
+
+        let items_ref: Vec<&crate::content::RawItem> = available_items.iter().collect();
+        self.spawn_room_features(&mb, &items_ref);
+        self.spawn_environmental_features(&mb);
+
+        let available_monsters: Vec<crate::content::RawMonster> = self
+            .content
+            .monsters
+            .iter()
+            .filter(|m| self.dungeon_level >= m.min_floor && self.dungeon_level <= m.max_floor)
+            .filter(|m| {
+                m.branches
+                    .as_ref()
+                    .is_none_or(|b| b.contains(&branch_str.to_string()))
+            })
+            .cloned()
+            .collect();
+
+        let monsters_ref: Vec<&crate::content::RawMonster> = available_monsters.iter().collect();
+        self.spawn_monsters(&mb, &monsters_ref);
+        self.spawn_items(&mb, &items_ref);
 
         self.update_blocked_and_opaque();
         self.update_fov();

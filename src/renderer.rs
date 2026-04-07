@@ -32,18 +32,69 @@ pub fn apply_lighting(color: Color, intensity: f32) -> Color {
     }
 }
 
-fn draw_map(
-    app: &App,
-    frame: &mut Frame,
-    area: RatatuiRect,
-    camera: (i32, i32),
-    player_pos: &Position,
-) {
-    let inner_map = area;
-    let buffer = frame.buffer_mut();
+fn get_tile_render_data(app: &App, idx: usize, is_visible: bool) -> (&'static str, Color) {
+    match app.current_branch {
+        Branch::Main => match app.map.tiles[idx] {
+            TileType::Wall => (
+                "#",
+                if is_visible {
+                    Color::Indexed(252)
+                } else {
+                    Color::Indexed(238)
+                },
+            ),
+            TileType::Floor => (
+                ".",
+                if is_visible {
+                    Color::Indexed(242)
+                } else {
+                    Color::Indexed(234)
+                },
+            ),
+        },
+        Branch::Gardens => match app.map.tiles[idx] {
+            TileType::Wall => (
+                "♣",
+                if is_visible {
+                    Color::Rgb(34, 139, 34)
+                } else {
+                    Color::Rgb(0, 100, 0)
+                },
+            ),
+            TileType::Floor => (
+                ",",
+                if is_visible {
+                    Color::Rgb(144, 238, 144)
+                } else {
+                    Color::Rgb(50, 150, 50)
+                },
+            ),
+        },
+        Branch::Vaults => match app.map.tiles[idx] {
+            TileType::Wall => (
+                "#",
+                if is_visible {
+                    Color::Rgb(173, 216, 230)
+                } else {
+                    Color::Rgb(70, 130, 180)
+                },
+            ),
+            TileType::Floor => (
+                "-",
+                if is_visible {
+                    Color::Rgb(224, 255, 255)
+                } else {
+                    Color::Rgb(100, 149, 237)
+                },
+            ),
+        },
+    }
+}
+
+fn draw_tiles(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect, camera: (i32, i32)) {
     let (camera_x, camera_y) = camera;
-    let view_w = inner_map.width as i32;
-    let view_h = inner_map.height as i32;
+    let view_w = area.width as i32;
+    let view_h = area.height as i32;
 
     for y in 0..view_h {
         let map_y = y + camera_y;
@@ -63,62 +114,7 @@ fn draw_map(
             let light = app.map.light[idx];
             let is_visible = app.map.visible[idx];
 
-            let (char, mut color) = match app.current_branch {
-                Branch::Main => match app.map.tiles[idx] {
-                    TileType::Wall => (
-                        "#",
-                        if is_visible {
-                            Color::Indexed(252)
-                        } else {
-                            Color::Indexed(238)
-                        },
-                    ),
-                    TileType::Floor => (
-                        ".",
-                        if is_visible {
-                            Color::Indexed(242)
-                        } else {
-                            Color::Indexed(234)
-                        },
-                    ),
-                },
-                Branch::Gardens => match app.map.tiles[idx] {
-                    TileType::Wall => (
-                        "♣",
-                        if is_visible {
-                            Color::Rgb(34, 139, 34)
-                        } else {
-                            Color::Rgb(0, 100, 0)
-                        },
-                    ),
-                    TileType::Floor => (
-                        ",",
-                        if is_visible {
-                            Color::Rgb(144, 238, 144)
-                        } else {
-                            Color::Rgb(50, 150, 50)
-                        },
-                    ),
-                },
-                Branch::Vaults => match app.map.tiles[idx] {
-                    TileType::Wall => (
-                        "#",
-                        if is_visible {
-                            Color::Rgb(173, 216, 230)
-                        } else {
-                            Color::Rgb(70, 130, 180)
-                        },
-                    ),
-                    TileType::Floor => (
-                        "-",
-                        if is_visible {
-                            Color::Rgb(224, 255, 255)
-                        } else {
-                            Color::Rgb(100, 149, 237)
-                        },
-                    ),
-                },
-            };
+            let (char, mut color) = get_tile_render_data(app, idx, is_visible);
 
             if is_visible {
                 color = apply_lighting(color, light.max(0.2));
@@ -127,11 +123,17 @@ fn draw_map(
             }
 
             buffer
-                .get_mut(inner_map.x + x as u16, inner_map.y + y as u16)
+                .get_mut(area.x + x as u16, area.y + y as u16)
                 .set_symbol(char)
                 .set_fg(color);
         }
     }
+}
+
+fn draw_entities(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect, camera: (i32, i32)) {
+    let (camera_x, camera_y) = camera;
+    let view_w = area.width as i32;
+    let view_h = area.height as i32;
 
     let mut data: Vec<(hecs::Entity, Position, Renderable, RenderOrder)> = Vec::new();
     for (id, (pos, render, order)) in app
@@ -168,11 +170,17 @@ fn draw_map(
                 style = style.add_modifier(Modifier::BOLD);
             }
             buffer
-                .get_mut(inner_map.x + screen_x as u16, inner_map.y + screen_y as u16)
+                .get_mut(area.x + screen_x as u16, area.y + screen_y as u16)
                 .set_symbol(&render.glyph.to_string())
                 .set_style(style);
         }
     }
+}
+
+fn draw_effects(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect, camera: (i32, i32)) {
+    let (camera_x, camera_y) = camera;
+    let view_w = area.width as i32;
+    let view_h = area.height as i32;
 
     for effect in &app.effects {
         match effect {
@@ -191,7 +199,7 @@ fn draw_map(
                 let sx = *x as i32 - camera_x;
                 let sy = *y as i32 - camera_y;
                 if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
-                    let cell = buffer.get_mut(inner_map.x + sx as u16, inner_map.y + sy as u16);
+                    let cell = buffer.get_mut(area.x + sx as u16, area.y + sy as u16);
                     cell.set_symbol(&glyph.to_string()).set_fg(*fg);
                     if let Some(bg_color) = bg {
                         cell.set_bg(*bg_color);
@@ -209,13 +217,13 @@ fn draw_map(
                 if let Some(pos) = path.get(path_idx) {
                     let idx = pos.1 as usize * app.map.width as usize + pos.0 as usize;
                     if !app.map.visible[idx] {
-                        continue;
+                        return;
                     }
                     let sx = pos.0 as i32 - camera_x;
                     let sy = pos.1 as i32 - camera_y;
                     if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
                         buffer
-                            .get_mut(inner_map.x + sx as u16, inner_map.y + sy as u16)
+                            .get_mut(area.x + sx as u16, area.y + sy as u16)
                             .set_symbol(&glyph.to_string())
                             .set_fg(*fg);
                     }
@@ -223,28 +231,49 @@ fn draw_map(
             }
         }
     }
+}
 
-    if app.state == RunState::ShowTargeting {
-        let line = line2d(
-            LineAlg::Bresenham,
-            Point::new(player_pos.x, player_pos.y),
-            Point::new(app.targeting_cursor.0, app.targeting_cursor.1),
-        );
+fn draw_targeting_line(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect, camera: (i32, i32), player_pos: &Position) {
+    let (camera_x, camera_y) = camera;
+    let view_w = area.width as i32;
+    let view_h = area.height as i32;
 
-        for (i, p) in line.iter().enumerate() {
-            let sx = p.x - camera_x;
-            let sy = p.y - camera_y;
-            if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
-                let cell = buffer.get_mut(inner_map.x + sx as u16, inner_map.y + sy as u16);
-                if i > 0 {
-                    if i == line.len() - 1 {
-                        cell.set_bg(Color::Cyan).set_fg(Color::Black);
-                    } else {
-                        cell.set_bg(Color::Indexed(236));
-                    }
+    let line = line2d(
+        LineAlg::Bresenham,
+        Point::new(player_pos.x, player_pos.y),
+        Point::new(app.targeting_cursor.0, app.targeting_cursor.1),
+    );
+
+    for (i, p) in line.iter().enumerate() {
+        let sx = p.x - camera_x;
+        let sy = p.y - camera_y;
+        if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
+            let cell = buffer.get_mut(area.x + sx as u16, area.y + sy as u16);
+            if i > 0 {
+                if i == line.len() - 1 {
+                    cell.set_bg(Color::Cyan).set_fg(Color::Black);
+                } else {
+                    cell.set_bg(Color::Indexed(236));
                 }
             }
         }
+    }
+}
+
+fn draw_map(
+    app: &App,
+    frame: &mut Frame,
+    area: RatatuiRect,
+    camera: (i32, i32),
+    player_pos: &Position,
+) {
+    let buffer = frame.buffer_mut();
+    draw_tiles(app, buffer, area, camera);
+    draw_entities(app, buffer, area, camera);
+    draw_effects(app, buffer, area, camera);
+
+    if app.state == RunState::ShowTargeting {
+        draw_targeting_line(app, buffer, area, camera, player_pos);
     }
 }
 

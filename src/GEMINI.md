@@ -13,6 +13,7 @@ This document outlines the best practices, testing strategies, and documentation
   - Use `thiserror` for library-level errors (where callers need to match on variants).
   - Use `anyhow` for application-level errors (where you just need to propagate the error).
   - **NEVER** use `unwrap()` or `expect()` in production code. Always handle errors gracefully with `match` or `if let`.
+- **Complexity:** The cyclomatic complexity of functions should be kept under 25.
 
 ### Architecture (ECS)
 - **Separation of Concerns:** Keep game logic (Systems) separate from data (Components) and rendering.

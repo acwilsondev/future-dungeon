@@ -3,7 +3,130 @@ use crate::components::*;
 use bracket_pathfinding::prelude::*;
 use rand::Rng;
 
+struct MonsterAIContext {
+    id: hecs::Entity,
+    pos: Position,
+    target_id: hecs::Entity,
+    target_pos: Position,
+    dist: f32,
+    personality: Personality,
+    stats: CombatStats,
+    is_merchant: bool,
+}
+
 impl App {
+    fn find_ai_target(
+        &self,
+        id: hecs::Entity,
+        player_id: hecs::Entity,
+        faction: Faction,
+        viewshed: u16,
+        pos: Position,
+        alert: AlertState,
+    ) -> Option<(hecs::Entity, Position, f32)> {
+        let mut target = None;
+        let mut min_dist = viewshed as f32 + 1.0;
+
+        if alert == AlertState::Aggressive {
+            // Check player
+            if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
+                if let Ok(p_faction) = self.world.get::<&Faction>(player_id) {
+                    if faction.0 != p_faction.0 {
+                        let dist = ((pos.x as f32 - p_pos.x as f32).powi(2)
+                            + (pos.y as f32 - p_pos.y as f32).powi(2))
+                        .sqrt();
+                        if dist <= viewshed as f32 {
+                            min_dist = dist;
+                            target = Some((player_id, *p_pos, dist));
+                        }
+                    }
+                }
+            }
+
+            // Check other monsters
+            for (other_id, (other_pos, other_faction)) in
+                self.world.query::<(&Position, &Faction)>().iter()
+            {
+                if id == other_id || self.world.get::<&Wisp>(other_id).is_ok() {
+                    continue;
+                }
+                if faction.0 != other_faction.0 {
+                    let dist = ((pos.x as f32 - other_pos.x as f32).powi(2)
+                        + (pos.y as f32 - other_pos.y as f32).powi(2))
+                    .sqrt();
+                    if dist <= viewshed as f32 && dist < min_dist {
+                        min_dist = dist;
+                        target = Some((other_id, *other_pos, dist));
+                    }
+                }
+            }
+        } else if let AlertState::Curious { x, y } = alert {
+            let dist =
+                ((pos.x as f32 - x as f32).powi(2) + (pos.y as f32 - y as f32).powi(2)).sqrt();
+            if dist >= 1.5 {
+                target = Some((id, Position { x, y }, dist));
+            }
+        }
+        target
+    }
+
+    fn decide_ai_action(
+        &self,
+        ctx: MonsterAIContext,
+    ) -> Option<MonsterAction> {
+        // Check for flee
+        if (!ctx.is_merchant) && (
+            (ctx.personality == Personality::Cowardly && ctx.stats.hp < ctx.stats.max_hp / 2)
+            || (ctx.personality == Personality::Tactical && ctx.dist < 4.0)
+        ) {
+            let mut dx = 0;
+            let mut dy = 0;
+            if ctx.pos.x < ctx.target_pos.x { dx = -1; } else if ctx.pos.x > ctx.target_pos.x { dx = 1; }
+            if ctx.pos.y < ctx.target_pos.y { dy = -1; } else if ctx.pos.y > ctx.target_pos.y { dy = 1; }
+            return Some(MonsterAction::Move(dx, dy));
+        }
+
+        // Check for ranged attack
+        if ctx.personality == Personality::Tactical
+            && ctx.dist > 1.5
+            && ctx.dist < 8.0
+            && self.world.get::<&RangedWeapon>(ctx.id).is_ok()
+        {
+            let line = line2d(
+                LineAlg::Bresenham,
+                Point::new(ctx.pos.x, ctx.pos.y),
+                Point::new(ctx.target_pos.x, ctx.target_pos.y),
+            );
+            let mut blocked = false;
+            for p in line.iter().skip(1).take(line.len() - 2) {
+                let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
+                if self.map.blocked[idx] {
+                    blocked = true;
+                    break;
+                }
+            }
+            if !blocked {
+                return Some(MonsterAction::RangedAttack(ctx.target_id));
+            }
+        }
+
+        // Check for melee attack
+        if ctx.dist < 1.5 {
+            return Some(MonsterAction::Attack(ctx.target_id));
+        }
+
+        // Move towards target
+        if !ctx.is_merchant {
+            let mut dx = 0;
+            let mut dy = 0;
+            if ctx.pos.x < ctx.target_pos.x { dx = 1; } else if ctx.pos.x > ctx.target_pos.x { dx = -1; }
+            if ctx.pos.y < ctx.target_pos.y { dy = 1; } else if ctx.pos.y > ctx.target_pos.y { dy = -1; }
+            return Some(MonsterAction::Move(dx, dy));
+        }
+
+        None
+    }
+
     pub fn calculate_monster_action(
         &mut self,
         id: hecs::Entity,
@@ -37,124 +160,26 @@ impl App {
         }
 
         let is_merchant = self.world.get::<&Merchant>(id).is_ok();
-        let mut target = None;
-        let mut min_dist = viewshed as f32 + 1.0;
+        
+        let target = self.find_ai_target(id, player_id, faction, viewshed.try_into().unwrap_or(0), pos, alert);
 
-        if alert == AlertState::Aggressive {
-            // Check player
-            if let Ok(p_pos) = self.world.get::<&Position>(player_id) {
-                if let Ok(p_faction) = self.world.get::<&Faction>(player_id) {
-                    if faction.0 != p_faction.0 {
-                        let dist = ((pos.x as f32 - p_pos.x as f32).powi(2)
-                            + (pos.y as f32 - p_pos.y as f32).powi(2))
-                        .sqrt();
-                        if dist <= viewshed as f32 {
-                            min_dist = dist;
-                            target = Some((player_id, *p_pos));
-                        }
-                    }
-                }
-            }
-
-            // Check other monsters
-            for (other_id, (other_pos, other_faction)) in
-                self.world.query::<(&Position, &Faction)>().iter()
-            {
-                if id == other_id {
-                    continue;
-                }
-                if self.world.get::<&Wisp>(other_id).is_ok() {
-                    continue;
-                }
-                if faction.0 != other_faction.0 {
-                    let dist = ((pos.x as f32 - other_pos.x as f32).powi(2)
-                        + (pos.y as f32 - other_pos.y as f32).powi(2))
-                    .sqrt();
-                    if dist <= viewshed as f32 && dist < min_dist {
-                        min_dist = dist;
-                        target = Some((other_id, *other_pos));
-                    }
-                }
-            }
-        } else if let AlertState::Curious { x, y } = alert {
-            let dist =
-                ((pos.x as f32 - x as f32).powi(2) + (pos.y as f32 - y as f32).powi(2)).sqrt();
-            if dist < 1.5 {
-                let _ = self.world.insert_one(id, AlertState::Sleeping);
-                return None;
-            } else {
-                target = Some((id, Position { x, y }));
-            }
+        if let Some((target_id, target_pos, dist)) = target {
+            let ctx = MonsterAIContext {
+                id,
+                pos,
+                target_id,
+                target_pos,
+                dist,
+                personality: personality.0,
+                stats,
+                is_merchant,
+            };
+            return self.decide_ai_action(ctx);
+        } else if let AlertState::Curious { .. } = alert {
+            // If we had a curious state but no target found by find_ai_target, it means we reached the spot
+            let _ = self.world.insert_one(id, AlertState::Sleeping);
         }
 
-        if let Some((target_id, target_pos)) = target {
-            // Check for flee
-            if (personality.0 == Personality::Cowardly
-                && stats.hp < stats.max_hp / 2
-                && !is_merchant)
-                || (personality.0 == Personality::Tactical && min_dist < 4.0 && !is_merchant)
-            {
-                let mut dx = 0;
-                let mut dy = 0;
-                if pos.x < target_pos.x {
-                    dx = -1;
-                } else if pos.x > target_pos.x {
-                    dx = 1;
-                }
-                if pos.y < target_pos.y {
-                    dy = -1;
-                } else if pos.y > target_pos.y {
-                    dy = 1;
-                }
-                return Some(MonsterAction::Move(dx, dy));
-            }
-
-            // Check for ranged attack
-            if personality.0 == Personality::Tactical
-                && min_dist > 1.5
-                && min_dist < 8.0
-                && self.world.get::<&RangedWeapon>(id).is_ok()
-            {
-                let line = line2d(
-                    LineAlg::Bresenham,
-                    Point::new(pos.x, pos.y),
-                    Point::new(target_pos.x, target_pos.y),
-                );
-                let mut blocked = false;
-                for p in line.iter().skip(1).take(line.len() - 2) {
-                    let idx = (p.y as u16 * self.map.width + p.x as u16) as usize;
-                    if self.map.blocked[idx] {
-                        blocked = true;
-                        break;
-                    }
-                }
-                if !blocked {
-                    return Some(MonsterAction::RangedAttack(target_id));
-                }
-            }
-
-            // Check for melee attack
-            if min_dist < 1.5 {
-                return Some(MonsterAction::Attack(target_id));
-            }
-
-            // Move towards target
-            if !is_merchant {
-                let mut dx = 0;
-                let mut dy = 0;
-                if pos.x < target_pos.x {
-                    dx = 1;
-                } else if pos.x > target_pos.x {
-                    dx = -1;
-                }
-                if pos.y < target_pos.y {
-                    dy = 1;
-                } else if pos.y > target_pos.y {
-                    dy = -1;
-                }
-                return Some(MonsterAction::Move(dx, dy));
-            }
-        }
         None
     }
 }

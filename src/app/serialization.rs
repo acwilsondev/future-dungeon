@@ -96,6 +96,151 @@ impl App {
         }
     }
 
+    fn add_base_components(cb: &mut hecs::EntityBuilder, e: &EntitySnapshot) {
+        if let Some(pos) = e.pos {
+            cb.add(pos);
+        }
+        cb.add(e.render);
+        cb.add(e.render_order);
+        if let Some(ref name) = e.name {
+            cb.add(name.clone());
+        }
+    }
+
+    fn add_combat_and_stat_components(cb: &mut hecs::EntityBuilder, e: &EntitySnapshot) {
+        if let Some(stats) = e.stats {
+            cb.add(stats);
+        }
+        if let Some(faction) = e.faction {
+            cb.add(faction);
+        }
+        if let Some(viewshed) = e.viewshed {
+            cb.add(viewshed);
+        }
+        if let Some(personality) = e.personality {
+            cb.add(personality);
+        }
+        if let Some(experience) = e.experience {
+            cb.add(experience);
+        }
+        if let Some(perks) = e.perks.clone() {
+            cb.add(perks);
+        }
+        if let Some(alert_state) = e.alert_state {
+            cb.add(alert_state);
+        }
+        if let Some(hearing) = e.hearing {
+            cb.add(hearing);
+        }
+        if let Some(boss) = e.boss.clone() {
+            cb.add(boss);
+        }
+        if let Some(light_source) = e.light_source {
+            cb.add(light_source);
+        }
+    }
+
+    fn add_item_components(cb: &mut hecs::EntityBuilder, e: &EntitySnapshot) {
+        if let Some(potion) = e.potion {
+            cb.add(potion);
+        }
+        if let Some(weapon) = e.weapon {
+            cb.add(weapon);
+        }
+        if let Some(armor) = e.armor {
+            cb.add(armor);
+        }
+        if let Some(ranged) = e.ranged {
+            cb.add(ranged);
+        }
+        if let Some(ranged_weapon) = e.ranged_weapon {
+            cb.add(ranged_weapon);
+        }
+        if let Some(aoe) = e.aoe {
+            cb.add(aoe);
+        }
+        if let Some(confusion) = e.confusion {
+            cb.add(confusion);
+        }
+        if let Some(poison) = e.poison {
+            cb.add(poison);
+        }
+        if let Some(strength) = e.strength {
+            cb.add(strength);
+        }
+        if let Some(speed) = e.speed {
+            cb.add(speed);
+        }
+        if let Some(gold) = e.gold {
+            cb.add(gold);
+        }
+        if let Some(item_value) = e.item_value {
+            cb.add(item_value);
+        }
+        if let Some(obfuscated_name) = e.obfuscated_name.clone() {
+            cb.add(obfuscated_name);
+        }
+        if let Some(cursed) = e.cursed {
+            cb.add(cursed);
+        }
+        if let Some(equippable) = e.equippable {
+            cb.add(equippable);
+        }
+        if let Some(equipped) = e.equipped {
+            cb.add(equipped);
+        }
+    }
+
+    fn add_marker_and_env_components(cb: &mut hecs::EntityBuilder, e: &EntitySnapshot) {
+        if let Some(door) = e.door {
+            cb.add(door);
+        }
+        if let Some(trap) = e.trap {
+            cb.add(trap);
+        }
+        if e.last_hit_by_player {
+            cb.add(LastHitByPlayer);
+        }
+        if e.is_merchant {
+            cb.add(Merchant);
+        }
+        if e.ammo {
+            cb.add(Ammunition);
+        }
+        if e.consumable {
+            cb.add(Consumable);
+        }
+        if e.is_player {
+            cb.add(Player);
+        }
+        if e.is_monster {
+            cb.add(Monster);
+        }
+        if e.is_wisp {
+            cb.add(Wisp);
+        }
+        if e.is_item {
+            cb.add(Item);
+        }
+        if e.is_down_stairs {
+            cb.add(DownStairs {
+                destination: e.destination.unwrap_or((0, Branch::Main)),
+            });
+        }
+        if e.is_up_stairs {
+            cb.add(UpStairs {
+                destination: e.destination.unwrap_or((0, Branch::Main)),
+            });
+        }
+    }
+
+    fn add_components_to_builder(cb: &mut hecs::EntityBuilder, e: &EntitySnapshot) {
+        Self::add_base_components(cb, e);
+        Self::add_combat_and_stat_components(cb, e);
+        Self::add_item_components(cb, e);
+        Self::add_marker_and_env_components(cb, e);
+    }
+
     pub fn unpack_entities(&mut self) -> anyhow::Result<()> {
         self.world = World::new();
         let mut player_entity = None;
@@ -103,132 +248,8 @@ impl App {
 
         for e in &self.entities {
             let mut cb = hecs::EntityBuilder::new();
-            if let Some(pos) = e.pos {
-                cb.add(pos);
-            }
-            cb.add(e.render);
-            cb.add(e.render_order);
-            if let Some(ref name) = e.name {
-                cb.add(name.clone());
-            }
-            if let Some(stats) = e.stats {
-                cb.add(stats);
-            }
-            if let Some(potion) = e.potion {
-                cb.add(potion);
-            }
-            if let Some(weapon) = e.weapon {
-                cb.add(weapon);
-            }
-            if let Some(armor) = e.armor {
-                cb.add(armor);
-            }
-            if let Some(door) = e.door {
-                cb.add(door);
-            }
-            if let Some(trap) = e.trap {
-                cb.add(trap);
-            }
-            if let Some(ranged) = e.ranged {
-                cb.add(ranged);
-            }
-            if let Some(ranged_weapon) = e.ranged_weapon {
-                cb.add(ranged_weapon);
-            }
-            if let Some(aoe) = e.aoe {
-                cb.add(aoe);
-            }
-            if let Some(confusion) = e.confusion {
-                cb.add(confusion);
-            }
-            if let Some(poison) = e.poison {
-                cb.add(poison);
-            }
-            if let Some(strength) = e.strength {
-                cb.add(strength);
-            }
-            if let Some(speed) = e.speed {
-                cb.add(speed);
-            }
-            if let Some(faction) = e.faction {
-                cb.add(faction);
-            }
-            if let Some(viewshed) = e.viewshed {
-                cb.add(viewshed);
-            }
-            if let Some(personality) = e.personality {
-                cb.add(personality);
-            }
-            if let Some(experience) = e.experience {
-                cb.add(experience);
-            }
-            if let Some(perks) = e.perks.clone() {
-                cb.add(perks);
-            }
-            if let Some(alert_state) = e.alert_state {
-                cb.add(alert_state);
-            }
-            if let Some(hearing) = e.hearing {
-                cb.add(hearing);
-            }
-            if let Some(boss) = e.boss.clone() {
-                cb.add(boss);
-            }
-            if let Some(light_source) = e.light_source {
-                cb.add(light_source);
-            }
-            if let Some(gold) = e.gold {
-                cb.add(gold);
-            }
-            if let Some(item_value) = e.item_value {
-                cb.add(item_value);
-            }
-            if let Some(obfuscated_name) = e.obfuscated_name.clone() {
-                cb.add(obfuscated_name);
-            }
-            if let Some(cursed) = e.cursed {
-                cb.add(cursed);
-            }
-            if let Some(equippable) = e.equippable {
-                cb.add(equippable);
-            }
-            if let Some(equipped) = e.equipped {
-                cb.add(equipped);
-            }
-            if e.last_hit_by_player {
-                cb.add(LastHitByPlayer);
-            }
-            if e.is_merchant {
-                cb.add(Merchant);
-            }
-            if e.ammo {
-                cb.add(Ammunition);
-            }
-            if e.consumable {
-                cb.add(Consumable);
-            }
-            if e.is_player {
-                cb.add(Player);
-            }
-            if e.is_monster {
-                cb.add(Monster);
-            }
-            if e.is_wisp {
-                cb.add(Wisp);
-            }
-            if e.is_item {
-                cb.add(Item);
-            }
-            if e.is_down_stairs {
-                cb.add(DownStairs {
-                    destination: e.destination.unwrap_or((0, Branch::Main)),
-                });
-            }
-            if e.is_up_stairs {
-                cb.add(UpStairs {
-                    destination: e.destination.unwrap_or((0, Branch::Main)),
-                });
-            }
+            Self::add_components_to_builder(&mut cb, e);
+
             let entity = self.world.spawn(cb.build());
             if e.is_player {
                 player_entity = Some(entity);
