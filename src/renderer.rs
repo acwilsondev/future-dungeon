@@ -836,7 +836,6 @@ fn render_inventory(app: &App, frame: &mut Frame) {
             (EquipmentSlot::Ammo, "Ammo"),
             (EquipmentSlot::LeftFinger, "L.Finger"),
             (EquipmentSlot::RightFinger, "R.Finger"),
-            (EquipmentSlot::Light, "Light"),
         ];
 
         for (slot, label) in slots {

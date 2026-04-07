@@ -328,7 +328,7 @@
       "max_floor": 5,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "MainHand"
+      "slot": "AnyHand"
     },
     {
       "name": "Venomous Dagger",
@@ -363,7 +363,7 @@
       "max_floor": 3,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "MainHand"
+      "slot": "AnyHand"
     },
     {
       "name": "King's Armor",
@@ -561,7 +561,7 @@
       "max_floor": 999,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "MainHand"
+      "slot": "AnyHand"
     },
     {
       "name": "Longbow",
@@ -597,7 +597,7 @@
       "max_floor": 999,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "MainHand"
+      "slot": "AnyHand"
     },
     {
       "name": "Hand Crossbow",
@@ -633,7 +633,7 @@
       "max_floor": 999,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "MainHand"
+      "slot": "AnyHand"
     },
     {
       "name": "Arrows",
@@ -714,7 +714,7 @@
       "max_floor": 999,
       "obfuscated_name": null,
       "cursed": false,
-      "slot": "Light",
+      "slot": "AnyHand",
       "light": {
         "range": 10,
         "color": [
@@ -924,7 +924,7 @@
       "max_floor": 999,
       "obfuscated_name": "Cold Stick",
       "cursed": false,
-      "slot": "MainHand",
+      "slot": "AnyHand",
       "branches": [
         "Vaults"
       ]
@@ -959,7 +959,7 @@
       "max_floor": 999,
       "obfuscated_name": "Thorny Whip",
       "cursed": false,
-      "slot": "MainHand",
+      "slot": "AnyHand",
       "branches": [
         "Gardens"
       ]
@@ -994,7 +994,7 @@
       "max_floor": 999,
       "obfuscated_name": "Huge Blade",
       "cursed": false,
-      "slot": "MainHand"
+      "slot": "AnyHand"
     },
     {
       "name": "Plate Armor",
@@ -1052,7 +1052,7 @@
       "max_floor": 999,
       "obfuscated_name": "Wooden Board",
       "cursed": false,
-      "slot": "OffHand"
+      "slot": "AnyHand"
     },
     {
       "name": "Longsword",
@@ -1084,7 +1084,7 @@
       "max_floor": 999,
       "obfuscated_name": "Shiny Sword",
       "cursed": false,
-      "slot": "MainHand"
+      "slot": "AnyHand"
     },
     {
       "name": "Chainmail",

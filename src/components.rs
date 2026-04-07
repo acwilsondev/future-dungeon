@@ -55,11 +55,10 @@ pub enum EquipmentSlot {
     Feet,
     MainHand,
     OffHand,
-    Ranged,
+    AnyHand,
     Ammo,
     LeftFinger,
     RightFinger,
-    Light,
 }
 
 

@@ -39,8 +39,15 @@ impl App {
 
         // Off-hand attack?
         if let Some(off_hand_id) = self.get_off_hand_weapon(player_id) {
-            let dex_mod = self.get_attribute_modifier(player_id, |a| a.dexterity);
-            let chance = 10 + (dex_mod * 10); // 10% base + 10% per DEX mod
+            let attr_mod = if let Ok(weapon) = self.world.get::<&Weapon>(off_hand_id) {
+                match weapon.weight {
+                    WeaponWeight::Light => self.get_dex_modifier(player_id),
+                    _ => self.get_attribute_modifier(player_id, |a| a.strength),
+                }
+            } else {
+                self.get_dex_modifier(player_id)
+            };
+            let chance = 10 + (attr_mod * 10); // 10% base + 10% per mod
             if self.rng.gen_range(1..=100) <= chance {
                 let off_res = self.resolve_attack(player_id, target_id, Some(off_hand_id), 0, false);
                 self.apply_attack_result(target_id, &off_res, x, y);
@@ -59,6 +66,8 @@ impl App {
             let _ = self.world.insert_one(target_id, LastHitByPlayer);
             let _ = self.world.insert_one(target_id, AlertState::Aggressive);
         } else {
+            let name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Monster".to_string());
+            self.log.push(format!("{} dies!", name));
             let xp_reward = self
                 .world
                 .get::<&Experience>(target_id)

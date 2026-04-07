@@ -47,7 +47,10 @@ impl App {
             for (other_id, (other_pos, other_faction)) in
                 self.world.query::<(&Position, &Faction)>().iter()
             {
-                if id == other_id || self.world.get::<&Wisp>(other_id).is_ok() {
+                if id == other_id 
+                    || self.world.get::<&Wisp>(other_id).is_ok() 
+                    || self.world.get::<&AlchemyStation>(other_id).is_ok() 
+                {
                     continue;
                 }
                 if faction.0 != other_faction.0 {

@@ -172,6 +172,8 @@ impl App {
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
             if stats.hp <= 0 {
                 to_despawn.push(id);
+                let name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Monster".to_string());
+                self.log.push(format!("{} dies!", name));
                 if let Ok(exp) = self.world.get::<&Experience>(id) {
                     total_xp = total_xp.saturating_add(exp.xp_reward);
                 }
@@ -260,7 +262,7 @@ impl App {
                     // Off-hand ranged proc?
                     if let Some(off_hand_id) = self.get_off_hand_weapon(player_id) {
                         if self.world.get::<&RangedWeapon>(off_hand_id).is_ok() {
-                            let dex_mod = self.get_attribute_modifier(player_id, |a| a.dexterity);
+                            let dex_mod = self.get_dex_modifier(player_id);
                             let chance = 10 + (dex_mod * 10);
                             if self.rng.gen_range(1..=100) <= chance {
                                 self.handle_direct_damage(

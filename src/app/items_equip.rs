@@ -22,7 +22,7 @@ impl App {
     }
 
     pub fn equip_item(&mut self, item_id: hecs::Entity) {
-        let (player_id, slot, is_two_handed) = {
+        let (player_id, mut slot, is_two_handed) = {
             let Some(player_id) = self.get_player_id() else {
                 log::error!("Player not found during equip_item");
                 return;
@@ -34,6 +34,21 @@ impl App {
             let two_handed = self.world.get::<&Weapon>(item_id).map(|w| w.two_handed).unwrap_or(false);
             (player_id, equippable.slot, two_handed)
         };
+
+        if slot == EquipmentSlot::AnyHand {
+            // Pick a hand
+            let main_hand_full = self.world.query::<(&Equipped, &InBackpack)>().iter().any(|(_, (eq, bp))| bp.owner == player_id && eq.slot == EquipmentSlot::MainHand);
+            let off_hand_full = self.world.query::<(&Equipped, &InBackpack)>().iter().any(|(_, (eq, bp))| bp.owner == player_id && eq.slot == EquipmentSlot::OffHand);
+
+            if !main_hand_full {
+                slot = EquipmentSlot::MainHand;
+            } else if !off_hand_full {
+                slot = EquipmentSlot::OffHand;
+            } else {
+                // Both full, replace MainHand
+                slot = EquipmentSlot::MainHand;
+            }
+        }
 
         // Handle slot conflicts
         let mut to_unequip = Vec::new();

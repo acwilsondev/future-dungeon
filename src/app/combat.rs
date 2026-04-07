@@ -65,10 +65,7 @@ impl App {
         if let Some(rw) = ranged_weapon {
             if is_ranged {
                 // Ranged Attack
-                attr_mod = self.get_attribute_modifier(attacker, |a| a.dexterity);
-                if let Some(limit) = self.get_max_dex_bonus(attacker) {
-                    attr_mod = attr_mod.min(limit);
-                }
+                attr_mod = self.get_dex_modifier(attacker);
                 damage_dice = (1, 6); // Default ranged damage
                 if let Some(w) = weapon {
                     damage_dice = (w.damage_n_dice, w.damage_die_type);
@@ -85,13 +82,7 @@ impl App {
         } else if let Some(w) = weapon {
             // Melee Attack with non-ranged weapon
             attr_mod = match w.weight {
-                WeaponWeight::Light => {
-                    let mut m = self.get_attribute_modifier(attacker, |a| a.dexterity);
-                    if let Some(limit) = self.get_max_dex_bonus(attacker) {
-                        m = m.min(limit);
-                    }
-                    m
-                }
+                WeaponWeight::Light => self.get_dex_modifier(attacker),
                 _ => self.get_attribute_modifier(attacker, |a| a.strength),
             };
             if w.two_handed {
@@ -118,10 +109,7 @@ impl App {
         let mut critical = false;
 
         // Target Dodge DC (10 + capped DEX mod)
-        let mut target_dex_mod = self.get_attribute_modifier(target, |a| a.dexterity);
-        if let Some(limit) = self.get_max_dex_bonus(target) {
-            target_dex_mod = target_dex_mod.min(limit);
-        }
+        let target_dex_mod = self.get_dex_modifier(target);
         let dodge_dc = 10 + target_dex_mod;
 
         if roll == 20 {
@@ -141,16 +129,16 @@ impl App {
         let mut confusion = None;
 
         if hit {
-            for _ in 0..damage_dice.0 {
+            let mut n_dice = damage_dice.0;
+            if critical {
+                n_dice *= 2;
+            }
+            for _ in 0..n_dice {
                 weapon_roll += self.rng.gen_range(1..=damage_dice.1);
             }
 
             target_av = self.get_target_av(target);
             damage = (weapon_roll + attr_mod + power_bonus - target_av).max(1);
-
-            if critical {
-                damage *= 2;
-            }
 
             // Check for status effects
             let effect_source = weapon_entity.unwrap_or(attacker);
@@ -176,20 +164,14 @@ impl App {
     }
 
     pub fn make_saving_throw(&mut self, entity: hecs::Entity, dc: i32, kind: SavingThrowKind) -> bool {
-        let mut modifier = match kind {
+        let modifier = match kind {
             SavingThrowKind::Strength => self.get_attribute_modifier(entity, |a| a.strength),
-            SavingThrowKind::Dexterity => self.get_attribute_modifier(entity, |a| a.dexterity),
+            SavingThrowKind::Dexterity => self.get_dex_modifier(entity),
             SavingThrowKind::Constitution => self.get_attribute_modifier(entity, |a| a.constitution),
             SavingThrowKind::Intelligence => self.get_attribute_modifier(entity, |a| a.intelligence),
             SavingThrowKind::Wisdom => self.get_attribute_modifier(entity, |a| a.wisdom),
             SavingThrowKind::Charisma => self.get_attribute_modifier(entity, |a| a.charisma),
         };
-
-        if kind == SavingThrowKind::Dexterity {
-            if let Some(limit) = self.get_max_dex_bonus(entity) {
-                modifier = modifier.min(limit);
-            }
-        }
 
         let roll = self.rng.gen_range(1..=20);
         let success = roll + modifier >= dc;
@@ -244,6 +226,14 @@ impl App {
             }
         }
         None
+    }
+
+    pub fn get_dex_modifier(&self, entity: hecs::Entity) -> i32 {
+        let mut m = self.get_attribute_modifier(entity, |a| a.dexterity);
+        if let Some(limit) = self.get_max_dex_bonus(entity) {
+            m = m.min(limit);
+        }
+        m
     }
 
     pub fn get_attribute_modifier<F>(&self, entity: hecs::Entity, f: F) -> i32

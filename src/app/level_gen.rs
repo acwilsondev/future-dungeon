@@ -282,6 +282,6 @@ mod tests {
         assert!(has_shield, "Missing Shield");
         assert!(has_chainmail, "Missing Chainmail");
         assert_eq!(items_in_backpack, 5, "Should have 5 starting items");
-        assert_eq!(items_equipped, 4, "Torch, Longsword, Shield, Chainmail should be equipped");
+        assert_eq!(items_equipped, 3, "Longsword, Shield, Chainmail should be equipped (Torch was replaced)");
     }
 }

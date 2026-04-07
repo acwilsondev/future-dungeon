@@ -30,15 +30,13 @@ impl App {
 
         // Add attribute bonuses
         let mut str_mod = 0;
-        let mut dex_mod = 0;
+        let dex_mod = self.get_dex_modifier(player_id);
         if let Ok(attr) = self.world.get::<&Attributes>(player_id) {
             str_mod = Attributes::get_modifier(attr.strength);
-            dex_mod = Attributes::get_modifier(attr.dexterity);
         }
 
         // Add equipment bonuses
         let mut weapon_equipped = false;
-        let mut max_dex = None;
 
         for (id, (eq, _)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
             if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
@@ -59,9 +57,6 @@ impl App {
                     }
                     if let Ok(armor) = self.world.get::<&Armor>(id) {
                         total_av += armor.defense_bonus;
-                        if let Some(limit) = armor.max_dex_bonus {
-                            max_dex = Some(max_dex.map(|m| i32::min(m, limit)).unwrap_or(limit));
-                        }
                     }
                     if let Ok(strength) = self.world.get::<&Strength>(id) {
                         total_power += strength.amount;
@@ -69,18 +64,15 @@ impl App {
                 }
             }
         }
+if !weapon_equipped {
+    total_power += str_mod;
+}
 
-        if !weapon_equipped {
-            total_power += str_mod;
-        }
+total_av += dex_mod;
+let dodge_dc = 10 + dex_mod;
 
-        let mut capped_dex = dex_mod;
-        if let Some(limit) = max_dex {
-            capped_dex = capped_dex.min(limit);
-        }
-        let dodge_dc = 10 + capped_dex;
+(total_power, total_av, dodge_dc)
 
-        (total_power, total_av, dodge_dc)
     }
 
     pub fn recalculate_player_max_hp(&mut self) {
@@ -211,7 +203,7 @@ mod tests {
         let player = app.world.spawn((Player, Renderable { glyph: '@', fg: Color::White }));
         let torch = app.world.spawn((
             Item,
-            Equipped { slot: EquipmentSlot::Light },
+            Equipped { slot: EquipmentSlot::OffHand },
             InBackpack { owner: player },
             LightSource {
                 range: 10,

@@ -76,7 +76,7 @@ impl App {
         }
 
         if self.world.get::<&Ranged>(item_id).is_ok()
-            || self.world.get::<&RangedWeapon>(item_id).is_ok()
+            || (self.world.get::<&RangedWeapon>(item_id).is_ok() && self.world.get::<&Equipped>(item_id).is_ok())
         {
             if self.world.get::<&RangedWeapon>(item_id).is_ok() {
                 // Check for ammo
@@ -246,13 +246,20 @@ mod tests {
                 range_increment: 12,
                 damage_bonus: 2,
             },
+            Equippable { slot: EquipmentSlot::AnyHand },
             InBackpack { owner: player },
         ));
 
         app.state = RunState::AwaitingInput;
         app.use_item(bow);
-        assert!(app.log.last().unwrap().contains("no ammunition"));
+        // Should equip now
+        assert!(app.world.get::<&Equipped>(bow).is_ok());
+        assert!(app.log.last().unwrap().contains("You equip"));
         assert_eq!(app.state, RunState::AwaitingInput);
+
+        // Try using again, now it should check for ammo
+        app.use_item(bow);
+        assert!(app.log.last().unwrap().contains("no ammunition"));
     }
 
     #[test]
