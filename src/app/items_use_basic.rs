@@ -249,6 +249,7 @@ mod tests {
             InBackpack { owner: player },
         ));
 
+        app.state = RunState::AwaitingInput;
         app.use_item(bow);
         assert!(app.log.last().unwrap().contains("no ammunition"));
         assert_eq!(app.state, RunState::AwaitingInput);

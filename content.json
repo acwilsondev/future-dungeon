@@ -1053,6 +1053,67 @@
       "obfuscated_name": "Wooden Board",
       "cursed": false,
       "slot": "OffHand"
-      }
-      ]
-      }
+    },
+    {
+      "name": "Longsword",
+      "glyph": "/",
+      "color": [
+        192,
+        192,
+        192
+      ],
+      "price": 30,
+      "potion": null,
+      "weapon": {
+        "power_bonus": 0,
+        "weight": "Heavy",
+        "n_dice": 1,
+        "die_type": 8,
+        "two_handed": false
+      },
+      "armor": null,
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.1,
+      "min_floor": 1,
+      "max_floor": 999,
+      "obfuscated_name": "Shiny Sword",
+      "cursed": false,
+      "slot": "MainHand"
+    },
+    {
+      "name": "Chainmail",
+      "glyph": "[",
+      "color": [
+        128,
+        128,
+        128
+      ],
+      "price": 75,
+      "potion": null,
+      "weapon": null,
+      "armor": {
+        "defense_bonus": 4,
+        "max_dex_bonus": 2
+      },
+      "ranged": null,
+      "ranged_weapon": null,
+      "aoe": null,
+      "confusion": null,
+      "poison": null,
+      "ammo": false,
+      "consumable": false,
+      "spawn_chance": 0.1,
+      "min_floor": 2,
+      "max_floor": 999,
+      "obfuscated_name": "Heavy Mail",
+      "cursed": false,
+      "slot": "Torso"
+    }
+    ]
+    }

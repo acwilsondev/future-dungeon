@@ -4,6 +4,13 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
     match state {
+        RunState::ShowClassSelection => match key.code {
+            KeyCode::Up | KeyCode::Char('k') => Some(Action::MenuUp),
+            KeyCode::Down | KeyCode::Char('j') => Some(Action::MenuDown),
+            KeyCode::Enter => Some(Action::MenuSelect),
+            KeyCode::Char('q') | KeyCode::Esc => Some(Action::Quit),
+            _ => None,
+        },
         RunState::AwaitingInput => match key.code {
             KeyCode::Char('q') => Some(Action::Quit),
             KeyCode::Left | KeyCode::Char('h') => Some(Action::MovePlayer(-1, 0)),

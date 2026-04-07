@@ -543,6 +543,8 @@ pub fn render(app: &App, frame: &mut Frame) {
         render_help(app, frame);
     } else if app.state == RunState::Dead {
         render_death_screen(app, frame);
+    } else if app.state == RunState::ShowClassSelection {
+        render_class_selection(app, frame);
     } else if app.state == RunState::LevelUp {
         render_level_up(app, frame);
     } else if app.state == RunState::ShowShop {
@@ -1182,6 +1184,31 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: RatatuiRect) -> RatatuiRect 
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1]
+}
+
+fn render_class_selection(app: &App, frame: &mut Frame) {
+    let area = centered_rect(50, 40, frame.size());
+    frame.render_widget(Clear, area);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Choose Your Class ");
+
+    let classes = vec!["Fighter"];
+
+    let list_items: Vec<ListItem> = classes
+        .iter()
+        .enumerate()
+        .map(|(i, class_name)| {
+            let mut style = Style::default();
+            if i == app.class_selection {
+                style = style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
+            }
+            ListItem::new(Span::styled(format!("  {}  ", class_name), style))
+        })
+        .collect();
+
+    let list = List::new(list_items).block(block);
+    frame.render_widget(list, area);
 }
 
 #[cfg(test)]

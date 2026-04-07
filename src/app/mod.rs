@@ -59,6 +59,8 @@ pub struct App {
     #[serde(skip, default = "default_runstate")]
     pub state: RunState,
     #[serde(skip)]
+    pub class_selection: usize,
+    #[serde(skip)]
     pub inventory_cursor: usize,
     #[serde(skip)]
     pub targeting_cursor: (u16, u16),
@@ -112,7 +114,8 @@ impl App {
             log: vec!["Welcome to RustLike!".to_string()],
             dungeon_level: 1,
             current_branch: Branch::Main,
-            state: RunState::AwaitingInput,
+            state: RunState::ShowClassSelection,
+            class_selection: 0,
             inventory_cursor: 0,
             targeting_cursor: (0, 0),
             targeting_item: None,
@@ -150,7 +153,8 @@ impl App {
             log: vec!["Welcome to RustLike!".to_string()],
             dungeon_level: 1,
             current_branch: Branch::Main,
-            state: RunState::AwaitingInput,
+            state: RunState::ShowClassSelection,
+            class_selection: 0,
             inventory_cursor: 0,
             targeting_cursor: (0, 0),
             targeting_item: None,

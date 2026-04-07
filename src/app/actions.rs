@@ -4,6 +4,20 @@ use crate::app::{App, RunState};
 impl App {
     pub fn process_action(&mut self, action: Action) {
         match self.state {
+            RunState::ShowClassSelection => match action {
+                Action::MenuUp => {
+                    // if self.class_selection > 0 { self.class_selection -= 1; }
+                }
+                Action::MenuDown => {
+                    // if self.class_selection < max_classes - 1 { self.class_selection += 1; }
+                }
+                Action::MenuSelect => {
+                    self.apply_class_selection();
+                    self.state = RunState::AwaitingInput;
+                }
+                Action::Quit => self.exit = true,
+                _ => {}
+            },
             RunState::AwaitingInput => self.handle_awaiting_input(action),
             RunState::ShowLogHistory => match action {
                 Action::CloseMenu | Action::OpenLogHistory => self.state = RunState::AwaitingInput,
@@ -51,6 +65,55 @@ impl App {
                 }
             }
             _ => {}
+        }
+    }
+
+    pub fn apply_class_selection(&mut self) {
+        use crate::components::*;
+        let player_id = self.get_player_id().unwrap();
+
+        if self.class_selection == 0 {
+            // Fighter
+            let attrs = Attributes {
+                strength: 15,
+                dexterity: 13,
+                constitution: 14,
+                intelligence: 8,
+                wisdom: 12,
+                charisma: 10,
+            };
+            self.world.insert_one(player_id, attrs).unwrap();
+            let hp = 24 + Attributes::get_modifier(attrs.constitution);
+            self.world.insert_one(player_id, CombatStats {
+                hp,
+                max_hp: hp,
+                defense: 0,
+                power: 5,
+            }).unwrap();
+            self.world.insert_one(player_id, Class { class: CharacterClass::Fighter }).unwrap();
+
+            // Give starting equipment: Longsword, Shield, Chainmail
+            let starting_items = ["Torch", "Health Potion", "Longsword", "Shield", "Chainmail"];
+            for item_name in starting_items {
+                if let Some(item_raw) = self
+                    .content
+                    .items
+                    .iter()
+                    .find(|i| i.name == item_name)
+                    .cloned()
+                {
+                    let item_id = crate::spawner::spawn_item_in_backpack(
+                        &mut self.world,
+                        player_id,
+                        &item_raw,
+                    );
+                    self.identified_items.insert(item_name.to_string());
+                    if item_name == "Longsword" || item_name == "Shield" || item_name == "Chainmail" || item_name == "Torch"
+                    {
+                        self.equip_item(item_id);
+                    }
+                }
+            }
         }
     }
 

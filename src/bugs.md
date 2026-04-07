@@ -24,3 +24,6 @@ if critical {
 //  (weapon_roll_1 + weapon_roll_2 + attr mod + power bonus) - target_av
 // )
 ```
+
+- [ ] Game log should show when a creature dies.
+- [ ] Equipping a range weapon should not require ammunition.

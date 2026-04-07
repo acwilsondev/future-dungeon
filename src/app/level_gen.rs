@@ -178,9 +178,8 @@ impl App {
         if !traveling_entities.is_empty() {
             self.handle_traveling_entities(traveling_entities, mb.player_start);
         } else {
-            let player_id =
+            let _player_id =
                 crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);
-            self.spawn_starting_equipment(player_id);
         }
 
         self.spawn_ambient_features(&mb);
@@ -237,7 +236,8 @@ mod tests {
 
     #[test]
     fn test_starting_equipment() {
-        let app = App::new_random();
+        let mut app = App::new_random();
+        app.apply_class_selection();
         // App::new_random calls generate_level(Vec::new()) which should spawn starting items
 
         let mut player_query = app.world.query::<&Player>();
@@ -246,9 +246,10 @@ mod tests {
         let mut items_in_backpack = 0;
         let mut items_equipped = 0;
         let mut has_torch = false;
-        let mut has_dagger = false;
-        let mut has_leather_armor = false;
         let mut has_health_potion = false;
+        let mut has_longsword = false;
+        let mut has_shield = false;
+        let mut has_chainmail = false;
 
         for (id, (name, backpack)) in app.world.query::<(&Name, &InBackpack)>().iter() {
             if backpack.owner == player_id {
@@ -256,14 +257,17 @@ mod tests {
                 if name.0 == "Torch" {
                     has_torch = true;
                 }
-                if name.0 == "Dagger" {
-                    has_dagger = true;
-                }
-                if name.0 == "Leather Armor" {
-                    has_leather_armor = true;
-                }
                 if name.0 == "Health Potion" {
                     has_health_potion = true;
+                }
+                if name.0 == "Longsword" {
+                    has_longsword = true;
+                }
+                if name.0 == "Shield" {
+                    has_shield = true;
+                }
+                if name.0 == "Chainmail" {
+                    has_chainmail = true;
                 }
 
                 if app.world.get::<&Equipped>(id).is_ok() {
@@ -273,10 +277,11 @@ mod tests {
         }
 
         assert!(has_torch, "Missing Torch");
-        assert!(has_dagger, "Missing Dagger");
-        assert!(has_leather_armor, "Missing Leather Armor");
         assert!(has_health_potion, "Missing Health Potion");
-        assert_eq!(items_in_backpack, 4, "Should have 4 starting items");
-        assert_eq!(items_equipped, 3, "Torch, Dagger, and Armor should be equipped");
+        assert!(has_longsword, "Missing Longsword");
+        assert!(has_shield, "Missing Shield");
+        assert!(has_chainmail, "Missing Chainmail");
+        assert_eq!(items_in_backpack, 5, "Should have 5 starting items");
+        assert_eq!(items_equipped, 4, "Torch, Longsword, Shield, Chainmail should be equipped");
     }
 }
