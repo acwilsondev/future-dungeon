@@ -9,6 +9,12 @@ pub struct AttackResult {
     pub damage: i32,
     pub attacker_name: String,
     pub target_name: String,
+    pub attack_roll: i32,
+    pub attack_mod: i32,
+    pub dodge_dc: i32,
+    pub damage_dice_roll: i32,
+    pub damage_mod: i32,
+    pub target_av: i32,
 }
 
 impl App {
@@ -60,29 +66,30 @@ impl App {
         let mut hit = false;
         let mut critical = false;
 
+        // Target Dodge DC (10 + DEX mod)
+        let target_dex_mod = self.get_attribute_modifier(target, |a| a.dexterity);
+        let dodge_dc = 10 + target_dex_mod;
+
         if roll == 20 {
             hit = true;
             critical = true;
         } else if roll == 1 {
             hit = false;
-        } else {
-            // Target Dodge DC (10 + DEX mod)
-            let target_dex_mod = self.get_attribute_modifier(target, |a| a.dexterity);
-            let dodge_dc = 10 + target_dex_mod;
-            if roll + attr_mod >= dodge_dc {
-                hit = true;
-            }
+        } else if roll + attr_mod >= dodge_dc {
+            hit = true;
         }
+
 
         // 3. Damage Calculation
         let mut damage = 0;
+        let mut weapon_roll = 0;
+        let mut target_av = 0;
         if hit {
-            let mut weapon_roll = 0;
             for _ in 0..damage_dice.0 {
                 weapon_roll += self.rng.gen_range(1..=damage_dice.1);
             }
 
-            let target_av = self.get_target_av(target);
+            target_av = self.get_target_av(target);
             damage = (weapon_roll + attr_mod + power_bonus - target_av).max(1);
 
             if critical {
@@ -96,6 +103,12 @@ impl App {
             damage,
             attacker_name,
             target_name,
+            attack_roll: roll,
+            attack_mod: attr_mod,
+            dodge_dc,
+            damage_dice_roll: weapon_roll,
+            damage_mod: attr_mod + power_bonus,
+            target_av,
         }
     }
 
@@ -161,15 +174,21 @@ impl App {
 
     pub fn apply_attack_result(&mut self, target: hecs::Entity, res: &AttackResult, x: u16, y: u16) {
         if !res.hit {
-            self.log.push(format!("{} misses {}.", res.attacker_name, res.target_name));
+            if res.attack_roll == 1 {
+                self.log.push(format!("{} critically misses {}! (Roll: 1)", res.attacker_name, res.target_name));
+            } else {
+                self.log.push(format!("{} misses {} (Roll: {}+{} vs DC:{})", 
+                    res.attacker_name, res.target_name, res.attack_roll, res.attack_mod, res.dodge_dc));
+            }
             return;
         }
 
-        if res.critical {
-            self.log.push(format!("CRITICAL HIT! {} hits {} for {} damage!", res.attacker_name, res.target_name, res.damage));
-        } else {
-            self.log.push(format!("{} hits {} for {} damage!", res.attacker_name, res.target_name, res.damage));
-        }
+        let crit_str = if res.critical { "CRITICAL HIT! " } else { "" };
+        self.log.push(format!("{}{} hits {} for {} damage! (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
+            crit_str, res.attacker_name, res.target_name, res.damage,
+            res.attack_roll, res.attack_mod, res.dodge_dc,
+            res.damage_dice_roll, res.damage_mod, res.target_av
+        ));
 
         self.effects.push(VisualEffect::Flash {
             x,
@@ -214,6 +233,9 @@ mod tests {
         let res = app.resolve_attack(attacker, target, None);
         assert_eq!(res.attacker_name, "Attacker");
         assert_eq!(res.target_name, "Target");
+        assert!(res.attack_roll >= 1 && res.attack_roll <= 20);
+        assert_eq!(res.attack_mod, 5); // STR 20
+        assert_eq!(res.dodge_dc, 10); // 10 + DEX 10 (0)
     }
 
     #[test]
