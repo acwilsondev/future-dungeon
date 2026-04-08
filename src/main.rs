@@ -36,7 +36,7 @@ fn main() -> Result<()> {
         // Smooth FPS calculation
         if delta > 0.0 {
             let current_fps = 1.0 / delta;
-            app.fps = app.fps * 0.9 + current_fps * 0.1;
+            app.fps = app.fps * 0.9 + current_fps as f64 * 0.1;
         }
 
         app.on_tick();

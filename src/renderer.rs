@@ -541,6 +541,8 @@ pub fn render(app: &App, frame: &mut Frame) {
         render_inventory(app, frame);
     } else if app.state == RunState::ShowHelp {
         render_help(app, frame);
+    } else if app.state == RunState::ShowResetShrine {
+        render_respec(app, frame);
     } else if app.state == RunState::Dead {
         render_death_screen(app, frame);
     } else if app.state == RunState::ShowClassSelection {
@@ -733,6 +735,35 @@ fn render_shop(app: &App, frame: &mut Frame) {
             &mut state,
         );
     }
+}
+
+fn render_respec(app: &App, frame: &mut Frame) {
+    let area = centered_rect(50, 50, frame.size());
+    frame.render_widget(Clear, area);
+    let title = format!(" Reset Shrine: {} points remaining ", app.respec_points);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title);
+
+    let options = vec![
+        ListItem::new("Strength (+1 STR)"),
+        ListItem::new("Dexterity (+1 DEX)"),
+        ListItem::new("Constitution (+1 CON)"),
+        ListItem::new("Intelligence (+1 INT)"),
+        ListItem::new("Wisdom (+1 WIS)"),
+        ListItem::new("Charisma (+1 CHA)"),
+    ];
+
+    let mut state = ListState::default();
+    state.select(Some(app.level_up_cursor));
+    frame.render_stateful_widget(
+        List::new(options)
+            .block(block)
+            .highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black))
+            .highlight_symbol(">> "),
+        area,
+        &mut state,
+    );
 }
 
 fn render_level_up(app: &App, frame: &mut Frame) {

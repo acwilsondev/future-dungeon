@@ -127,6 +127,36 @@
       "guaranteed_loot": "Venomous Dagger"
     },
     {
+      "name": "Ancient Guardian",
+      "glyph": "A",
+      "color": [
+        192,
+        192,
+        192
+      ],
+      "hp": 250,
+      "defense": 10,
+      "power": 15,
+      "faction": "Animals",
+      "personality": "Brave",
+      "viewshed": 15,
+      "xp_reward": 1000,
+      "ranged": null,
+      "confusion": null,
+      "poison": null,
+      "spawn_chance": 0.0,
+      "min_floor": 10,
+      "max_floor": 10,
+      "is_boss": true,
+      "phases": [
+        {
+          "hp_threshold_pct": 0.5,
+          "action": "SummonMinions"
+        }
+      ],
+      "guaranteed_loot": "Amulet of the Ancients"
+    },
+    {
       "name": "The Goblin King",
       "glyph": "G",
       "color": [

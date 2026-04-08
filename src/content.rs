@@ -86,3 +86,10 @@ pub struct Content {
     pub monsters: Vec<RawMonster>,
     pub items: Vec<RawItem>,
 }
+
+impl Content {
+    pub fn load() -> Self {
+        let content_str = std::fs::read_to_string("content.json").expect("Failed to read content.json");
+        serde_json::from_str(&content_str).expect("Failed to parse content.json")
+    }
+}

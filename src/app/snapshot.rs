@@ -90,8 +90,3 @@ pub struct EntitySnapshot {
     pub destination: Option<(u16, Branch)>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct LevelData {
-    pub map: Map,
-    pub entities: Vec<EntitySnapshot>,
-}

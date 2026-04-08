@@ -71,7 +71,7 @@ impl App {
     pub fn cleanup_dead_entities(&mut self) {
         let mut to_despawn = Vec::new();
         let mut total_xp: i32 = 0;
-        let mut drops = Vec::new();
+        let mut drops: Vec<(Position, crate::content::RawItem)> = Vec::new();
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
             if stats.hp <= 0 {
                 to_despawn.push(id);

@@ -2,6 +2,126 @@ use crate::app::{App, Branch, EntitySnapshot};
 use crate::components::*;
 use hecs::World;
 
+pub fn serialize_world(world: &World) -> Vec<EntitySnapshot> {
+    let mut entities = Vec::new();
+    for (id, (render, render_order)) in world.query::<(&Renderable, &RenderOrder)>().iter()
+    {
+        let pos = world.get::<&Position>(id).ok().map(|p| *p);
+        let name = world.get::<&Name>(id).ok().map(|n| (*n).clone());
+        let stats = world.get::<&CombatStats>(id).ok().map(|s| *s);
+        let attributes = world.get::<&Attributes>(id).ok().map(|a| *a);
+        let potion = world.get::<&Potion>(id).ok().map(|p| *p);
+        let weapon = world.get::<&Weapon>(id).ok().map(|w| *w);
+        let armor = world.get::<&Armor>(id).ok().map(|a| *a);
+        let door = world.get::<&Door>(id).ok().map(|d| *d);
+        let trap = world.get::<&Trap>(id).ok().map(|t| *t);
+        let ranged = world.get::<&Ranged>(id).ok().map(|r| *r);
+        let ranged_weapon = world.get::<&RangedWeapon>(id).ok().map(|rw| *rw);
+        let aoe = world.get::<&AreaOfEffect>(id).ok().map(|a| *a);
+        let confusion = world.get::<&Confusion>(id).ok().map(|c| *c);
+        let poison = world.get::<&Poison>(id).ok().map(|p| *p);
+        let strength = world.get::<&Strength>(id).ok().map(|s| *s);
+        let speed = world.get::<&Speed>(id).ok().map(|s| *s);
+        let faction = world.get::<&Faction>(id).ok().map(|f| *f);
+        let viewshed = world.get::<&Viewshed>(id).ok().map(|v| *v);
+        let personality = world.get::<&AIPersonality>(id).ok().map(|p| *p);
+        let experience = world.get::<&Experience>(id).ok().map(|e| *e);
+        let perks = world.get::<&Perks>(id).ok().map(|p| (*p).clone());
+        let alert_state = world.get::<&AlertState>(id).ok().map(|a| *a);
+        let hearing = world.get::<&Hearing>(id).ok().map(|h| *h);
+        let boss = world.get::<&Boss>(id).ok().map(|b| (*b).clone());
+        let light_source = world.get::<&LightSource>(id).ok().map(|l| *l);
+        let gold = world.get::<&Gold>(id).ok().map(|g| *g);
+        let item_value = world.get::<&ItemValue>(id).ok().map(|v| *v);
+        let obfuscated_name = world
+            .get::<&ObfuscatedName>(id)
+            .ok()
+            .map(|n| (*n).clone());
+        let cursed = world.get::<&Cursed>(id).ok().map(|c| *c);
+        let equippable = world.get::<&Equippable>(id).ok().map(|e| *e);
+        let equipped = world.get::<&Equipped>(id).ok().map(|e| *e);
+
+        entities.push(EntitySnapshot {
+            pos,
+            render: *render,
+            render_order: *render_order,
+            name,
+            stats,
+            attributes,
+            potion,
+            weapon,
+            armor,
+            door,
+            trap,
+            ranged,
+            ranged_weapon,
+            aoe,
+            confusion,
+            poison,
+            strength,
+            speed,
+            faction,
+            viewshed,
+            personality,
+            experience,
+            perks,
+            alert_state,
+            hearing,
+            boss,
+            light_source,
+            gold,
+            item_value,
+            obfuscated_name,
+            cursed,
+            equippable,
+            equipped,
+            last_hit_by_player: world.get::<&LastHitByPlayer>(id).is_ok(),
+            is_merchant: world.get::<&Merchant>(id).is_ok(),
+            ammo: world.get::<&Ammunition>(id).is_ok(),
+            consumable: world.get::<&Consumable>(id).is_ok(),
+            in_backpack: world.get::<&InBackpack>(id).is_ok(),
+            is_player: world.get::<&Player>(id).is_ok(),
+            is_monster: world.get::<&Monster>(id).is_ok(),
+            is_wisp: world.get::<&Wisp>(id).is_ok(),
+            is_item: world.get::<&Item>(id).is_ok(),
+            is_down_stairs: world.get::<&DownStairs>(id).is_ok(),
+            is_up_stairs: world.get::<&UpStairs>(id).is_ok(),
+            destination: world
+                .get::<&DownStairs>(id)
+                .ok()
+                .map(|s| s.destination)
+                .or_else(|| world.get::<&UpStairs>(id).ok().map(|s| s.destination)),
+        });
+    }
+    entities
+}
+
+pub fn deserialize_world(entities: &[EntitySnapshot]) -> World {
+    let mut world = World::new();
+    let mut player_entity = None;
+    let mut in_backpack_markers = Vec::new();
+
+    for e in entities {
+        let mut cb = hecs::EntityBuilder::new();
+        App::add_components_to_builder(&mut cb, e);
+
+        let entity = world.spawn(cb.build());
+        if e.is_player {
+            player_entity = Some(entity);
+        }
+        if e.in_backpack {
+            in_backpack_markers.push(entity);
+        }
+    }
+
+    if let Some(player) = player_entity {
+        for id in in_backpack_markers {
+            let _ = world.insert_one(id, InBackpack { owner: player });
+        }
+    }
+    world
+}
+
 impl App {
     pub fn pack_entities(&mut self) {
         self.entities.clear();

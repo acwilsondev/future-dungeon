@@ -292,6 +292,12 @@ pub struct Cursed;
 pub struct AlchemyStation;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HolyAltar;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResetShrine;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Experience {
     pub level: i32,
     pub xp: i32,

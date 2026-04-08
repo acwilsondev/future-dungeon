@@ -29,6 +29,16 @@ impl App {
             let idx = (pos.y * self.map.width + pos.x) as usize;
             self.map.blocked[idx] = true;
         }
+
+        for (_id, (pos, _altar)) in self.world.query::<(&Position, &HolyAltar)>().iter() {
+            let idx = (pos.y * self.map.width + pos.x) as usize;
+            self.map.blocked[idx] = true;
+        }
+
+        for (_id, (pos, _shrine)) in self.world.query::<(&Position, &ResetShrine)>().iter() {
+            let idx = (pos.y * self.map.width + pos.x) as usize;
+            self.map.blocked[idx] = true;
+        }
     }
 
     pub fn update_lighting(&mut self) {

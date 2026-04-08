@@ -59,6 +59,7 @@ impl App {
             RunState::ShowShop => self.handle_shop_input(action),
             RunState::ShowIdentify => self.handle_identify_input(action),
             RunState::ShowAlchemy => self.handle_alchemy_input(action),
+            RunState::ShowResetShrine => self.handle_respec_input(action),
             RunState::Dead | RunState::Victory => {
                 if let Action::Quit | Action::CloseMenu = action {
                     self.exit = true;

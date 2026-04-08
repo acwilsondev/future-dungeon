@@ -33,6 +33,7 @@ pub enum LevelTheme {
     Rooms,
     Caves,
     BossArena,
+    SingleRoom,
 }
 
 pub struct MapBuilder {
@@ -70,9 +71,11 @@ impl MapBuilder {
     }
 
     pub fn build<R: Rng>(&mut self, depth: u16, rng: &mut R) {
-        if depth == 3 || depth == 6 {
+        if depth % 10 == 5 {
+            self.theme = LevelTheme::SingleRoom;
+        } else if depth % 10 == 0 {
             self.theme = LevelTheme::BossArena;
-        } else if depth.is_multiple_of(3) {
+        } else if depth % 3 == 0 {
             self.theme = LevelTheme::Caves;
         } else {
             self.theme = LevelTheme::Rooms;
@@ -85,6 +88,7 @@ impl MapBuilder {
             }
             LevelTheme::Caves => self.build_caves(rng),
             LevelTheme::BossArena => self.build_boss_arena(),
+            LevelTheme::SingleRoom => self.build_single_room(),
         }
     }
 
@@ -111,6 +115,22 @@ impl MapBuilder {
         self.stairs_up = (arena.x1 as u16 + 1, center.1 as u16);
         self.boss_spawn = Some((arena.x2 as u16 - 5, center.1 as u16));
         self.stairs_down = (arena.x2 as u16 - 2, center.1 as u16);
+        self.item_spawns.push((arena.x2 as u16 - 3, center.1 as u16));
+    }
+
+    fn build_single_room(&mut self) {
+        let w = 15;
+        let h = 10;
+        let x = (self.map.width as i32 - w) / 2;
+        let y = (self.map.height as i32 - h) / 2;
+        let room = Rect::new(x, y, w, h);
+        self.apply_room_to_map(&room);
+        self.rooms.push(room);
+
+        let center = room.center();
+        self.player_start = (room.x1 as u16 + 2, center.1 as u16);
+        self.stairs_up = (room.x1 as u16 + 1, center.1 as u16);
+        self.stairs_down = (room.x2 as u16 - 2, center.1 as u16);
     }
 
     fn is_legal_door(&self, x: u16, y: u16) -> bool {
@@ -456,7 +476,7 @@ mod tests {
     fn test_map_builder_boss_arena() {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut mb = MapBuilder::new(80, 50);
-        mb.build(3, &mut rng); // BossArena theme
+        mb.build(10, &mut rng); // BossArena theme (multiple of 10)
         assert!(matches!(mb.theme, LevelTheme::BossArena));
         assert!(mb.boss_spawn.is_some());
         let (x, y) = mb.player_start;

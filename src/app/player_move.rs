@@ -19,6 +19,16 @@ impl App {
                 return Some(id);
             }
         }
+        for (id, (pos, _)) in self.world.query::<(&Position, &HolyAltar)>().iter() {
+            if pos.x == x && pos.y == y {
+                return Some(id);
+            }
+        }
+        for (id, (pos, _)) in self.world.query::<(&Position, &ResetShrine)>().iter() {
+            if pos.x == x && pos.y == y {
+                return Some(id);
+            }
+        }
         None
     }
 
@@ -190,7 +200,7 @@ impl App {
     }
 
     pub fn move_player(&mut self, dx: i16, dy: i16) {
-        let (new_x, new_y, player_power) = {
+        let (new_x, new_y, player_power, player_id) = {
             let (power, _av, _dc) = self.get_player_stats();
             let Some(player_id) = self.get_player_id() else {
                 return;
@@ -202,6 +212,7 @@ impl App {
                 (pos.x as i16 + dx).max(0) as u16,
                 (pos.y as i16 + dy).max(0) as u16,
                 power,
+                player_id,
             )
         };
 
@@ -222,6 +233,28 @@ impl App {
                 self.alchemy_selection.clear();
                 self.log
                     .push("You approach the Alchemy Station.".to_string());
+                return;
+            }
+
+            // Check if it's a Holy Altar
+            if self.world.get::<&HolyAltar>(target_id).is_ok() {
+                if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
+                    stats.hp = stats.max_hp;
+                    self.log.push("The Holy Altar fully restores your vitality!".to_string());
+                }
+                if let Err(e) = self.world.despawn(target_id) {
+                    log::error!("Failed to despawn Holy Altar after use: {}", e);
+                }
+                self.update_blocked_and_opaque();
+                self.state = RunState::MonsterTurn;
+                return;
+            }
+
+            // Check if it's a Reset Shrine
+            if self.world.get::<&ResetShrine>(target_id).is_ok() {
+                self.init_respec();
+                self.state = RunState::ShowResetShrine;
+                self.log.push("You approach the Reset Shrine. It vibrates with ancient power...".to_string());
                 return;
             }
 
@@ -516,6 +549,50 @@ mod tests {
         app.move_player(1, 0);
 
         assert_eq!(app.state, RunState::ShowAlchemy);
+    }
+
+    #[test]
+    fn test_holy_altar_interaction() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats {
+                hp: 1,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+        ));
+
+        let altar = app.world.spawn((Position { x: 11, y: 10 }, HolyAltar));
+        app.update_blocked_and_opaque();
+
+        app.move_player(1, 0);
+
+        let stats = app.world.get::<&CombatStats>(player).unwrap();
+        assert_eq!(stats.hp, 10);
+        assert!(app.world.get::<&HolyAltar>(altar).is_err()); // Altar should be gone
+    }
+
+    #[test]
+    fn test_reset_shrine_interaction() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
+            Experience { level: 5, xp: 0, next_level_xp: 0, xp_reward: 0 },
+            Class { class: CharacterClass::Fighter },
+        ));
+
+        app.world.spawn((Position { x: 11, y: 10 }, ResetShrine));
+        app.update_blocked_and_opaque();
+
+        app.move_player(1, 0);
+
+        assert_eq!(app.state, RunState::ShowResetShrine);
+        assert_eq!(app.respec_points, 4); // Level 5 -> 4 points
     }
 
     #[test]

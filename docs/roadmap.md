@@ -27,6 +27,16 @@ t = tech debt
 - (e) Faction Improvements
 - (t) Save File Improvements
 - (e) Dungeon Features
+- (e) Portals & Shafts (Chutes & Ladders)
+- (e) Hidden Side Levels
+- (e) Hidden Dungeon Features
+- (e) Locks & Keys
+- (e) Generated Puzzles
+
+## Unplanned Features
+
+- Inspect items/creatures with a Look action.
+- Game should log when you step on an item or dungeon feature.
 
 ## Completed
 

@@ -59,7 +59,7 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
             KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('/') => Some(Action::CloseMenu),
             _ => None,
         },
-        RunState::LevelUp => match key.code {
+        RunState::LevelUp | RunState::ShowResetShrine => match key.code {
             KeyCode::Up | KeyCode::Char('k') => Some(Action::MenuUp),
             KeyCode::Down | KeyCode::Char('j') => Some(Action::MenuDown),
             KeyCode::Enter => Some(Action::MenuSelect),

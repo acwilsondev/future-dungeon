@@ -15,6 +15,7 @@ pub enum RunState {
     ShowBestiary,
     ShowIdentify,
     ShowAlchemy,
+    ShowResetShrine,
     Dead,
     Victory,
 }

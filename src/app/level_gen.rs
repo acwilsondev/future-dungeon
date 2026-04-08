@@ -41,10 +41,41 @@ impl App {
     }
 
     fn spawn_room_features(&mut self, mb: &MapBuilder, available_items: &[&crate::content::RawItem]) {
+        if self.dungeon_level % 10 == 5 {
+            // Merchant Haven
+            let center = mb.rooms[0].center();
+            let merchant =
+                crate::spawner::spawn_merchant(&mut self.world, center.0 as u16 + 2, center.1 as u16);
+            for _ in 0..5 {
+                let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
+                let mut roll = self.rng.gen_range(0.0..total_chance);
+                let mut selected_item = available_items[0];
+                for item in available_items {
+                    if roll < item.spawn_chance {
+                        selected_item = item;
+                        break;
+                    }
+                    roll -= item.spawn_chance;
+                }
+                crate::spawner::spawn_item_in_backpack(&mut self.world, merchant, selected_item);
+            }
+
+            crate::spawner::spawn_holy_altar(&mut self.world, center.0 as u16 - 2, center.1 as u16);
+            return;
+        }
+
+        if self.dungeon_level % 20 == 0 {
+            // Reset Shrine hidden somewhere
+            let room_idx = self.rng.gen_range(0..mb.rooms.len());
+            let pos = mb.rooms[room_idx].center();
+            crate::spawner::spawn_reset_shrine(&mut self.world, pos.0 as u16, pos.1 as u16);
+        }
+
+        // Normal spawning for non-haven floors
         // Spawn Merchant
-        if mb.rooms.len() > 1 && !available_items.is_empty() {
-            let room = &mb.rooms[1];
-            let center = room.center();
+        if mb.rooms.len() > 1 && !available_items.is_empty() && self.rng.gen_bool(0.1) {
+            let room_idx = self.rng.gen_range(1..mb.rooms.len());
+            let center = mb.rooms[room_idx].center();
             let merchant =
                 crate::spawner::spawn_merchant(&mut self.world, center.0 as u16, center.1 as u16);
             for _ in 0..3 {
@@ -63,8 +94,9 @@ impl App {
         }
 
         // Spawn Alchemy Station
-        if mb.rooms.len() > 2 {
-            let center = mb.rooms[2].center();
+        if mb.rooms.len() > 2 && self.rng.gen_bool(0.2) {
+            let room_idx = self.rng.gen_range(1..mb.rooms.len());
+            let center = mb.rooms[room_idx].center();
             crate::spawner::spawn_alchemy_station(
                 &mut self.world,
                 center.0 as u16,
@@ -199,7 +231,7 @@ impl App {
             .filter(|i| {
                 i.branches
                     .as_ref()
-                    .is_none_or(|b| b.contains(&branch_str.to_string()))
+                    .map_or(true, |b| b.contains(&branch_str.to_string()))
             })
             .cloned()
             .collect();
@@ -207,6 +239,13 @@ impl App {
         let items_ref: Vec<&crate::content::RawItem> = available_items.iter().collect();
         self.spawn_room_features(&mb, &items_ref);
         self.spawn_environmental_features(&mb);
+
+        if self.dungeon_level % 10 == 5 {
+            // Haven floors are safe
+            self.update_blocked_and_opaque();
+            self.update_fov();
+            return;
+        }
 
         let available_monsters: Vec<crate::content::RawMonster> = self
             .content
@@ -216,7 +255,7 @@ impl App {
             .filter(|m| {
                 m.branches
                     .as_ref()
-                    .is_none_or(|b| b.contains(&branch_str.to_string()))
+                    .map_or(true, |b| b.contains(&branch_str.to_string()))
             })
             .cloned()
             .collect();
@@ -283,5 +322,34 @@ mod tests {
         assert!(has_chainmail, "Missing Chainmail");
         assert_eq!(items_in_backpack, 5, "Should have 5 starting items");
         assert_eq!(items_equipped, 3, "Longsword, Shield, Chainmail should be equipped (Torch was replaced)");
+    }
+
+    #[test]
+    fn test_dungeon_rhythm_merchant_haven() {
+        let mut app = App::new_random();
+        app.dungeon_level = 5;
+        app.generate_level(Vec::new());
+
+        // Floor 5 should have a Merchant and a Holy Altar
+        let merchant_exists = app.world.query::<&Merchant>().iter().count() > 0;
+        let altar_exists = app.world.query::<&HolyAltar>().iter().count() > 0;
+        
+        assert!(merchant_exists, "Floor 5 should have a Merchant");
+        assert!(altar_exists, "Floor 5 should have a Holy Altar");
+        
+        // Should have NO monsters on haven floors
+        let monster_count = app.world.query::<&Monster>().iter().count();
+        assert_eq!(monster_count, 0, "Floor 5 should have no monsters");
+    }
+
+    #[test]
+    fn test_dungeon_rhythm_boss_arena() {
+        let mut app = App::new_random();
+        app.dungeon_level = 10;
+        app.generate_level(Vec::new());
+
+        // Floor 10 should have a Boss
+        let boss_exists = app.world.query::<&Boss>().iter().count() > 0;
+        assert!(boss_exists, "Floor 10 should have a Boss");
     }
 }

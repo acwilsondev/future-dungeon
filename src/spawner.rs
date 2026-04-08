@@ -380,6 +380,32 @@ pub fn spawn_alchemy_station(world: &mut World, x: u16, y: u16) -> hecs::Entity 
     ))
 }
 
+pub fn spawn_holy_altar(world: &mut World, x: u16, y: u16) -> hecs::Entity {
+    world.spawn((
+        Position { x, y },
+        Renderable {
+            glyph: 'T',
+            fg: Color::Rgb(255, 255, 255),
+        },
+        RenderOrder::Map,
+        HolyAltar,
+        Name("Holy Altar".to_string()),
+    ))
+}
+
+pub fn spawn_reset_shrine(world: &mut World, x: u16, y: u16) -> hecs::Entity {
+    world.spawn((
+        Position { x, y },
+        Renderable {
+            glyph: 'S',
+            fg: Color::Rgb(0, 255, 0),
+        },
+        RenderOrder::Map,
+        ResetShrine,
+        Name("Reset Shrine".to_string()),
+    ))
+}
+
 pub fn spawn_item_in_backpack(
     world: &mut World,
     owner: hecs::Entity,
