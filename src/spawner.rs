@@ -328,18 +328,22 @@ pub fn spawn_merchant(world: &mut World, x: u16, y: u16) -> hecs::Entity {
     ))
 }
 
-pub fn spawn_light_crystal(world: &mut World, x: u16, y: u16) -> hecs::Entity {
+pub fn spawn_light_crystal(world: &mut World, x: u16, y: u16, color: Color) -> hecs::Entity {
+    let rgb = match color {
+        Color::Rgb(r, g, b) => (r, g, b),
+        _ => (100, 149, 237), // Fallback
+    };
     world.spawn((
         Position { x, y },
         Renderable {
             glyph: '*',
-            fg: Color::Rgb(100, 149, 237),
+            fg: color,
         },
         RenderOrder::Map,
         LightSource {
             range: 4,
             base_range: 4,
-            color: (100, 149, 237),
+            color: rgb,
             remaining_turns: None,
             flicker: true,
         },

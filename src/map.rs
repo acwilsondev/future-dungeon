@@ -1,3 +1,4 @@
+use crate::components::{Biome, FloorModifier};
 use bracket_pathfinding::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +24,8 @@ pub struct Map {
     pub light: Vec<f32>,
     #[serde(skip)]
     pub sound: Vec<f32>,
+    pub biome: Biome,
+    pub floor_modifier: FloorModifier,
 }
 
 impl Map {
@@ -37,6 +40,8 @@ impl Map {
             opaque: vec![false; (width * height) as usize],
             light: vec![0.0; (width * height) as usize],
             sound: vec![0.0; (width * height) as usize],
+            biome: Biome::Dungeon,
+            floor_modifier: FloorModifier::None,
         }
     }
 

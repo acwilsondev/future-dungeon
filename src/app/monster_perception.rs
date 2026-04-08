@@ -204,6 +204,7 @@ mod tests {
             phases: None,
             guaranteed_loot: Some("Amulet".to_string()),
             branches: None,
+            biomes: None,
         };
         let item_raw = crate::content::RawItem {
             name: "Amulet".to_string(),

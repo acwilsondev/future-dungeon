@@ -144,6 +144,7 @@ mod tests {
             phases: None,
             guaranteed_loot: None,
             branches: None,
+            biomes: None,
         });
 
         let boss = app.world.spawn((

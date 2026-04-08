@@ -233,6 +233,11 @@ impl App {
                     .as_ref()
                     .map_or(true, |b| b.contains(&branch_str.to_string()))
             })
+            .filter(|i| {
+                i.biomes
+                    .as_ref()
+                    .map_or(true, |b| b.contains(&mb.biome))
+            })
             .cloned()
             .collect();
 
@@ -256,6 +261,11 @@ impl App {
                 m.branches
                     .as_ref()
                     .map_or(true, |b| b.contains(&branch_str.to_string()))
+            })
+            .filter(|m| {
+                m.biomes
+                    .as_ref()
+                    .map_or(true, |b| b.contains(&mb.biome))
             })
             .cloned()
             .collect();

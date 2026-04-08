@@ -3,1147 +3,329 @@
     {
       "name": "Orc",
       "glyph": "o",
-      "color": [
-        255,
-        0,
-        0
-      ],
-      "hp": 15,
-      "defense": 1,
-      "power": 4,
-      "faction": "Orcs",
-      "personality": "Brave",
-      "viewshed": 8,
-      "xp_reward": 15,
-      "ranged": null,
-      "confusion": null,
-      "poison": null,
-      "spawn_chance": 0.4,
-      "min_floor": 1,
-      "max_floor": 999,
-      "is_boss": false,
-      "phases": null,
-      "guaranteed_loot": null
+      "color": [255, 0, 0],
+      "hp": 15, "defense": 1, "power": 4,
+      "faction": "Orcs", "personality": "Brave", "viewshed": 8,
+      "xp_reward": 15, "spawn_chance": 0.4, "min_floor": 1, "max_floor": 999,
+      "biomes": ["Dungeon"]
     },
     {
       "name": "Goblin",
       "glyph": "g",
-      "color": [
-        0,
-        255,
-        0
-      ],
-      "hp": 8,
-      "defense": 0,
-      "power": 2,
-      "faction": "Goblins",
-      "personality": "Cowardly",
-      "viewshed": 8,
-      "xp_reward": 10,
-      "ranged": null,
-      "confusion": null,
-      "poison": null,
-      "spawn_chance": 0.5,
-      "min_floor": 1,
-      "max_floor": 10,
-      "is_boss": false,
-      "phases": null,
-      "guaranteed_loot": null
+      "color": [0, 255, 0],
+      "hp": 8, "defense": 0, "power": 2,
+      "faction": "Goblins", "personality": "Cowardly", "viewshed": 8,
+      "xp_reward": 10, "spawn_chance": 0.5, "min_floor": 1, "max_floor": 10,
+      "biomes": ["Dungeon"]
     },
     {
       "name": "Goblin Archer",
       "glyph": "a",
-      "color": [
-        0,
-        255,
-        255
-      ],
-      "hp": 6,
-      "defense": 0,
-      "power": 3,
-      "faction": "Goblins",
-      "personality": "Tactical",
-      "viewshed": 10,
-      "xp_reward": 12,
-      "ranged": 8,
-      "spawn_chance": 0.3,
-      "min_floor": 2,
-      "max_floor": 15,
-      "is_boss": false,
-      "phases": null,
-      "guaranteed_loot": null
+      "color": [0, 255, 255],
+      "hp": 6, "defense": 0, "power": 3,
+      "faction": "Goblins", "personality": "Tactical", "viewshed": 10,
+      "xp_reward": 12, "ranged": 8, "spawn_chance": 0.3, "min_floor": 2, "max_floor": 15,
+      "biomes": ["Dungeon"]
     },
     {
       "name": "Spider",
       "glyph": "s",
-      "color": [
-        255,
-        165,
-        0
-      ],
-      "hp": 5,
-      "defense": 0,
-      "power": 5,
-      "faction": "Animals",
-      "personality": "Brave",
-      "viewshed": 6,
-      "xp_reward": 15,
-      "ranged": null,
-      "spawn_chance": 0.3,
-      "min_floor": 1,
-      "max_floor": 999,
-      "is_boss": false,
-      "phases": null,
-      "guaranteed_loot": null
+      "color": [255, 165, 0],
+      "hp": 5, "defense": 0, "power": 5,
+      "faction": "Animals", "personality": "Brave", "viewshed": 6,
+      "xp_reward": 15, "spawn_chance": 0.3, "min_floor": 1, "max_floor": 999,
+      "biomes": ["Caves"]
+    },
+    {
+      "name": "Garden Snake",
+      "glyph": "s",
+      "color": [0, 200, 0],
+      "hp": 12, "defense": 1, "power": 4,
+      "faction": "Animals", "personality": "Tactical", "viewshed": 6,
+      "xp_reward": 20, "poison": [3, 8], "spawn_chance": 0.4, "min_floor": 2, "max_floor": 999,
+      "biomes": ["Caves"]
+    },
+    {
+      "name": "Skeleton",
+      "glyph": "z",
+      "color": [240, 240, 240],
+      "hp": 12, "defense": 2, "power": 4,
+      "faction": "Undead", "personality": "Brave", "viewshed": 8,
+      "xp_reward": 20, "spawn_chance": 0.4, "min_floor": 1, "max_floor": 999,
+      "biomes": ["Crypt"]
+    },
+    {
+      "name": "Zombie",
+      "glyph": "z",
+      "color": [100, 150, 100],
+      "hp": 20, "defense": 0, "power": 5,
+      "faction": "Undead", "personality": "Brave", "viewshed": 6,
+      "xp_reward": 25, "spawn_chance": 0.3, "min_floor": 1, "max_floor": 999,
+      "biomes": ["Crypt"]
+    },
+    {
+      "name": "Temple Priest",
+      "glyph": "P",
+      "color": [255, 255, 0],
+      "hp": 25, "defense": 2, "power": 6,
+      "faction": "Temple", "personality": "Tactical", "viewshed": 10,
+      "xp_reward": 50, "ranged": 10, "spawn_chance": 0.2, "min_floor": 1, "max_floor": 999,
+      "biomes": ["Temple"]
+    },
+    {
+      "name": "Imp",
+      "glyph": "i",
+      "color": [255, 0, 0],
+      "hp": 10, "defense": 1, "power": 4,
+      "faction": "Demons", "personality": "Brave", "viewshed": 10,
+      "xp_reward": 30, "ranged": 6, "spawn_chance": 0.4, "min_floor": 1, "max_floor": 999,
+      "biomes": ["Hell"]
+    },
+    {
+      "name": "Ice Elemental",
+      "glyph": "E",
+      "color": [100, 100, 255],
+      "hp": 25, "defense": 3, "power": 6,
+      "faction": "Animals", "personality": "Brave", "viewshed": 8,
+      "xp_reward": 30, "spawn_chance": 0.4, "min_floor": 2, "max_floor": 999,
+      "branches": ["Vaults"]
     },
     {
       "name": "The Broodmother",
       "glyph": "S",
-      "color": [
-        255,
-        100,
-        255
-      ],
-      "hp": 100,
-      "defense": 2,
-      "power": 8,
-      "faction": "Animals",
-      "personality": "Brave",
-      "viewshed": 10,
-      "xp_reward": 200,
-      "ranged": null,
-      "confusion": null,
-      "poison": null,
-      "spawn_chance": 0.0,
-      "min_floor": 3,
-      "max_floor": 3,
-      "is_boss": true,
-      "phases": [
-        {
-          "hp_threshold_pct": 0.5,
-          "action": "SummonMinions"
-        }
-      ],
+      "color": [255, 100, 255],
+      "hp": 100, "defense": 2, "power": 8,
+      "faction": "Animals", "personality": "Brave", "viewshed": 10,
+      "xp_reward": 200, "spawn_chance": 0.0, "min_floor": 3, "max_floor": 3,
+      "is_boss": true, "phases": [{"hp_threshold_pct": 0.5, "action": "SummonMinions"}],
       "guaranteed_loot": "Venomous Dagger"
     },
     {
       "name": "Ancient Guardian",
       "glyph": "A",
-      "color": [
-        192,
-        192,
-        192
-      ],
-      "hp": 250,
-      "defense": 10,
-      "power": 15,
-      "faction": "Animals",
-      "personality": "Brave",
-      "viewshed": 15,
-      "xp_reward": 1000,
-      "ranged": null,
-      "confusion": null,
-      "poison": null,
-      "spawn_chance": 0.0,
-      "min_floor": 10,
-      "max_floor": 10,
-      "is_boss": true,
-      "phases": [
-        {
-          "hp_threshold_pct": 0.5,
-          "action": "SummonMinions"
-        }
-      ],
+      "color": [192, 192, 192],
+      "hp": 250, "defense": 10, "power": 15,
+      "faction": "Animals", "personality": "Brave", "viewshed": 15,
+      "xp_reward": 1000, "spawn_chance": 0.0, "min_floor": 10, "max_floor": 10,
+      "is_boss": true, "phases": [{"hp_threshold_pct": 0.5, "action": "SummonMinions"}],
       "guaranteed_loot": "Amulet of the Ancients"
     },
     {
       "name": "The Goblin King",
       "glyph": "G",
-      "color": [
-        255,
-        215,
-        0
-      ],
-      "hp": 150,
-      "defense": 4,
-      "power": 10,
-      "faction": "Goblins",
-      "personality": "Brave",
-      "viewshed": 12,
-      "xp_reward": 400,
-      "ranged": null,
-      "spawn_chance": 0.0,
-      "min_floor": 6,
-      "max_floor": 6,
-      "is_boss": true,
-      "phases": [
-        {
-          "hp_threshold_pct": 0.6,
-          "action": "Enrage"
-        },
-        {
-          "hp_threshold_pct": 0.3,
-          "action": "Enrage"
-        }
-      ],
+      "color": [255, 215, 0],
+      "hp": 150, "defense": 4, "power": 10,
+      "faction": "Goblins", "personality": "Brave", "viewshed": 12,
+      "xp_reward": 400, "spawn_chance": 0.0, "min_floor": 6, "max_floor": 6,
+      "is_boss": true, "phases": [{"hp_threshold_pct": 0.6, "action": "Enrage"}, {"hp_threshold_pct": 0.3, "action": "Enrage"}],
       "guaranteed_loot": "King's Armor"
-    },
-    {
-      "name": "Garden Snake",
-      "glyph": "s",
-      "color": [
-        0,
-        200,
-        0
-      ],
-      "hp": 12,
-      "defense": 1,
-      "power": 4,
-      "faction": "Animals",
-      "personality": "Tactical",
-      "viewshed": 6,
-      "xp_reward": 20,
-      "ranged": null,
-      "confusion": null,
-      "poison": [
-        3,
-        8
-      ],
-      "spawn_chance": 0.4,
-      "min_floor": 2,
-      "max_floor": 999,
-      "is_boss": false,
-      "phases": null,
-      "guaranteed_loot": null,
-      "branches": [
-        "Gardens"
-      ]
-    },
-    {
-      "name": "Ice Elemental",
-      "glyph": "E",
-      "color": [
-        100,
-        100,
-        255
-      ],
-      "hp": 25,
-      "defense": 3,
-      "power": 6,
-      "faction": "Animals",
-      "personality": "Brave",
-      "viewshed": 8,
-      "xp_reward": 30,
-      "ranged": null,
-      "spawn_chance": 0.4,
-      "min_floor": 2,
-      "max_floor": 999,
-      "is_boss": false,
-      "phases": null,
-      "guaranteed_loot": null,
-      "branches": [
-        "Vaults"
-      ]
     }
   ],
   "items": [
     {
-      "name": "Boots of Levitation",
-      "glyph": "[",
-      "color": [
-        0,
-        255,
-        255
-      ],
-      "price": 80,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 0,
-        "max_dex_bonus": null
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 4,
-      "max_floor": 999,
-      "obfuscated_name": "Winged Boots",
-      "cursed": false,
-      "slot": "Feet"
-    },
-    {
-      "name": "Amulet of the Ancients",
-      "glyph": "\"",
-      "color": [
-        255,
-        215,
-        0
-      ],
-      "price": 5000,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.0,
-      "min_floor": 10,
-      "max_floor": 10,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": null
-    },
-    {
       "name": "Health Potion",
-      "glyph": "!",
-      "color": [
-        255,
-        0,
-        255
-      ],
-      "price": 10,
-      "potion": 8,
-      "weapon": null,
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": true,
-      "spawn_chance": 0.5,
-      "min_floor": 1,
-      "max_floor": 999,
-      "obfuscated_name": "Milky Potion",
-      "cursed": false,
-      "slot": null
+      "glyph": "!", "color": [255, 0, 255],
+      "price": 10, "potion": 8, "ammo": false, "consumable": true,
+      "spawn_chance": 0.5, "min_floor": 1, "max_floor": 999,
+      "obfuscated_name": "Milky Potion", "biomes": null
     },
     {
       "name": "Dagger",
-      "glyph": "/",
-      "color": [
-        0,
-        255,
-        255
-      ],
-      "price": 5,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 0,
-        "weight": "Light",
-        "n_dice": 1,
-        "die_type": 4,
-        "two_handed": false
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.3,
-      "min_floor": 1,
-      "max_floor": 5,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "AnyHand"
-    },
-    {
-      "name": "Venomous Dagger",
-      "glyph": "/",
-      "color": [
-        0,
-        255,
-        0
-      ],
-      "price": 50,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 0,
-        "weight": "Light",
-        "n_dice": 1,
-        "die_type": 4,
-        "two_handed": false
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": [
-        3,
-        10
-      ],
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.0,
-      "min_floor": 3,
-      "max_floor": 3,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "AnyHand"
-    },
-    {
-      "name": "King's Armor",
-      "glyph": "[",
-      "color": [
-        255,
-        215,
-        0
-      ],
-      "price": 100,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 5,
-        "max_dex_bonus": null
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.0,
-      "min_floor": 6,
-      "max_floor": 6,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "Torso"
-    },
-    {
-      "name": "Magic Missile Scroll",
-      "glyph": ")",
-      "color": [
-        255,
-        255,
-        0
-      ],
-      "price": 15,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": 6,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": true,
-      "spawn_chance": 0.2,
-      "min_floor": 1,
-      "max_floor": 999,
-      "obfuscated_name": "Scrawled Scroll",
-      "cursed": false,
-      "slot": null
-    },
-    {
-      "name": "Fire Scroll",
-      "glyph": ")",
-      "color": [
-        255,
-        0,
-        0
-      ],
-      "price": 20,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": 6,
-      "ranged_weapon": null,
-      "aoe": 3,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": true,
-      "spawn_chance": 0.15,
-      "min_floor": 3,
-      "max_floor": 999,
-      "obfuscated_name": "Charred Scroll",
-      "cursed": false,
-      "slot": null
-    },
-    {
-      "name": "Potion of Strength",
-      "glyph": "!",
-      "color": [
-        255,
-        255,
-        0
-      ],
-      "price": 15,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": true,
-      "spawn_chance": 0.2,
-      "min_floor": 2,
-      "max_floor": 999,
-      "obfuscated_name": "Thick Potion",
-      "cursed": false,
-      "slot": null
-    },
-    {
-      "name": "Potion of Speed",
-      "glyph": "!",
-      "color": [
-        0,
-        255,
-        255
-      ],
-      "price": 20,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": true,
-      "spawn_chance": 0.15,
-      "min_floor": 4,
-      "max_floor": 999,
-      "obfuscated_name": "Fizzy Potion",
-      "cursed": false,
-      "slot": null
-    },
-    {
-      "name": "Poison Scroll",
-      "glyph": ")",
-      "color": [
-        0,
-        255,
-        0
-      ],
-      "price": 15,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": 6,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": [
-        2,
-        6
-      ],
-      "ammo": false,
-      "consumable": true,
-      "spawn_chance": 0.2,
-      "min_floor": 2,
-      "max_floor": 999,
-      "obfuscated_name": "Greenish Scroll",
-      "cursed": false,
-      "slot": null
+      "glyph": "/", "color": [0, 255, 255],
+      "price": 5, "weapon": {"power_bonus": 0, "weight": "Light", "n_dice": 1, "die_type": 4, "two_handed": false},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.3, "min_floor": 1, "max_floor": 5,
+      "slot": "AnyHand", "biomes": null
     },
     {
       "name": "Shortbow",
-      "glyph": ")",
-      "color": [
-        255,
-        255,
-        0
-      ],
-      "price": 25,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 0,
-        "weight": "Medium",
-        "n_dice": 1,
-        "die_type": 4,
-        "two_handed": true
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": [
-        8,
-        12,
-        4
-      ],
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.2,
-      "min_floor": 1,
-      "max_floor": 999,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "AnyHand"
-    },
-    {
-      "name": "Longbow",
-      "glyph": ")",
-      "color": [
-        139,
-        69,
-        19
-      ],
-      "price": 50,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 0,
-        "weight": "Heavy",
-        "n_dice": 1,
-        "die_type": 6,
-        "two_handed": true
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": [
-        15,
-        20,
-        8
-      ],
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 3,
-      "max_floor": 999,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "AnyHand"
-    },
-    {
-      "name": "Hand Crossbow",
-      "glyph": ")",
-      "color": [
-        0,
-        255,
-        255
-      ],
-      "price": 40,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 0,
-        "weight": "Light",
-        "n_dice": 1,
-        "die_type": 2,
-        "two_handed": false
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": [
-        6,
-        10,
-        3
-      ],
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 2,
-      "max_floor": 999,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "AnyHand"
+      "glyph": ")", "color": [255, 255, 0],
+      "price": 25, "weapon": {"power_bonus": 0, "weight": "Medium", "n_dice": 1, "die_type": 4, "two_handed": true},
+      "ranged_weapon": [8, 12, 4], "ammo": false, "consumable": false,
+      "spawn_chance": 0.2, "min_floor": 1, "max_floor": 999,
+      "slot": "AnyHand", "biomes": null
     },
     {
       "name": "Arrows",
-      "glyph": "`",
-      "color": [
-        150,
-        150,
-        150
-      ],
-      "price": 2,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": true,
-      "consumable": true,
-      "spawn_chance": 0.6,
-      "min_floor": 1,
-      "max_floor": 999,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "Ammo"
-    },
-    {
-      "name": "Leather Armor",
-      "glyph": "[",
-      "color": [
-        0,
-        255,
-        0
-      ],
-      "price": 15,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 1,
-        "max_dex_bonus": null
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.3,
-      "min_floor": 1,
-      "max_floor": 10,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "Torso"
+      "glyph": "`", "color": [150, 150, 150],
+      "price": 2, "ammo": true, "consumable": true,
+      "spawn_chance": 0.6, "min_floor": 1, "max_floor": 999,
+      "slot": "Ammo", "biomes": null
     },
     {
       "name": "Torch",
-      "glyph": "(",
-      "color": [
-        255,
-        165,
-        0
-      ],
-      "price": 5,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.4,
-      "min_floor": 1,
-      "max_floor": 999,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "AnyHand",
-      "light": {
-        "range": 10,
-        "color": [
-          255,
-          255,
-          100
-        ],
-        "turns": 2000,
-        "flicker": true
-      }
+      "glyph": "(", "color": [255, 165, 0],
+      "price": 5, "ammo": false, "consumable": false,
+      "spawn_chance": 0.4, "min_floor": 1, "max_floor": 999,
+      "slot": "AnyHand", "light": {"range": 10, "color": [255, 255, 100], "turns": 2000, "flicker": true},
+      "biomes": null
     },
     {
-      "name": "Identification Scroll",
-      "glyph": "?",
-      "color": [
-        255,
-        255,
-        255
-      ],
-      "price": 20,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": true,
-      "spawn_chance": 0.3,
-      "min_floor": 1,
-      "max_floor": 999,
-      "obfuscated_name": "Unreadable Scroll",
-      "cursed": false,
-      "slot": null
-    },
-    {
-      "name": "Cursed Ring of Doom",
-      "glyph": "=",
-      "color": [
-        100,
-        0,
-        0
-      ],
-      "price": 5,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": -5,
-        "max_dex_bonus": null
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 2,
-      "max_floor": 999,
-      "obfuscated_name": "Shiny Ring",
-      "cursed": true,
-      "slot": "LeftFinger"
-    },
-    {
-      "name": "Leather Cap",
-      "glyph": "[",
-      "color": [
-        139,
-        69,
-        19
-      ],
-      "price": 10,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 1,
-        "max_dex_bonus": null
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.2,
-      "min_floor": 1,
-      "max_floor": 10,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "Head"
-    },
-    {
-      "name": "Iron Gauntlets",
-      "glyph": "[",
-      "color": [
-        169,
-        169,
-        169
-      ],
-      "price": 15,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 2,
-        "max_dex_bonus": null
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.15,
-      "min_floor": 3,
-      "max_floor": 15,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "Hands"
-    },
-    {
-      "name": "Leather Boots",
-      "glyph": "[",
-      "color": [
-        139,
-        69,
-        19
-      ],
-      "price": 10,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 1,
-        "max_dex_bonus": null
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.2,
-      "min_floor": 1,
-      "max_floor": 10,
-      "obfuscated_name": null,
-      "cursed": false,
-      "slot": "Feet"
-    },
-    {
-      "name": "Ring of Regeneration",
-      "glyph": "=",
-      "color": [
-        0,
-        255,
-        0
-      ],
-      "price": 100,
-      "potion": null,
-      "weapon": null,
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.05,
-      "min_floor": 5,
-      "max_floor": 999,
-      "obfuscated_name": "Glimmering Ring",
-      "cursed": false,
-      "slot": "RightFinger"
-    },
-    {
-      "name": "Frost Wand",
-      "glyph": "/",
-      "color": [
-        100,
-        100,
-        255
-      ],
-      "price": 50,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 3,
-        "weight": "Medium",
-        "n_dice": 1,
-        "die_type": 4,
-        "two_handed": false
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 2,
-      "max_floor": 999,
-      "obfuscated_name": "Cold Stick",
-      "cursed": false,
-      "slot": "AnyHand",
-      "branches": [
-        "Vaults"
-      ]
-    },
-    {
-      "name": "Vine Whip",
-      "glyph": "/",
-      "color": [
-        0,
-        200,
-        0
-      ],
-      "price": 45,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 0,
-        "weight": "Medium",
-        "n_dice": 1,
-        "die_type": 6,
-        "two_handed": false
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 2,
-      "max_floor": 999,
-      "obfuscated_name": "Thorny Whip",
-      "cursed": false,
-      "slot": "AnyHand",
-      "branches": [
-        "Gardens"
-      ]
-    },
-    {
-      "name": "Greatsword",
-      "glyph": "/",
-      "color": [
-        192,
-        192,
-        192
-      ],
-      "price": 50,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 2,
-        "weight": "Heavy",
-        "n_dice": 2,
-        "die_type": 6,
-        "two_handed": true
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 3,
-      "max_floor": 999,
-      "obfuscated_name": "Huge Blade",
-      "cursed": false,
-      "slot": "AnyHand"
-    },
-    {
-      "name": "Plate Armor",
-      "glyph": "[",
-      "color": [
-        128,
-        128,
-        128
-      ],
-      "price": 100,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 8,
-        "max_dex_bonus": 1
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.05,
-      "min_floor": 5,
-      "max_floor": 999,
-      "obfuscated_name": "Heavy Mail",
-      "cursed": false,
-      "slot": "Torso"
-    },
-    {
-      "name": "Shield",
-      "glyph": "[",
-      "color": [
-        139,
-        69,
-        19
-      ],
-      "price": 20,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 2,
-        "max_dex_bonus": null
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.2,
-      "min_floor": 1,
-      "max_floor": 999,
-      "obfuscated_name": "Wooden Board",
-      "cursed": false,
-      "slot": "AnyHand"
-    },
-    {
-      "name": "Longsword",
-      "glyph": "/",
-      "color": [
-        192,
-        192,
-        192
-      ],
-      "price": 30,
-      "potion": null,
-      "weapon": {
-        "power_bonus": 0,
-        "weight": "Heavy",
-        "n_dice": 1,
-        "die_type": 8,
-        "two_handed": false
-      },
-      "armor": null,
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 1,
-      "max_floor": 999,
-      "obfuscated_name": "Shiny Sword",
-      "cursed": false,
-      "slot": "AnyHand"
+      "name": "Leather Armor",
+      "glyph": "[", "color": [0, 255, 0],
+      "price": 15, "armor": {"defense_bonus": 1, "max_dex_bonus": null},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.3, "min_floor": 1, "max_floor": 10,
+      "slot": "Torso", "biomes": null
     },
     {
       "name": "Chainmail",
-      "glyph": "[",
-      "color": [
-        128,
-        128,
-        128
-      ],
-      "price": 75,
-      "potion": null,
-      "weapon": null,
-      "armor": {
-        "defense_bonus": 4,
-        "max_dex_bonus": 2
-      },
-      "ranged": null,
-      "ranged_weapon": null,
-      "aoe": null,
-      "confusion": null,
-      "poison": null,
-      "ammo": false,
-      "consumable": false,
-      "spawn_chance": 0.1,
-      "min_floor": 2,
-      "max_floor": 999,
-      "obfuscated_name": "Heavy Mail",
-      "cursed": false,
-      "slot": "Torso"
+      "glyph": "[", "color": [128, 128, 128],
+      "price": 75, "armor": {"defense_bonus": 4, "max_dex_bonus": 2},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.1, "min_floor": 2, "max_floor": 999,
+      "slot": "Torso", "biomes": null
+    },
+    {
+      "name": "Longsword",
+      "glyph": "/", "color": [192, 192, 192],
+      "price": 30, "weapon": {"power_bonus": 0, "weight": "Heavy", "n_dice": 1, "die_type": 8, "two_handed": false},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.1, "min_floor": 1, "max_floor": 999,
+      "slot": "AnyHand", "biomes": null
+    },
+    {
+      "name": "Shield",
+      "glyph": "[", "color": [139, 69, 19],
+      "price": 20, "armor": {"defense_bonus": 2, "max_dex_bonus": null},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.2, "min_floor": 1, "max_floor": 999,
+      "slot": "AnyHand", "biomes": null
+    },
+    {
+      "name": "Magic Missile Scroll",
+      "glyph": "?", "color": [255, 255, 0],
+      "price": 15, "ranged": 6, "ammo": false, "consumable": true,
+      "spawn_chance": 0.2, "min_floor": 1, "max_floor": 999,
+      "obfuscated_name": "Scrawled Scroll", "biomes": null
+    },
+    {
+      "name": "Fire Scroll",
+      "glyph": "?", "color": [255, 0, 0],
+      "price": 20, "ranged": 6, "aoe": 3, "ammo": false, "consumable": true,
+      "spawn_chance": 0.15, "min_floor": 3, "max_floor": 999,
+      "obfuscated_name": "Charred Scroll", "biomes": null
+    },
+    {
+      "name": "Potion of Strength",
+      "glyph": "!", "color": [255, 255, 0],
+      "price": 15, "ammo": false, "consumable": true,
+      "spawn_chance": 0.2, "min_floor": 2, "max_floor": 999,
+      "obfuscated_name": "Thick Potion", "biomes": null
+    },
+    {
+      "name": "Potion of Speed",
+      "glyph": "!", "color": [0, 255, 255],
+      "price": 20, "ammo": false, "consumable": true,
+      "spawn_chance": 0.15, "min_floor": 4, "max_floor": 999,
+      "obfuscated_name": "Fizzy Potion", "biomes": null
+    },
+    {
+      "name": "Poison Scroll",
+      "glyph": "?", "color": [0, 255, 0],
+      "price": 15, "ranged": 6, "poison": [2, 6], "ammo": false, "consumable": true,
+      "spawn_chance": 0.2, "min_floor": 2, "max_floor": 999,
+      "obfuscated_name": "Greenish Scroll", "biomes": null
+    },
+    {
+      "name": "Identification Scroll",
+      "glyph": "?", "color": [255, 255, 255],
+      "price": 20, "ammo": false, "consumable": true,
+      "spawn_chance": 0.3, "min_floor": 1, "max_floor": 999,
+      "obfuscated_name": "Unreadable Scroll", "biomes": null
+    },
+    {
+      "name": "Cursed Ring of Doom",
+      "glyph": "=", "color": [100, 0, 0],
+      "price": 5, "armor": {"defense_bonus": -5, "max_dex_bonus": null},
+      "cursed": true, "ammo": false, "consumable": false,
+      "spawn_chance": 0.1, "min_floor": 2, "max_floor": 999,
+      "slot": "LeftFinger", "obfuscated_name": "Shiny Ring", "biomes": null
+    },
+    {
+      "name": "Leather Cap",
+      "glyph": "[", "color": [139, 69, 19],
+      "price": 10, "armor": {"defense_bonus": 1, "max_dex_bonus": null},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.2, "min_floor": 1, "max_floor": 10,
+      "slot": "Head", "biomes": null
+    },
+    {
+      "name": "Iron Gauntlets",
+      "glyph": "[", "color": [169, 169, 169],
+      "price": 15, "armor": {"defense_bonus": 2, "max_dex_bonus": null},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.15, "min_floor": 3, "max_floor": 15,
+      "slot": "Hands", "biomes": null
+    },
+    {
+      "name": "Leather Boots",
+      "glyph": "[", "color": [139, 69, 19],
+      "price": 10, "armor": {"defense_bonus": 1, "max_dex_bonus": null},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.2, "min_floor": 1, "max_floor": 10,
+      "slot": "Feet", "biomes": null
+    },
+    {
+      "name": "Ring of Regeneration",
+      "glyph": "=", "color": [0, 255, 0],
+      "price": 100, "ammo": false, "consumable": false,
+      "spawn_chance": 0.05, "min_floor": 5, "max_floor": 999,
+      "slot": "RightFinger", "obfuscated_name": "Glimmering Ring", "biomes": null
+    },
+    {
+      "name": "Frost Wand",
+      "glyph": "/", "color": [100, 100, 255],
+      "price": 50, "weapon": {"power_bonus": 3, "weight": "Medium", "n_dice": 1, "die_type": 4, "two_handed": false},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.1, "min_floor": 2, "max_floor": 999,
+      "slot": "AnyHand", "branches": ["Vaults"], "biomes": null
+    },
+    {
+      "name": "Vine Whip",
+      "glyph": "/", "color": [0, 200, 0],
+      "price": 45, "weapon": {"power_bonus": 0, "weight": "Medium", "n_dice": 1, "die_type": 6, "two_handed": false},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.1, "min_floor": 2, "max_floor": 999,
+      "slot": "AnyHand", "branches": ["Gardens"], "biomes": null
+    },
+    {
+      "name": "Greatsword",
+      "glyph": "/", "color": [192, 192, 192],
+      "price": 50, "weapon": {"power_bonus": 2, "weight": "Heavy", "n_dice": 2, "die_type": 6, "two_handed": true},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.1, "min_floor": 3, "max_floor": 999,
+      "slot": "AnyHand", "biomes": null
+    },
+    {
+      "name": "Plate Armor",
+      "glyph": "[", "color": [128, 128, 128],
+      "price": 100, "armor": {"defense_bonus": 8, "max_dex_bonus": 1},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.05, "min_floor": 5, "max_floor": 999,
+      "slot": "Torso", "biomes": null
+    },
+    {
+      "name": "Venomous Dagger",
+      "glyph": "/", "color": [0, 255, 0],
+      "price": 50, "weapon": {"power_bonus": 0, "weight": "Light", "n_dice": 1, "die_type": 4, "two_handed": false},
+      "poison": [3, 10], "ammo": false, "consumable": false,
+      "spawn_chance": 0.0, "min_floor": 3, "max_floor": 3,
+      "slot": "AnyHand", "biomes": null
+    },
+    {
+      "name": "King's Armor",
+      "glyph": "[", "color": [255, 215, 0],
+      "price": 100, "armor": {"defense_bonus": 5, "max_dex_bonus": null},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.0, "min_floor": 6, "max_floor": 6,
+      "slot": "Torso", "biomes": null
+    },
+    {
+      "name": "Amulet of the Ancients",
+      "glyph": "\"", "color": [255, 215, 0],
+      "price": 5000, "ammo": false, "consumable": false,
+      "spawn_chance": 0.0, "min_floor": 10, "max_floor": 10, "biomes": null
     }
-    ]
-    }
+  ]
+}

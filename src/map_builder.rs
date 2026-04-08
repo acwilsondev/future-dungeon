@@ -1,3 +1,4 @@
+use crate::components::{Biome, FloorModifier};
 use crate::map::{Map, TileType};
 use rand::Rng;
 use std::cmp::{max, min};
@@ -32,6 +33,9 @@ impl Rect {
 pub enum LevelTheme {
     Rooms,
     Caves,
+    Crypt,
+    Temple,
+    Hell,
     BossArena,
     SingleRoom,
 }
@@ -49,6 +53,8 @@ pub struct MapBuilder {
     pub stairs_down_alt: Option<(u16, u16)>,
     pub stairs_up: (u16, u16),
     pub theme: LevelTheme,
+    pub biome: Biome,
+    pub floor_modifier: FloorModifier,
 }
 
 impl MapBuilder {
@@ -67,18 +73,48 @@ impl MapBuilder {
             stairs_down_alt: None,
             stairs_up: (0, 0),
             theme: LevelTheme::Rooms,
+            biome: Biome::Dungeon,
+            floor_modifier: FloorModifier::None,
         }
     }
 
     pub fn build<R: Rng>(&mut self, depth: u16, rng: &mut R) {
+        // 1. Determine Biome
+        self.biome = if depth <= 10 {
+            Biome::Dungeon
+        } else if depth <= 20 {
+            Biome::Caves
+        } else if depth <= 30 {
+            Biome::Crypt
+        } else if depth <= 40 {
+            Biome::Temple
+        } else {
+            Biome::Hell
+        };
+
+        // 2. Determine Modifier
+        let mod_roll = rng.gen_range(0..100);
+        self.floor_modifier = if mod_roll < 20 {
+            FloorModifier::Dark
+        } else if mod_roll < 40 {
+            FloorModifier::Bright
+        } else {
+            FloorModifier::None
+        };
+
+        // 3. Determine Theme
         if depth % 10 == 5 {
             self.theme = LevelTheme::SingleRoom;
         } else if depth % 10 == 0 {
             self.theme = LevelTheme::BossArena;
-        } else if depth % 3 == 0 {
-            self.theme = LevelTheme::Caves;
         } else {
-            self.theme = LevelTheme::Rooms;
+            self.theme = match self.biome {
+                Biome::Dungeon => LevelTheme::Rooms,
+                Biome::Caves => LevelTheme::Caves,
+                Biome::Crypt => LevelTheme::Crypt,
+                Biome::Temple => LevelTheme::Temple,
+                Biome::Hell => LevelTheme::Hell,
+            };
         }
 
         match self.theme {
@@ -87,9 +123,16 @@ impl MapBuilder {
                 self.place_doors(rng);
             }
             LevelTheme::Caves => self.build_caves(rng),
+            LevelTheme::Crypt => self.build_crypt(rng),
+            LevelTheme::Temple => self.build_temple(rng),
+            LevelTheme::Hell => self.build_hell(rng),
             LevelTheme::BossArena => self.build_boss_arena(),
             LevelTheme::SingleRoom => self.build_single_room(),
         }
+
+        // Apply to map
+        self.map.biome = self.biome;
+        self.map.floor_modifier = self.floor_modifier;
     }
 
     fn build_boss_arena(&mut self) {
@@ -131,6 +174,98 @@ impl MapBuilder {
         self.player_start = (room.x1 as u16 + 2, center.1 as u16);
         self.stairs_up = (room.x1 as u16 + 1, center.1 as u16);
         self.stairs_down = (room.x2 as u16 - 2, center.1 as u16);
+    }
+
+    fn build_crypt<R: Rng>(&mut self, rng: &mut R) {
+        const MAX_ROOMS: i32 = 40;
+        const MIN_SIZE: i32 = 3;
+        const MAX_SIZE: i32 = 6;
+
+        for _ in 0..MAX_ROOMS {
+            let w = rng.gen_range(MIN_SIZE..MAX_SIZE);
+            let h = rng.gen_range(MIN_SIZE..MAX_SIZE);
+            let x = rng.gen_range(1..self.map.width as i32 - w - 1);
+            let y = rng.gen_range(1..self.map.height as i32 - h - 1);
+            let new_room = Rect::new(x, y, w, h);
+
+            let mut ok = true;
+            for other_room in &self.rooms {
+                if new_room.intersects(other_room) {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if ok {
+                self.apply_room_to_map(&new_room);
+
+                if !self.rooms.is_empty() {
+                    let (new_x, new_y) = new_room.center();
+                    let (prev_x, prev_y) = self.rooms[self.rooms.len() - 1].center();
+
+                    if rng.gen_bool(0.5) {
+                        self.apply_horizontal_tunnel(prev_x, new_x, prev_y);
+                        self.apply_vertical_tunnel(prev_y, new_y, new_x);
+                    } else {
+                        self.apply_vertical_tunnel(prev_y, new_y, prev_x);
+                        self.apply_horizontal_tunnel(prev_x, new_x, new_y);
+                    }
+                } else {
+                    let start = new_room.center();
+                    self.player_start = (start.0 as u16, start.1 as u16);
+                    self.stairs_up = (start.0 as u16, start.1 as u16);
+                }
+                self.rooms.push(new_room);
+            }
+        }
+
+        let end = self.rooms[self.rooms.len() - 1].center();
+        self.stairs_down = (end.0 as u16, end.1 as u16);
+        self.place_doors(rng);
+    }
+
+    fn build_temple<R: Rng>(&mut self, rng: &mut R) {
+        let center_x = self.map.width as i32 / 2;
+        let mut rooms = Vec::new();
+        self.apply_vertical_tunnel(2, self.map.height as i32 - 3, center_x);
+
+        for _ in 0..10 {
+            let w = rng.gen_range(4..8);
+            let h = rng.gen_range(4..8);
+            let x = rng.gen_range(2..center_x - w - 2);
+            let y = rng.gen_range(2..self.map.height as i32 - h - 2);
+            let left_room = Rect::new(x, y, w, h);
+            
+            let mut ok = true;
+            for r in &rooms {
+                if left_room.intersects(r) {
+                    ok = false;
+                    break;
+                }
+            }
+
+            if ok {
+                self.apply_room_to_map(&left_room);
+                rooms.push(left_room);
+                let right_x = self.map.width as i32 - x - w;
+                let right_room = Rect::new(right_x, y, w, h);
+                self.apply_room_to_map(&right_room);
+                rooms.push(right_room);
+                self.apply_horizontal_tunnel(x + w, center_x, y + h / 2);
+                self.apply_horizontal_tunnel(center_x, right_x, y + h / 2);
+            }
+        }
+
+        self.rooms = rooms;
+        self.player_start = (center_x as u16, 2);
+        self.stairs_up = (center_x as u16, 2);
+        self.stairs_down = (center_x as u16, self.map.height as u16 - 3);
+        self.place_doors(rng);
+    }
+
+    fn build_hell<R: Rng>(&mut self, rng: &mut R) {
+        // Use cave gen but with magma (which we'll just treat as floor for now, or add hazard later)
+        self.build_caves(rng);
     }
 
     fn is_legal_door(&self, x: u16, y: u16) -> bool {
@@ -466,7 +601,7 @@ mod tests {
     fn test_map_builder_caves() {
         let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut mb = MapBuilder::new(80, 50);
-        mb.build(9, &mut rng); // Caves theme (9 is multiple of 3 but not 3 or 6)
+        mb.build(11, &mut rng); // Caves biome starts at 11
         assert!(matches!(mb.theme, LevelTheme::Caves));
         let (x, y) = mb.player_start;
         assert_eq!(mb.map.get_tile(x, y), TileType::Floor);

@@ -94,6 +94,22 @@ pub struct Renderable {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Biome {
+    Dungeon,
+    Crypt,
+    Caves,
+    Temple,
+    Hell,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FloorModifier {
+    None,
+    Dark,
+    Bright,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CharacterClass {
     Fighter,
 }
@@ -247,6 +263,9 @@ pub enum FactionKind {
     Orcs,
     Goblins,
     Animals,
+    Undead,
+    Demons,
+    Temple,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
