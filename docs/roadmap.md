@@ -7,16 +7,11 @@ This document outlines planned initiatives.
 e = enhancement
 t = tech debt
 
-- v0.5
-  - (e) Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
-  - (e) Debug Console
-- (e) 0.6 Main Menu
+- (e) 0.6 Main Menu [main_menu.md](design/main_menu.md)
   - Animated menu!
   - Load Game
-  - Options
-  - Maybe Tombstones?
-- (e) Content Pass
 - (t) Automated Builds & CICD
+- (e) Content Pass
 - (e) The Wizard TBD
 - (e) The Cleric TBD
 - (e) The Thief TBD
@@ -32,6 +27,8 @@ t = tech debt
 - (e) Hidden Dungeon Features
 - (e) Locks & Keys
 - (e) Generated Puzzles
+- (e) Game Options
+- (e) Metaloop (Tombstones)
 
 ## Unplanned Features
 
@@ -45,3 +42,6 @@ t = tech debt
 This section documents completed epics
 
 - (e) 0.4 Character Model. See [player.md](design/player.md)
+- v0.5
+  - (e) Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
+  - (e) Debug Console
