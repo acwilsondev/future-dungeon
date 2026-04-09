@@ -37,12 +37,34 @@ impl App {
 
         if slot == EquipmentSlot::AnyHand {
             // Pick a hand
-            let main_hand_full = self.world.query::<(&Equipped, &InBackpack)>().iter().any(|(_, (eq, bp))| bp.owner == player_id && eq.slot == EquipmentSlot::MainHand);
-            let off_hand_full = self.world.query::<(&Equipped, &InBackpack)>().iter().any(|(_, (eq, bp))| bp.owner == player_id && eq.slot == EquipmentSlot::OffHand);
+            let mut main_hand_item = None;
+            let mut off_hand_item = None;
 
-            if !main_hand_full {
+            for (id, (eq, bp)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
+                if bp.owner == player_id {
+                    if eq.slot == EquipmentSlot::MainHand {
+                        main_hand_item = Some(id);
+                    } else if eq.slot == EquipmentSlot::OffHand {
+                        off_hand_item = Some(id);
+                    }
+                }
+            }
+
+            let main_is_2h = main_hand_item
+                .map(|id| {
+                    self.world
+                        .get::<&Weapon>(id)
+                        .map(|w| w.two_handed)
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
+
+            if main_is_2h {
+                // If main is 2H, we MUST replace it if we want to use AnyHand
                 slot = EquipmentSlot::MainHand;
-            } else if !off_hand_full {
+            } else if main_hand_item.is_none() {
+                slot = EquipmentSlot::MainHand;
+            } else if off_hand_item.is_none() {
                 slot = EquipmentSlot::OffHand;
             } else {
                 // Both full, replace MainHand

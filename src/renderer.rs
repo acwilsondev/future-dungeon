@@ -910,6 +910,20 @@ fn render_inventory(app: &App, frame: &mut Frame) {
                 }
             }
 
+            // Special case: show 2H weapon in OffHand if it's empty
+            if slot == EquipmentSlot::OffHand && equipped_name == "None" {
+                for (id, (eq, backpack)) in app.world.query::<(&Equipped, &InBackpack)>().iter() {
+                    if backpack.owner == player_id && eq.slot == EquipmentSlot::MainHand {
+                        if let Ok(weapon) = app.world.get::<&Weapon>(id) {
+                            if weapon.two_handed {
+                                equipped_name = format!("[{}]", app.get_item_name(id));
+                                equipped_color = Color::DarkGray;
+                            }
+                        }
+                    }
+                }
+            }
+
             equipment_list.push(Line::from(vec![
                 Span::styled(
                     format!("{:<10}: ", label),

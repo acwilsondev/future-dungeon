@@ -10,12 +10,12 @@ t = tech debt
 - v0.5
   - (e) Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
   - (e) Debug Console
-- (e) Equipment Galore!
-- (e) Main Menu
+- (e) 0.6 Main Menu
   - Animated menu!
   - Load Game
   - Options
   - Maybe Tombstones?
+- (e) Content Pass
 - (t) Automated Builds & CICD
 - (e) The Wizard TBD
 - (e) The Cleric TBD
@@ -38,6 +38,7 @@ t = tech debt
 - Inspect items/creatures with a Look action.
 - Game should log when you step on an item or dungeon feature.
 - Combat log should be state when an offhand attack is made.
+- Healing potion effect should be randomized (1d8 vs 8)
 
 ## Completed
 

@@ -96,7 +96,7 @@ impl App {
             self.world.insert_one(player_id, Class { class: CharacterClass::Fighter }).unwrap();
 
             // Give starting equipment: Longsword, Shield, Chainmail
-            let starting_items = ["Torch", "Health Potion", "Longsword", "Shield", "Chainmail"];
+            let starting_items = ["Chainmail", "Shield", "Torch", "Longsword", "Health Potion"];
             for item_name in starting_items {
                 if let Some(item_raw) = self
                     .content

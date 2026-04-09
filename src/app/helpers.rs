@@ -87,7 +87,7 @@ let dodge_dc = 10 + dex_mod;
 
         if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
             let old_max = stats.max_hp;
-            stats.max_hp = 22 + (level * 8) + (level * con_mod);
+            stats.max_hp = 16 + (level * 8) + (level * con_mod);
             let diff = stats.max_hp - old_max;
             if diff > 0 {
                 stats.hp += diff;
@@ -152,6 +152,7 @@ let dodge_dc = 10 + dex_mod;
         }
 
         self.world.insert_one(player_id, light_to_apply).ok();
+        self.update_fov();
     }
 
     pub fn add_player_xp(&mut self, xp: i32) {

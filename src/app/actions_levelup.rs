@@ -114,9 +114,9 @@ mod tests {
             let attr = app.world.get::<&Attributes>(player).unwrap();
             assert_eq!(attr.constitution, 11);
             // CON mod is still 0 at 11.
-            // recalculate_max_hp: 22 + (1 * 8) + (1 * 0) = 30
+            // recalculate_max_hp: 16 + (1 * 8) + (1 * 0) = 24
             let stats = app.world.get::<&CombatStats>(player).unwrap();
-            assert_eq!(stats.max_hp, 30);
+            assert_eq!(stats.max_hp, 24);
         }
 
         // Increase CON to 12 (mod 1)
@@ -126,9 +126,9 @@ mod tests {
             let attr = app.world.get::<&Attributes>(player).unwrap();
             assert_eq!(attr.constitution, 12);
             // CON mod is now 1.
-            // recalculate_max_hp: 22 + (1 * 8) + (1 * 1) = 31
+            // recalculate_max_hp: 16 + (1 * 8) + (1 * 1) = 25
             let stats = app.world.get::<&CombatStats>(player).unwrap();
-            assert_eq!(stats.max_hp, 31);
+            assert_eq!(stats.max_hp, 25);
         }
     }
 }

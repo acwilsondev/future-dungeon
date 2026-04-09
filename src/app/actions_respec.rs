@@ -142,6 +142,9 @@ mod tests {
         {
             let attr = app.world.get::<&Attributes>(player).unwrap();
             assert_eq!(attr.constitution, 15); // 14 + 1
+            // Recalculate: 16 + (3 * 8) + (3 * 2) = 16 + 24 + 6 = 46
+            let stats = app.world.get::<&CombatStats>(player).unwrap();
+            assert_eq!(stats.max_hp, 46);
         }
     }
 }
