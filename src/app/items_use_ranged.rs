@@ -67,7 +67,12 @@ impl App {
 
             let mut flash_pos = None;
             if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) {
-                stats.hp -= damage;
+                let is_player = self.world.get::<&Player>(target_id).is_ok();
+                if !is_player || !self.god_mode {
+                    stats.hp -= damage;
+                } else {
+                    self.log.push("Debug: Player is in God Mode! No AOE damage taken.".to_string());
+                }
                 if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
                     flash_pos = Some(*t_pos);
                 }
@@ -110,8 +115,11 @@ impl App {
         }
         self.generate_noise(actual_target.0, actual_target.1, 4.0);
         for target_id in targets {
+            let is_player = self.world.get::<&Player>(target_id).is_ok();
             if let Some(turns) = confusion {
-                if !self.make_saving_throw(target_id, 14, SavingThrowKind::Intelligence) {
+                if is_player && self.god_mode {
+                    // Skip
+                } else if !self.make_saving_throw(target_id, 14, SavingThrowKind::Intelligence) {
                     self.log.push(format!(
                         "The {} is confused by the {}!",
                         self.get_entity_name(target_id),
@@ -126,7 +134,9 @@ impl App {
                 }
             }
             if let Some(p) = poison {
-                if !self.make_saving_throw(target_id, 14, SavingThrowKind::Constitution) {
+                if is_player && self.god_mode {
+                    // Skip
+                } else if !self.make_saving_throw(target_id, 14, SavingThrowKind::Constitution) {
                     self.log.push(format!(
                         "The {} is poisoned by the {}!",
                         self.get_entity_name(target_id),

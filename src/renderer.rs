@@ -543,6 +543,8 @@ pub fn render(app: &App, frame: &mut Frame) {
         render_help(app, frame);
     } else if app.state == RunState::ShowResetShrine {
         render_respec(app, frame);
+    } else if app.state == RunState::ShowDebugConsole {
+        render_debug_console(app, frame);
     } else if app.state == RunState::Dead {
         render_death_screen(app, frame);
     } else if app.state == RunState::ShowClassSelection {
@@ -764,6 +766,33 @@ fn render_respec(app: &App, frame: &mut Frame) {
         area,
         &mut state,
     );
+}
+
+fn render_debug_console(app: &App, frame: &mut Frame) {
+    let area = centered_rect(60, 10, frame.size());
+    frame.render_widget(Clear, area);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Debug Console ");
+
+    let inner_area = block.inner(area);
+    frame.render_widget(block, area);
+
+    let text = vec![
+        Line::from(vec![
+            Span::styled("> ", Style::default().fg(Color::Yellow)),
+            Span::raw(&app.debug_console_buffer),
+            Span::styled("_", Style::default().fg(Color::White).add_modifier(Modifier::SLOW_BLINK)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Commands: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw("help, spawn [name], teleport [lvl], heal, reveal, levelup, god"),
+        ]),
+    ];
+
+    let paragraph = Paragraph::new(text);
+    frame.render_widget(paragraph, inner_area);
 }
 
 fn render_level_up(app: &App, frame: &mut Frame) {

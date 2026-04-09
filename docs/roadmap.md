@@ -37,6 +37,7 @@ t = tech debt
 
 - Inspect items/creatures with a Look action.
 - Game should log when you step on an item or dungeon feature.
+- Combat log should be state when an offhand attack is made.
 
 ## Completed
 

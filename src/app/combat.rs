@@ -293,13 +293,21 @@ impl App {
         });
 
         if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target) {
-            stats.hp -= res.damage;
+            let is_player = self.world.get::<&Player>(target).is_ok();
+            if !is_player || !self.god_mode {
+                stats.hp -= res.damage;
+            } else {
+                self.log.push("Debug: Player is in God Mode! No damage taken.".to_string());
+            }
         }
 
         // Apply status effects
         if let Some(poison) = res.poison {
             if self.world.get::<&Poison>(target).is_err() {
-                if !self.make_saving_throw(target, 12, SavingThrowKind::Constitution) {
+                let is_player = self.world.get::<&Player>(target).is_ok();
+                if is_player && self.god_mode {
+                    // Skip
+                } else if !self.make_saving_throw(target, 12, SavingThrowKind::Constitution) {
                     self.log.push(format!("{} is poisoned!", res.target_name));
                     let _ = self.world.insert_one(target, poison);
                 } else {

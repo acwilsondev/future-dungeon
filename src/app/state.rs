@@ -16,6 +16,7 @@ pub enum RunState {
     ShowIdentify,
     ShowAlchemy,
     ShowResetShrine,
+    ShowDebugConsole,
     Dead,
     Victory,
 }

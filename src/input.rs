@@ -24,6 +24,7 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
             KeyCode::Char('b') => Some(Action::OpenBestiary),
             KeyCode::Enter => Some(Action::TryLevelTransition),
             KeyCode::Char('f') => Some(Action::Target),
+            KeyCode::Char('`') | KeyCode::Char('~') => Some(Action::ToggleDebugConsole),
             KeyCode::Char(' ') | KeyCode::Char('.') => Some(Action::Wait),
             _ => None,
         },
@@ -53,6 +54,13 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
             KeyCode::Up | KeyCode::Char('k') => Some(Action::MovePlayer(0, -1)),
             KeyCode::Down | KeyCode::Char('j') => Some(Action::MovePlayer(0, 1)),
             KeyCode::Enter => Some(Action::MenuSelect),
+            _ => None,
+        },
+        RunState::ShowDebugConsole => match key.code {
+            KeyCode::Enter => Some(Action::SubmitCommand),
+            KeyCode::Backspace => Some(Action::Backspace),
+            KeyCode::Char('`') | KeyCode::Char('~') | KeyCode::Esc => Some(Action::ToggleDebugConsole),
+            KeyCode::Char(c) => Some(Action::TypeChar(c)),
             _ => None,
         },
         RunState::ShowHelp => match key.code {

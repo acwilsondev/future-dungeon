@@ -163,7 +163,7 @@ impl App {
 
                 let poison_effect = self.world.get::<&Poison>(id).ok().map(|p| *p);
                 if let Some(poison) = poison_effect {
-                    if self.world.get::<&Poison>(player_id).is_err() {
+                    if self.world.get::<&Poison>(player_id).is_err() && !self.god_mode {
                         if !self.make_saving_throw(player_id, 13, SavingThrowKind::Constitution) {
                             poisons_to_apply.push(poison);
                         } else {
@@ -175,13 +175,17 @@ impl App {
         }
 
         if total_damage > 0 {
-            self.log
-                .push(format!("A trap deals {} damage to you!", total_damage));
-            if let Ok(mut player_stats) = self.world.get::<&mut CombatStats>(player_id) {
-                player_stats.hp -= total_damage;
-                if player_stats.hp <= 0 {
-                    self.death = true;
-                    self.state = RunState::Dead;
+            if self.god_mode {
+                self.log.push("Debug: Player is in God Mode! No trap damage taken.".to_string());
+            } else {
+                self.log
+                    .push(format!("A trap deals {} damage to you!", total_damage));
+                if let Ok(mut player_stats) = self.world.get::<&mut CombatStats>(player_id) {
+                    player_stats.hp -= total_damage;
+                    if player_stats.hp <= 0 {
+                        self.death = true;
+                        self.state = RunState::Dead;
+                    }
                 }
             }
         }

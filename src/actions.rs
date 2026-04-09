@@ -18,4 +18,10 @@ pub enum Action {
 
     Wait,
     Target,
+
+    // Debug Console
+    ToggleDebugConsole,
+    TypeChar(char),
+    Backspace,
+    SubmitCommand,
 }

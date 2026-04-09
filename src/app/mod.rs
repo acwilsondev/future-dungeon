@@ -83,6 +83,10 @@ pub struct App {
     pub alchemy_selection: Vec<hecs::Entity>,
     #[serde(skip)]
     pub fps: f64,
+    #[serde(skip)]
+    pub debug_console_buffer: String,
+    #[serde(skip)]
+    pub god_mode: bool,
 
     // Persistence/State
     pub identified_items: std::collections::HashSet<String>,
@@ -136,6 +140,8 @@ impl App {
             log_cursor: 0,
             alchemy_selection: Vec::new(),
             fps: 0.0,
+            debug_console_buffer: String::new(),
+            god_mode: false,
             identified_items: std::collections::HashSet::new(),
             encountered_monsters: std::collections::HashSet::new(),
             bestiary_cursor: 0,
@@ -175,6 +181,8 @@ impl App {
             log_cursor: 0,
             alchemy_selection: Vec::new(),
             fps: 0.0,
+            debug_console_buffer: String::new(),
+            god_mode: false,
             identified_items: std::collections::HashSet::new(),
             encountered_monsters: std::collections::HashSet::new(),
             bestiary_cursor: 0,
