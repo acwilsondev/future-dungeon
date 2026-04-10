@@ -487,6 +487,11 @@ fn draw_message_log(app: &App, frame: &mut Frame, area: RatatuiRect) {
 }
 
 pub fn render(app: &App, frame: &mut Frame) {
+    if app.state == RunState::MainMenu {
+        render_main_menu(app, frame);
+        return;
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(6)])
@@ -737,6 +742,84 @@ fn render_shop(app: &App, frame: &mut Frame) {
             &mut state,
         );
     }
+}
+
+fn render_main_menu(app: &App, frame: &mut Frame) {
+    let area = frame.size();
+    let buffer = frame.buffer_mut();
+
+    // 1. Draw animated background
+    for star in &app.stars {
+        let sx = star.x as u16;
+        let sy = star.y as u16;
+        if sx < area.width && sy < area.height {
+            let color = Color::Rgb(star.brightness, star.brightness, star.brightness);
+            buffer.get_mut(sx, sy).set_char('*').set_fg(color);
+        }
+    }
+
+    // 2. Center layout
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage(20), // Top padding
+            Constraint::Length(14),     // Title (increased from 12)
+            Constraint::Min(0),         // Options
+            Constraint::Length(2),      // Bottom credits
+        ])
+        .split(area);
+
+    // 3. ASCII Title
+    let title = vec![
+        Line::from(Span::styled("  ______ _    _ _______ _    _ _____  ______ ", Style::default().fg(Color::Rgb(0, 245, 212)))),
+        Line::from(Span::styled(" |  ____| |  | |__   __| |  | |  __ \\|  ____|", Style::default().fg(Color::Rgb(0, 245, 212)))),
+        Line::from(Span::styled(" | |__  | |  | |  | |  | |  | | |__) | |__   ", Style::default().fg(Color::Rgb(0, 187, 249)))),
+        Line::from(Span::styled(" |  __| | |  | |  | |  | |  | |  _  /|  __|  ", Style::default().fg(Color::Rgb(0, 187, 249)))),
+        Line::from(Span::styled(" | |    | |__| |  | |  | |__| | | \\ \\| |____ ", Style::default().fg(Color::Rgb(155, 93, 229)))),
+        Line::from(Span::styled(" |_|     \\____/   |_|   \\____/|_|  \\_\\______|", Style::default().fg(Color::Rgb(155, 93, 229)))),
+        Line::from(""),
+        Line::from(Span::styled("  _____  _    _ _   _  _____  ______  ____  _   _ ", Style::default().fg(Color::Rgb(241, 91, 181)))),
+        Line::from(Span::styled(" |  __ \\| |  | | \\ | |/ ____||  ____|/ __ \\| \\ | |", Style::default().fg(Color::Rgb(241, 91, 181)))),
+        Line::from(Span::styled(" | |  | | |  | |  \\| | |  __ | |__  | |  | |  \\| |", Style::default().fg(Color::Rgb(0, 187, 249)))),
+        Line::from(Span::styled(" | |  | | |  | | . ` | | |_ ||  __| | |  | | . ` |", Style::default().fg(Color::Rgb(0, 187, 249)))),
+        Line::from(Span::styled(" | |__| | |__| | |\\  | |__| || |____| |__| | |\\  |", Style::default().fg(Color::Rgb(0, 245, 212)))),
+        Line::from(Span::styled(" |_____/ \\____/|_| \\_|\\_____||______| \\____/|_| \\_|", Style::default().fg(Color::Rgb(0, 245, 212)))),
+    ];
+    let title_para = Paragraph::new(title).alignment(Alignment::Center);
+    frame.render_widget(title_para, main_layout[1]);
+
+    // 4. Menu Options
+    let has_save = crate::persistence::has_save_game();
+    let mut options = vec!["New Game"];
+    if has_save {
+        options.push("Load Game");
+    }
+    options.push("Exit");
+
+    let list_items: Vec<ListItem> = options
+        .iter()
+        .enumerate()
+        .map(|(i, &opt)| {
+            let mut style = Style::default().fg(Color::White);
+            if i == app.main_menu_cursor {
+                style = style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
+            }
+            // Add padding spaces for manual alignment
+            ListItem::new(Span::styled(format!("          [ {} ]          ", opt), style))
+        })
+        .collect();
+
+    let options_list = List::new(list_items);
+    
+    // Vertical centering for options
+    let options_area = centered_rect(60, 80, main_layout[2]);
+    frame.render_widget(options_list, options_area);
+
+    // 5. Credits
+    let credits = Paragraph::new("Created by Aaron Wilson")
+        .alignment(Alignment::Center)
+        .style(Style::default().fg(Color::DarkGray));
+    frame.render_widget(credits, main_layout[3]);
 }
 
 fn render_respec(app: &App, frame: &mut Frame) {

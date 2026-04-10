@@ -20,11 +20,8 @@ use std::time::{Duration, Instant};
 fn main() -> Result<()> {
     let mut engine = Engine::new()?;
 
-    // Try to load an existing game, otherwise start a new one
-    let mut app = match persistence::load_game() {
-        Ok(Some(app)) => app,
-        _ => App::new(),
-    };
+    // Always start at the Main Menu
+    let mut app = App::new();
 
     let mut last_frame = Instant::now();
 
@@ -61,8 +58,8 @@ fn main() -> Result<()> {
         }
     }
 
-    // Save game on exit if the player is still alive
-    if !app.death && app.exit {
+    // Save game on exit if the player is still alive and was actually playing
+    if !app.death && app.exit && app.state != RunState::MainMenu && app.state != RunState::ShowClassSelection {
         persistence::save_game(app)?;
     } else if app.death {
         persistence::delete_save();

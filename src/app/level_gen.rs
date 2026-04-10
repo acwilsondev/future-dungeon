@@ -286,8 +286,8 @@ mod tests {
     #[test]
     fn test_starting_equipment() {
         let mut app = App::new_random();
+        app.generate_level(Vec::new());
         app.apply_class_selection();
-        // App::new_random calls generate_level(Vec::new()) which should spawn starting items
 
         let mut player_query = app.world.query::<&Player>();
         let (player_id, _) = player_query.iter().next().expect("Player not spawned");

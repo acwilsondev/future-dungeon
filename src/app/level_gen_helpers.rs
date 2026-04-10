@@ -18,7 +18,7 @@ impl App {
             mb.stairs_up.1,
             false,
             (
-                self.dungeon_level.saturating_sub(1).max(1),
+                self.dungeon_level.saturating_sub(1),
                 self.current_branch,
             ),
         );

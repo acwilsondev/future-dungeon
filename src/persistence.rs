@@ -5,6 +5,10 @@ use std::path::Path;
 
 const SAVE_FILE: &str = "savegame.json";
 
+pub fn has_save_game() -> bool {
+    Path::new(SAVE_FILE).exists()
+}
+
 pub fn save_game(mut app: App) -> Result<()> {
     app.pack_entities();
     let json = serde_json::to_string(&app)?;

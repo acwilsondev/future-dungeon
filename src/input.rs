@@ -56,6 +56,13 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
             KeyCode::Enter => Some(Action::MenuSelect),
             _ => None,
         },
+        RunState::MainMenu => match key.code {
+            KeyCode::Up | KeyCode::Char('k') => Some(Action::MenuUp),
+            KeyCode::Down | KeyCode::Char('j') => Some(Action::MenuDown),
+            KeyCode::Enter => Some(Action::MenuSelect),
+            KeyCode::Esc | KeyCode::Char('q') => Some(Action::Quit),
+            _ => None,
+        },
         RunState::ShowDebugConsole => match key.code {
             KeyCode::Enter => Some(Action::SubmitCommand),
             KeyCode::Backspace => Some(Action::Backspace),

@@ -39,6 +39,14 @@ mod world_update;
 pub use snapshot::EntitySnapshot;
 pub use state::{default_runstate, MonsterAction, RunState, VisualEffect};
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Star {
+    pub x: f64,
+    pub y: f64,
+    pub speed: f64,
+    pub brightness: u8,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct App {
     pub exit: bool,
@@ -55,6 +63,10 @@ pub struct App {
     pub current_branch: Branch,
     #[serde(skip, default = "default_runstate")]
     pub state: RunState,
+    #[serde(skip)]
+    pub main_menu_cursor: usize,
+    #[serde(skip)]
+    pub stars: Vec<Star>,
     #[serde(skip)]
     pub class_selection: usize,
     #[serde(skip)]
@@ -125,7 +137,9 @@ impl App {
             log: vec!["Welcome to RustLike!".to_string()],
             dungeon_level: 1,
             current_branch: Branch::Main,
-            state: RunState::ShowClassSelection,
+            state: RunState::MainMenu,
+            main_menu_cursor: 0,
+            stars: Vec::new(),
             class_selection: 0,
             inventory_cursor: 0,
             targeting_cursor: (0, 0),
@@ -151,7 +165,7 @@ impl App {
             rng: ChaCha8Rng::seed_from_u64(seed),
             content: Content::load(),
         };
-        app.generate_level(Vec::new());
+        app.init_stars();
         app
     }
 
@@ -166,7 +180,9 @@ impl App {
             log: vec!["Welcome to RustLike!".to_string()],
             dungeon_level: 1,
             current_branch: Branch::Main,
-            state: RunState::ShowClassSelection,
+            state: RunState::MainMenu,
+            main_menu_cursor: 0,
+            stars: Vec::new(),
             class_selection: 0,
             inventory_cursor: 0,
             targeting_cursor: (0, 0),
@@ -194,5 +210,3 @@ impl App {
         }
     }
 }
-
-

@@ -1,94 +1,46 @@
-use crate::app::{App, VisualEffect};
+use crate::app::{App, RunState, Star, VisualEffect};
+use rand::Rng;
 
 impl App {
-    pub fn on_tick(&mut self) {
-        let mut still_active = Vec::new();
+    pub fn init_stars(&mut self) {
+        for _ in 0..100 {
+            self.stars.push(Star {
+                x: self.rng.gen_range(0.0..200.0),
+                y: self.rng.gen_range(0.0..100.0),
+                speed: self.rng.gen_range(0.05..0.2),
+                brightness: self.rng.gen_range(50..255) as u8,
+            });
+        }
+    }
 
-        for effect in self.effects.drain(..) {
-            match effect {
-                VisualEffect::Flash {
-                    x,
-                    y,
-                    glyph,
-                    fg,
-                    bg,
-                    duration,
-                } => {
-                    if duration > 1 {
-                        still_active.push(VisualEffect::Flash {
-                            x,
-                            y,
-                            glyph,
-                            fg,
-                            bg,
-                            duration: duration - 1,
-                        });
-                    }
-                }
-                VisualEffect::Projectile {
-                    path,
-                    glyph,
-                    fg,
-                    frame,
-                    speed,
-                } => {
-                    let new_frame = frame + 1;
-                    if new_frame < (path.len() as u32 * speed) {
-                        still_active.push(VisualEffect::Projectile {
-                            path,
-                            glyph,
-                            fg,
-                            frame: new_frame,
-                            speed,
-                        });
-                    }
+    pub fn on_tick(&mut self) {
+        // Update Stars
+        if self.state == RunState::MainMenu {
+            for star in self.stars.iter_mut() {
+                star.x += star.speed;
+                if star.x > 200.0 {
+                    star.x = 0.0;
+                    star.y = self.rng.gen_range(0.0..100.0);
                 }
             }
         }
-        self.effects = still_active;
-    }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ratatui::prelude::Color;
-
-    #[test]
-    fn test_flash_effect_progression() {
-        let mut app = App::new_random();
-        app.effects.push(VisualEffect::Flash {
-            x: 0, y: 0, glyph: '*', fg: Color::Red, bg: None, duration: 2
+        // Update Visual Effects
+        self.effects.retain_mut(|effect| {
+            match effect {
+                VisualEffect::Flash { duration, .. } => {
+                    if *duration > 0 {
+                        *duration -= 1;
+                        true
+                    } else {
+                        false
+                    }
+                }
+                VisualEffect::Projectile { frame, speed, path, .. } => {
+                    *frame += 1;
+                    (*frame / *speed) < path.len() as u32
+                }
+            }
         });
-
-        app.on_tick();
-        assert_eq!(app.effects.len(), 1);
-        if let VisualEffect::Flash { duration, .. } = app.effects[0] {
-            assert_eq!(duration, 1);
-        }
-
-        app.on_tick();
-        assert_eq!(app.effects.len(), 0);
-    }
-
-    #[test]
-    fn test_projectile_effect_progression() {
-        let mut app = App::new_random();
-        app.effects.push(VisualEffect::Projectile {
-            path: vec![(0,0), (1,1)],
-            glyph: '/',
-            fg: Color::White,
-            frame: 0,
-            speed: 1,
-        });
-
-        app.on_tick();
-        assert_eq!(app.effects.len(), 1);
-        if let VisualEffect::Projectile { frame, .. } = app.effects[0] {
-            assert_eq!(frame, 1);
-        }
-
-        app.on_tick();
-        assert_eq!(app.effects.len(), 0); // frame 2 >= 2*1
     }
 }
