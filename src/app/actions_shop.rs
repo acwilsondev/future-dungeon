@@ -122,14 +122,16 @@ mod tests {
     #[test]
     fn test_shop_buy_item() {
         let mut app = setup_test_app();
-        let player = app.world.spawn((Player, Gold { amount: 100 }, Position { x: 0, y: 0 }));
+        let player = app
+            .world
+            .spawn((Player, Gold { amount: 100 }, Position { x: 0, y: 0 }));
         let merchant = app.world.spawn((Merchant,));
         app.active_merchant = Some(merchant);
         let item = app.world.spawn((
             Item,
             InBackpack { owner: merchant },
             ItemValue { price: 50 },
-            Name("Shiny Sword".to_string())
+            Name("Shiny Sword".to_string()),
         ));
 
         app.shop_mode = 0;
@@ -145,14 +147,16 @@ mod tests {
     #[test]
     fn test_shop_buy_item_fail_no_gold() {
         let mut app = setup_test_app();
-        let _player = app.world.spawn((Player, Gold { amount: 10 }, Position { x: 0, y: 0 }));
+        let _player = app
+            .world
+            .spawn((Player, Gold { amount: 10 }, Position { x: 0, y: 0 }));
         let merchant = app.world.spawn((Merchant,));
         app.active_merchant = Some(merchant);
         let item = app.world.spawn((
             Item,
             InBackpack { owner: merchant },
             ItemValue { price: 50 },
-            Name("Expensive Sword".to_string())
+            Name("Expensive Sword".to_string()),
         ));
 
         app.shop_mode = 0;
@@ -166,12 +170,14 @@ mod tests {
     #[test]
     fn test_shop_sell_item() {
         let mut app = setup_test_app();
-        let player = app.world.spawn((Player, Gold { amount: 0 }, Position { x: 0, y: 0 }));
+        let player = app
+            .world
+            .spawn((Player, Gold { amount: 0 }, Position { x: 0, y: 0 }));
         let item = app.world.spawn((
             Item,
             InBackpack { owner: player },
             ItemValue { price: 50 },
-            Name("Old Boots".to_string())
+            Name("Old Boots".to_string()),
         ));
 
         app.shop_mode = 1; // Sell mode

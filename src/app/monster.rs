@@ -125,8 +125,20 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 50, max_hp: 50, defense: 0, power: 5 },
+            Attributes {
+                strength: 10,
+                dexterity: 1,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 50,
+                max_hp: 50,
+                defense: 0,
+                power: 5,
+            },
             Gold { amount: 0 },
             Faction(FactionKind::Player),
         ));
@@ -134,8 +146,20 @@ mod tests {
             Monster,
             Name("Orc".to_string()),
             Position { x: 11, y: 10 },
-            Attributes { strength: 30, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 3 },
+            Attributes {
+                strength: 30,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 3,
+            },
             Viewshed { visible_tiles: 8 },
             AlertState::Aggressive,
             Faction(FactionKind::Orcs),
@@ -161,7 +185,12 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
+            CombatStats {
+                hp: 20,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
             Speed { turns: 5 },
             Gold { amount: 0 },
             Faction(FactionKind::Player),
@@ -186,8 +215,20 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 50, max_hp: 50, defense: 0, power: 5 },
+            Attributes {
+                strength: 10,
+                dexterity: 1,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 50,
+                max_hp: 50,
+                defense: 0,
+                power: 5,
+            },
             Gold { amount: 0 },
             Faction(FactionKind::Player),
         ));
@@ -195,14 +236,25 @@ mod tests {
             Monster,
             Name("Orc".to_string()),
             Position { x: 11, y: 10 },
-            Attributes { strength: 30, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 3 },
+            Attributes {
+                strength: 30,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 3,
+            },
             Viewshed { visible_tiles: 8 },
             AlertState::Aggressive,
             Faction(FactionKind::Orcs),
             AIPersonality(Personality::Brave),
         ));
-
 
         app.monster_turn();
 

@@ -59,7 +59,11 @@ fn main() -> Result<()> {
     }
 
     // Save game on exit if the player is still alive and was actually playing
-    if !app.death && app.exit && app.state != RunState::MainMenu && app.state != RunState::ShowClassSelection {
+    if !app.death
+        && app.exit
+        && app.state != RunState::MainMenu
+        && app.state != RunState::ShowClassSelection
+    {
         persistence::save_game(app)?;
     } else if app.death {
         persistence::delete_save();

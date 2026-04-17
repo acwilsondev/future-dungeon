@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    name: Build and Release Binary
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: rustlike
+            asset_name: rustlike-linux-amd64
+          - os: windows-latest
+            artifact_name: rustlike.exe
+            asset_name: rustlike-windows-amd64.exe
+          - os: macos-latest
+            artifact_name: rustlike
+            asset_name: rustlike-macos-amd64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build for release
+        run: cargo build --release
+
+      - name: Rename artifacts
+        shell: bash
+        run: |
+          mv target/release/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+
+      - name: Upload binaries to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ matrix.asset_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

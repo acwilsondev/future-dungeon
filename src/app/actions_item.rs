@@ -150,15 +150,20 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            CombatStats { hp: 5, max_hp: 20, defense: 0, power: 5 },
-            Position { x: 0, y: 0 }
+            CombatStats {
+                hp: 5,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
+            Position { x: 0, y: 0 },
         ));
         let potion = app.world.spawn((
             Item,
             Name("Health Potion".to_string()),
             Potion { heal_amount: 10 },
             Consumable,
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
 
         app.inventory_cursor = 0;
@@ -211,12 +216,26 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            Attributes { strength: 10, dexterity: 50, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 50,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
         ));
         let monster = app.world.spawn((
             Monster,
             Position { x: 12, y: 10 },
-            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 1,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 100,
                 max_hp: 100,
@@ -239,7 +258,7 @@ mod tests {
                 damage_n_dice: 0,
                 damage_die_type: 0,
                 two_handed: false,
-            }
+            },
         ));
 
         app.targeting_item = Some(wand);

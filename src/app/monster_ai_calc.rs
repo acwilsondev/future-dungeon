@@ -47,9 +47,9 @@ impl App {
             for (other_id, (other_pos, other_faction)) in
                 self.world.query::<(&Position, &Faction)>().iter()
             {
-                if id == other_id 
-                    || self.world.get::<&Wisp>(other_id).is_ok() 
-                    || self.world.get::<&AlchemyStation>(other_id).is_ok() 
+                if id == other_id
+                    || self.world.get::<&Wisp>(other_id).is_ok()
+                    || self.world.get::<&AlchemyStation>(other_id).is_ok()
                 {
                     continue;
                 }
@@ -73,19 +73,24 @@ impl App {
         target
     }
 
-    fn decide_ai_action(
-        &self,
-        ctx: MonsterAIContext,
-    ) -> Option<MonsterAction> {
+    fn decide_ai_action(&self, ctx: MonsterAIContext) -> Option<MonsterAction> {
         // Check for flee
-        if (!ctx.is_merchant) && (
-            (ctx.personality == Personality::Cowardly && ctx.stats.hp < ctx.stats.max_hp / 2)
-            || (ctx.personality == Personality::Tactical && ctx.dist < 4.0)
-        ) {
+        if (!ctx.is_merchant)
+            && ((ctx.personality == Personality::Cowardly && ctx.stats.hp < ctx.stats.max_hp / 2)
+                || (ctx.personality == Personality::Tactical && ctx.dist < 4.0))
+        {
             let mut dx = 0;
             let mut dy = 0;
-            if ctx.pos.x < ctx.target_pos.x { dx = -1; } else if ctx.pos.x > ctx.target_pos.x { dx = 1; }
-            if ctx.pos.y < ctx.target_pos.y { dy = -1; } else if ctx.pos.y > ctx.target_pos.y { dy = 1; }
+            if ctx.pos.x < ctx.target_pos.x {
+                dx = -1;
+            } else if ctx.pos.x > ctx.target_pos.x {
+                dx = 1;
+            }
+            if ctx.pos.y < ctx.target_pos.y {
+                dy = -1;
+            } else if ctx.pos.y > ctx.target_pos.y {
+                dy = 1;
+            }
             return Some(MonsterAction::Move(dx, dy));
         }
 
@@ -122,8 +127,16 @@ impl App {
         if !ctx.is_merchant {
             let mut dx = 0;
             let mut dy = 0;
-            if ctx.pos.x < ctx.target_pos.x { dx = 1; } else if ctx.pos.x > ctx.target_pos.x { dx = -1; }
-            if ctx.pos.y < ctx.target_pos.y { dy = 1; } else if ctx.pos.y > ctx.target_pos.y { dy = -1; }
+            if ctx.pos.x < ctx.target_pos.x {
+                dx = 1;
+            } else if ctx.pos.x > ctx.target_pos.x {
+                dx = -1;
+            }
+            if ctx.pos.y < ctx.target_pos.y {
+                dy = 1;
+            } else if ctx.pos.y > ctx.target_pos.y {
+                dy = -1;
+            }
             return Some(MonsterAction::Move(dx, dy));
         }
 
@@ -162,8 +175,15 @@ impl App {
         }
 
         let is_merchant = self.world.get::<&Merchant>(id).is_ok();
-        
-        let target = self.find_ai_target(id, player_id, faction, viewshed.try_into().unwrap_or(0), pos, alert);
+
+        let target = self.find_ai_target(
+            id,
+            player_id,
+            faction,
+            viewshed.try_into().unwrap_or(0),
+            pos,
+            alert,
+        );
 
         if let Some((target_id, target_pos, dist)) = target {
             let ctx = MonsterAIContext {

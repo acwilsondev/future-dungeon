@@ -32,11 +32,8 @@ impl App {
                         } else {
                             "Goblin"
                         };
-                        let minion_raw = self
-                            .content
-                            .monsters
-                            .iter()
-                            .find(|m| m.name == minion_name);
+                        let minion_raw =
+                            self.content.monsters.iter().find(|m| m.name == minion_name);
                         if let Some(minion_raw) = minion_raw {
                             for (dx, dy) in &[(-1, -1), (1, -1), (-1, 1), (1, 1)] {
                                 let (mx, my) = (
@@ -96,8 +93,13 @@ mod tests {
                     triggered: false,
                 }],
             },
-            CombatStats { hp: 15, max_hp: 20, defense: 0, power: 5 },
-            Name("Test Boss".to_string())
+            CombatStats {
+                hp: 15,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
+            Name("Test Boss".to_string()),
         ));
 
         // Not triggered yet
@@ -155,9 +157,14 @@ mod tests {
                     triggered: false,
                 }],
             },
-            CombatStats { hp: 5, max_hp: 20, defense: 0, power: 5 },
+            CombatStats {
+                hp: 5,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
             Position { x: 10, y: 10 },
-            Name("Goblin King".to_string())
+            Name("Goblin King".to_string()),
         ));
 
         app.process_boss_phases(boss);

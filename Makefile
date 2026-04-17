@@ -1,4 +1,34 @@
-.PHONY: harden
+.PHONY: all build run test lint clean harden help
+
+# Default target
+all: build test lint
+
+## Build the project
+build:
+	@echo "--- BUILDING ---"
+	@cargo build
+
+## Run the project
+run:
+	@cargo run
+
+## Run tests
+test:
+	@echo "--- TESTING ---"
+	@cargo test
+
+## Run lints (clippy and fmt)
+lint:
+	@echo "--- LINTING ---"
+	@cargo fmt --all -- --check
+	@cargo clippy -- -D warnings
+
+## Clean build artifacts
+clean:
+	@echo "--- CLEANING ---"
+	@cargo clean
+
+## Run all hardening and quality checks
 harden:
 	@echo "--- HARDENING METRICS ---"
 	@echo "1. Cognitive Complexity (Clippy)"
@@ -19,3 +49,14 @@ harden:
 		echo "Tarpaulin not installed. Install with 'cargo install cargo-tarpaulin'."; \
 	fi
 	@echo "--------------------------"
+
+## Show help
+help:
+	@echo "Available targets:"
+	@echo "  build   - Build the project"
+	@echo "  run     - Run the project"
+	@echo "  test    - Run tests"
+	@echo "  lint    - Run lints (fmt and clippy)"
+	@echo "  clean   - Clean build artifacts"
+	@echo "  harden  - Run comprehensive quality checks"
+	@echo "  all     - build, test, and lint"

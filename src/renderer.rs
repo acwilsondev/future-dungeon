@@ -91,7 +91,12 @@ fn get_tile_render_data(app: &App, idx: usize, is_visible: bool) -> (&'static st
     }
 }
 
-fn draw_tiles(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect, camera: (i32, i32)) {
+fn draw_tiles(
+    app: &App,
+    buffer: &mut ratatui::buffer::Buffer,
+    area: RatatuiRect,
+    camera: (i32, i32),
+) {
     let (camera_x, camera_y) = camera;
     let view_w = area.width as i32;
     let view_h = area.height as i32;
@@ -130,7 +135,12 @@ fn draw_tiles(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect
     }
 }
 
-fn draw_entities(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect, camera: (i32, i32)) {
+fn draw_entities(
+    app: &App,
+    buffer: &mut ratatui::buffer::Buffer,
+    area: RatatuiRect,
+    camera: (i32, i32),
+) {
     let (camera_x, camera_y) = camera;
     let view_w = area.width as i32;
     let view_h = area.height as i32;
@@ -177,7 +187,12 @@ fn draw_entities(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiR
     }
 }
 
-fn draw_effects(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect, camera: (i32, i32)) {
+fn draw_effects(
+    app: &App,
+    buffer: &mut ratatui::buffer::Buffer,
+    area: RatatuiRect,
+    camera: (i32, i32),
+) {
     let (camera_x, camera_y) = camera;
     let view_w = area.width as i32;
     let view_h = area.height as i32;
@@ -233,7 +248,13 @@ fn draw_effects(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRe
     }
 }
 
-fn draw_targeting_line(app: &App, buffer: &mut ratatui::buffer::Buffer, area: RatatuiRect, camera: (i32, i32), player_pos: &Position) {
+fn draw_targeting_line(
+    app: &App,
+    buffer: &mut ratatui::buffer::Buffer,
+    area: RatatuiRect,
+    camera: (i32, i32),
+    player_pos: &Position,
+) {
     let (camera_x, camera_y) = camera;
     let view_w = area.width as i32;
     let view_h = area.height as i32;
@@ -328,7 +349,9 @@ fn draw_sidebar(
         sidebar_layout[1],
     );
 
-    let Some(player_id) = app.get_player_id() else { return; };
+    let Some(player_id) = app.get_player_id() else {
+        return;
+    };
 
     let attr_text = if let Ok(attr) = app.world.get::<&Attributes>(player_id) {
         format!(
@@ -521,7 +544,9 @@ pub fn render(app: &App, frame: &mut Frame) {
     });
 
     let mut player_query = app.world.query::<(&Position, &Player, &CombatStats)>();
-    let Some((_, (player_pos, _, player_stats))) = player_query.iter().next() else { return; };
+    let Some((_, (player_pos, _, player_stats))) = player_query.iter().next() else {
+        return;
+    };
 
     let view_w = inner_map.width as i32;
     let view_h = inner_map.height as i32;
@@ -680,7 +705,9 @@ fn render_shop(app: &App, frame: &mut Frame) {
     let area = centered_rect(70, 70, frame.size());
     frame.render_widget(Clear, area);
 
-    let Some(player_id) = app.get_player_id() else { return; };
+    let Some(player_id) = app.get_player_id() else {
+        return;
+    };
     let player_gold = app
         .world
         .get::<&Gold>(player_id)
@@ -771,19 +798,55 @@ fn render_main_menu(app: &App, frame: &mut Frame) {
 
     // 3. ASCII Title
     let title = vec![
-        Line::from(Span::styled("  ______ _    _ _______ _    _ _____  ______ ", Style::default().fg(Color::Rgb(0, 245, 212)))),
-        Line::from(Span::styled(" |  ____| |  | |__   __| |  | |  __ \\|  ____|", Style::default().fg(Color::Rgb(0, 245, 212)))),
-        Line::from(Span::styled(" | |__  | |  | |  | |  | |  | | |__) | |__   ", Style::default().fg(Color::Rgb(0, 187, 249)))),
-        Line::from(Span::styled(" |  __| | |  | |  | |  | |  | |  _  /|  __|  ", Style::default().fg(Color::Rgb(0, 187, 249)))),
-        Line::from(Span::styled(" | |    | |__| |  | |  | |__| | | \\ \\| |____ ", Style::default().fg(Color::Rgb(155, 93, 229)))),
-        Line::from(Span::styled(" |_|     \\____/   |_|   \\____/|_|  \\_\\______|", Style::default().fg(Color::Rgb(155, 93, 229)))),
+        Line::from(Span::styled(
+            "  ______ _    _ _______ _    _ _____  ______ ",
+            Style::default().fg(Color::Rgb(0, 245, 212)),
+        )),
+        Line::from(Span::styled(
+            " |  ____| |  | |__   __| |  | |  __ \\|  ____|",
+            Style::default().fg(Color::Rgb(0, 245, 212)),
+        )),
+        Line::from(Span::styled(
+            " | |__  | |  | |  | |  | |  | | |__) | |__   ",
+            Style::default().fg(Color::Rgb(0, 187, 249)),
+        )),
+        Line::from(Span::styled(
+            " |  __| | |  | |  | |  | |  | |  _  /|  __|  ",
+            Style::default().fg(Color::Rgb(0, 187, 249)),
+        )),
+        Line::from(Span::styled(
+            " | |    | |__| |  | |  | |__| | | \\ \\| |____ ",
+            Style::default().fg(Color::Rgb(155, 93, 229)),
+        )),
+        Line::from(Span::styled(
+            " |_|     \\____/   |_|   \\____/|_|  \\_\\______|",
+            Style::default().fg(Color::Rgb(155, 93, 229)),
+        )),
         Line::from(""),
-        Line::from(Span::styled("  _____  _    _ _   _  _____  ______  ____  _   _ ", Style::default().fg(Color::Rgb(241, 91, 181)))),
-        Line::from(Span::styled(" |  __ \\| |  | | \\ | |/ ____||  ____|/ __ \\| \\ | |", Style::default().fg(Color::Rgb(241, 91, 181)))),
-        Line::from(Span::styled(" | |  | | |  | |  \\| | |  __ | |__  | |  | |  \\| |", Style::default().fg(Color::Rgb(0, 187, 249)))),
-        Line::from(Span::styled(" | |  | | |  | | . ` | | |_ ||  __| | |  | | . ` |", Style::default().fg(Color::Rgb(0, 187, 249)))),
-        Line::from(Span::styled(" | |__| | |__| | |\\  | |__| || |____| |__| | |\\  |", Style::default().fg(Color::Rgb(0, 245, 212)))),
-        Line::from(Span::styled(" |_____/ \\____/|_| \\_|\\_____||______| \\____/|_| \\_|", Style::default().fg(Color::Rgb(0, 245, 212)))),
+        Line::from(Span::styled(
+            "  _____  _    _ _   _  _____  ______  ____  _   _ ",
+            Style::default().fg(Color::Rgb(241, 91, 181)),
+        )),
+        Line::from(Span::styled(
+            " |  __ \\| |  | | \\ | |/ ____||  ____|/ __ \\| \\ | |",
+            Style::default().fg(Color::Rgb(241, 91, 181)),
+        )),
+        Line::from(Span::styled(
+            " | |  | | |  | |  \\| | |  __ | |__  | |  | |  \\| |",
+            Style::default().fg(Color::Rgb(0, 187, 249)),
+        )),
+        Line::from(Span::styled(
+            " | |  | | |  | | . ` | | |_ ||  __| | |  | | . ` |",
+            Style::default().fg(Color::Rgb(0, 187, 249)),
+        )),
+        Line::from(Span::styled(
+            " | |__| | |__| | |\\  | |__| || |____| |__| | |\\  |",
+            Style::default().fg(Color::Rgb(0, 245, 212)),
+        )),
+        Line::from(Span::styled(
+            " |_____/ \\____/|_| \\_|\\_____||______| \\____/|_| \\_|",
+            Style::default().fg(Color::Rgb(0, 245, 212)),
+        )),
     ];
     let title_para = Paragraph::new(title).alignment(Alignment::Center);
     frame.render_widget(title_para, main_layout[1]);
@@ -805,12 +868,15 @@ fn render_main_menu(app: &App, frame: &mut Frame) {
                 style = style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
             }
             // Add padding spaces for manual alignment
-            ListItem::new(Span::styled(format!("          [ {} ]          ", opt), style))
+            ListItem::new(Span::styled(
+                format!("          [ {} ]          ", opt),
+                style,
+            ))
         })
         .collect();
 
     let options_list = List::new(list_items);
-    
+
     // Vertical centering for options
     let options_area = centered_rect(60, 80, main_layout[2]);
     frame.render_widget(options_list, options_area);
@@ -826,9 +892,7 @@ fn render_respec(app: &App, frame: &mut Frame) {
     let area = centered_rect(50, 50, frame.size());
     frame.render_widget(Clear, area);
     let title = format!(" Reset Shrine: {} points remaining ", app.respec_points);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(title);
+    let block = Block::default().borders(Borders::ALL).title(title);
 
     let options = vec![
         ListItem::new("Strength (+1 STR)"),
@@ -865,7 +929,12 @@ fn render_debug_console(app: &App, frame: &mut Frame) {
         Line::from(vec![
             Span::styled("> ", Style::default().fg(Color::Yellow)),
             Span::raw(&app.debug_console_buffer),
-            Span::styled("_", Style::default().fg(Color::White).add_modifier(Modifier::SLOW_BLINK)),
+            Span::styled(
+                "_",
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::SLOW_BLINK),
+            ),
         ]),
         Line::from(""),
         Line::from(vec![
@@ -918,7 +987,9 @@ fn render_inventory(app: &App, frame: &mut Frame) {
     };
     let block = Block::default().borders(Borders::ALL).title(title);
 
-    let Some(player_id) = app.get_player_id() else { return; };
+    let Some(player_id) = app.get_player_id() else {
+        return;
+    };
     let items: Vec<(hecs::Entity, String)> = app
         .world
         .query::<(&Item, &InBackpack)>()
@@ -1059,7 +1130,11 @@ fn render_inventory(app: &App, frame: &mut Frame) {
                 if let Ok(weapon) = app.world.get::<&Weapon>(*item_id) {
                     tooltip.push(Line::from(vec![
                         Span::styled("Type: ", Style::default().add_modifier(Modifier::BOLD)),
-                        Span::raw(format!("{:?} Melee Weapon{}", weapon.weight, if weapon.two_handed { " (2H)" } else { "" })),
+                        Span::raw(format!(
+                            "{:?} Melee Weapon{}",
+                            weapon.weight,
+                            if weapon.two_handed { " (2H)" } else { "" }
+                        )),
                     ]));
                     tooltip.push(Line::from(vec![
                         Span::styled("Damage: ", Style::default().add_modifier(Modifier::BOLD)),
@@ -1084,7 +1159,10 @@ fn render_inventory(app: &App, frame: &mut Frame) {
                     ]));
                     if let Some(max_dex) = armor.max_dex_bonus {
                         tooltip.push(Line::from(vec![
-                            Span::styled("Max DEX Bonus: ", Style::default().add_modifier(Modifier::BOLD)),
+                            Span::styled(
+                                "Max DEX Bonus: ",
+                                Style::default().add_modifier(Modifier::BOLD),
+                            ),
                             Span::raw(format!("{}", max_dex)),
                         ]));
                     }
@@ -1349,7 +1427,7 @@ fn render_class_selection(app: &App, frame: &mut Frame) {
         .borders(Borders::ALL)
         .title(" Choose Your Class ");
 
-    let classes = vec!["Fighter"];
+    let classes = ["Fighter"];
 
     let list_items: Vec<ListItem> = classes
         .iter()
@@ -1370,8 +1448,8 @@ fn render_class_selection(app: &App, frame: &mut Frame) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::prelude::Color;
     use ratatui::layout::Rect as RatatuiRect;
+    use ratatui::prelude::Color;
 
     #[test]
     fn test_apply_lighting() {
@@ -1400,7 +1478,11 @@ mod tests {
         use ratatui::Terminal;
         let mut app = App::new_random();
         app.map = crate::map::Map::new(80, 50);
-        app.world.spawn((Position { x: 10, y: 10 }, Player, Viewshed { visible_tiles: 8 }));
+        app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            Viewshed { visible_tiles: 8 },
+        ));
 
         let backend = TestBackend::new(80, 50);
         let mut terminal = Terminal::new(backend).unwrap();

@@ -64,15 +64,14 @@ impl App {
                 }
             }
         }
-if !weapon_equipped {
-    total_power += str_mod;
-}
+        if !weapon_equipped {
+            total_power += str_mod;
+        }
 
-total_av += dex_mod;
-let dodge_dc = 10 + dex_mod;
+        total_av += dex_mod;
+        let dodge_dc = 10 + dex_mod;
 
-(total_power, total_av, dodge_dc)
-
+        (total_power, total_av, dodge_dc)
     }
 
     pub fn recalculate_player_max_hp(&mut self) {
@@ -80,8 +79,18 @@ let dodge_dc = 10 + dex_mod;
             return;
         };
         let (level, con_mod) = {
-            let exp = self.world.get::<&Experience>(player_id).ok().map(|e| e.level).unwrap_or(1);
-            let attr = self.world.get::<&Attributes>(player_id).ok().map(|a| a.constitution).unwrap_or(10);
+            let exp = self
+                .world
+                .get::<&Experience>(player_id)
+                .ok()
+                .map(|e| e.level)
+                .unwrap_or(1);
+            let attr = self
+                .world
+                .get::<&Attributes>(player_id)
+                .ok()
+                .map(|a| a.constitution)
+                .unwrap_or(10);
             (exp, Attributes::get_modifier(attr))
         };
 
@@ -201,10 +210,18 @@ mod tests {
     #[test]
     fn test_refresh_player_render_light() {
         let mut app = setup_test_app();
-        let player = app.world.spawn((Player, Renderable { glyph: '@', fg: Color::White }));
+        let player = app.world.spawn((
+            Player,
+            Renderable {
+                glyph: '@',
+                fg: Color::White,
+            },
+        ));
         let torch = app.world.spawn((
             Item,
-            Equipped { slot: EquipmentSlot::OffHand },
+            Equipped {
+                slot: EquipmentSlot::OffHand,
+            },
             InBackpack { owner: player },
             LightSource {
                 range: 10,
@@ -212,7 +229,7 @@ mod tests {
                 color: (255, 255, 255),
                 remaining_turns: None,
                 flicker: false,
-            }
+            },
         ));
 
         app.refresh_player_render();
@@ -236,7 +253,12 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            Experience { level: 1, xp: 0, next_level_xp: 100, xp_reward: 0 }
+            Experience {
+                level: 1,
+                xp: 0,
+                next_level_xp: 100,
+                xp_reward: 0,
+            },
         ));
 
         app.add_player_xp(150);

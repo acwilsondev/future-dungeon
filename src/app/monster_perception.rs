@@ -75,7 +75,11 @@ impl App {
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
             if stats.hp <= 0 {
                 to_despawn.push(id);
-                let name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Monster".to_string());
+                let name = self
+                    .world
+                    .get::<&Name>(id)
+                    .map(|n| n.0.clone())
+                    .unwrap_or("Monster".to_string());
                 self.log.push(format!("{} dies!", name));
                 if self.world.get::<&LastHitByPlayer>(id).is_ok() {
                     if let Ok(exp) = self.world.get::<&Experience>(id) {

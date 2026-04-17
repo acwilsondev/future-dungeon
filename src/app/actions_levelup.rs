@@ -81,7 +81,12 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
             Attributes {
                 strength: 10,
                 dexterity: 10,
@@ -96,7 +101,7 @@ mod tests {
                 next_level_xp: 100,
                 xp_reward: 0,
             },
-            Position { x: 0, y: 0 }
+            Position { x: 0, y: 0 },
         ));
 
         // Test choice 0: Strength

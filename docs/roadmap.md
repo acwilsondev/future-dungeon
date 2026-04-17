@@ -10,6 +10,7 @@ t = tech debt
 - (t) Automated Builds & CICD
 - (e) Content Pass
 - (e) The Wizard TBD
+  - Special Abilities and Learnable Scrolls
 - (e) The Cleric TBD
 - (e) The Thief TBD
 - (t) Improved Abstractions

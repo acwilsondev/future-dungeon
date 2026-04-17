@@ -59,7 +59,8 @@ impl App {
         let mut power_bonus = 0;
 
         let weapon_entity = specific_weapon.or_else(|| self.get_equipped_weapon_entity(attacker));
-        let ranged_weapon = weapon_entity.and_then(|id| self.world.get::<&RangedWeapon>(id).ok().map(|rw| *rw));
+        let ranged_weapon =
+            weapon_entity.and_then(|id| self.world.get::<&RangedWeapon>(id).ok().map(|rw| *rw));
         let weapon = weapon_entity.and_then(|id| self.world.get::<&Weapon>(id).ok().map(|w| *w));
 
         if let Some(rw) = ranged_weapon {
@@ -104,7 +105,7 @@ impl App {
             rolls.push(self.rng.gen_range(1..=20));
         }
         let roll = *rolls.iter().min().unwrap();
-        
+
         let mut hit = false;
         let mut critical = false;
 
@@ -163,12 +164,21 @@ impl App {
         }
     }
 
-    pub fn make_saving_throw(&mut self, entity: hecs::Entity, dc: i32, kind: SavingThrowKind) -> bool {
+    pub fn make_saving_throw(
+        &mut self,
+        entity: hecs::Entity,
+        dc: i32,
+        kind: SavingThrowKind,
+    ) -> bool {
         let modifier = match kind {
             SavingThrowKind::Strength => self.get_attribute_modifier(entity, |a| a.strength),
             SavingThrowKind::Dexterity => self.get_dex_modifier(entity),
-            SavingThrowKind::Constitution => self.get_attribute_modifier(entity, |a| a.constitution),
-            SavingThrowKind::Intelligence => self.get_attribute_modifier(entity, |a| a.intelligence),
+            SavingThrowKind::Constitution => {
+                self.get_attribute_modifier(entity, |a| a.constitution)
+            }
+            SavingThrowKind::Intelligence => {
+                self.get_attribute_modifier(entity, |a| a.intelligence)
+            }
             SavingThrowKind::Wisdom => self.get_attribute_modifier(entity, |a| a.wisdom),
             SavingThrowKind::Charisma => self.get_attribute_modifier(entity, |a| a.charisma),
         };
@@ -176,7 +186,11 @@ impl App {
         let roll = self.rng.gen_range(1..=20);
         let success = roll + modifier >= dc;
 
-        let name = self.world.get::<&Name>(entity).map(|n| n.0.clone()).unwrap_or("Someone".to_string());
+        let name = self
+            .world
+            .get::<&Name>(entity)
+            .map(|n| n.0.clone())
+            .unwrap_or("Someone".to_string());
         let kind_str = match kind {
             SavingThrowKind::Strength => "STR",
             SavingThrowKind::Dexterity => "DEX",
@@ -187,9 +201,15 @@ impl App {
         };
 
         if success {
-            self.log.push(format!("{} makes a {} save! (Roll: {}+{} vs DC:{})", name, kind_str, roll, modifier, dc));
+            self.log.push(format!(
+                "{} makes a {} save! (Roll: {}+{} vs DC:{})",
+                name, kind_str, roll, modifier, dc
+            ));
         } else {
-            self.log.push(format!("{} fails a {} save! (Roll: {}+{} vs DC:{})", name, kind_str, roll, modifier, dc));
+            self.log.push(format!(
+                "{} fails a {} save! (Roll: {}+{} vs DC:{})",
+                name, kind_str, roll, modifier, dc
+            ));
         }
 
         success
@@ -200,17 +220,6 @@ impl App {
             if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
                 if backpack.owner == entity && eq.slot == EquipmentSlot::MainHand {
                     return Some(id);
-                }
-            }
-        }
-        None
-    }
-
-    pub fn get_equipped_weapon(&self, entity: hecs::Entity) -> Option<Weapon> {
-        for (id, (eq, weapon)) in self.world.query::<(&Equipped, &Weapon)>().iter() {
-            if let Ok(backpack) = self.world.get::<&InBackpack>(id) {
-                if backpack.owner == entity && eq.slot == EquipmentSlot::MainHand {
-                    return Some(*weapon);
                 }
             }
         }
@@ -265,29 +274,56 @@ impl App {
         def
     }
 
-    pub fn apply_attack_result(&mut self, target: hecs::Entity, res: &AttackResult, x: u16, y: u16) {
+    pub fn apply_attack_result(
+        &mut self,
+        target: hecs::Entity,
+        res: &AttackResult,
+        x: u16,
+        y: u16,
+    ) {
         if !res.hit {
             if res.attack_roll == 1 {
-                self.log.push(format!("{} critically misses {}! (Roll: 1)", res.attacker_name, res.target_name));
+                self.log.push(format!(
+                    "{} critically misses {}! (Roll: 1)",
+                    res.attacker_name, res.target_name
+                ));
             } else {
-                self.log.push(format!("{} misses {} (Roll: {}+{} vs DC:{})", 
-                    res.attacker_name, res.target_name, res.attack_roll, res.attack_mod, res.dodge_dc));
+                self.log.push(format!(
+                    "{} misses {} (Roll: {}+{} vs DC:{})",
+                    res.attacker_name,
+                    res.target_name,
+                    res.attack_roll,
+                    res.attack_mod,
+                    res.dodge_dc
+                ));
             }
             return;
         }
 
         let crit_str = if res.critical { "CRITICAL HIT! " } else { "" };
-        self.log.push(format!("{}{} hits {} for {} damage! (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
-            crit_str, res.attacker_name, res.target_name, res.damage,
-            res.attack_roll, res.attack_mod, res.dodge_dc,
-            res.damage_dice_roll, res.damage_mod, res.target_av
+        self.log.push(format!(
+            "{}{} hits {} for {} damage! (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
+            crit_str,
+            res.attacker_name,
+            res.target_name,
+            res.damage,
+            res.attack_roll,
+            res.attack_mod,
+            res.dodge_dc,
+            res.damage_dice_roll,
+            res.damage_mod,
+            res.target_av
         ));
 
         self.effects.push(VisualEffect::Flash {
             x,
             y,
             glyph: if res.critical { '!' } else { '*' },
-            fg: if res.critical { Color::Yellow } else { Color::Red },
+            fg: if res.critical {
+                Color::Yellow
+            } else {
+                Color::Red
+            },
             bg: None,
             duration: if res.critical { 10 } else { 5 },
         });
@@ -297,7 +333,8 @@ impl App {
             if !is_player || !self.god_mode {
                 stats.hp -= res.damage;
             } else {
-                self.log.push("Debug: Player is in God Mode! No damage taken.".to_string());
+                self.log
+                    .push("Debug: Player is in God Mode! No damage taken.".to_string());
             }
         }
 
@@ -311,7 +348,8 @@ impl App {
                     self.log.push(format!("{} is poisoned!", res.target_name));
                     let _ = self.world.insert_one(target, poison);
                 } else {
-                    self.log.push(format!("{} resists the poison!", res.target_name));
+                    self.log
+                        .push(format!("{} resists the poison!", res.target_name));
                 }
             }
         }
@@ -322,7 +360,8 @@ impl App {
                     self.log.push(format!("{} is confused!", res.target_name));
                     let _ = self.world.insert_one(target, confusion);
                 } else {
-                    self.log.push(format!("{} resists the confusion!", res.target_name));
+                    self.log
+                        .push(format!("{} resists the confusion!", res.target_name));
                 }
             }
         }
@@ -335,7 +374,7 @@ mod tests {
     use hecs::World;
 
     fn setup_test_app() -> App {
-        let mut app = App::new_test(42);
+        let mut app = App::new_random();
         app.world = World::new();
         app
     }
@@ -345,13 +384,37 @@ mod tests {
         let mut app = setup_test_app();
         let attacker = app.world.spawn((
             Name("Attacker".to_string()),
-            Attributes { strength: 20, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 0 },
+            Attributes {
+                strength: 20,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
         ));
         let target = app.world.spawn((
             Name("Target".to_string()),
-            Attributes { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 0 },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
         ));
 
         let res = app.resolve_attack(attacker, target, None, 0, false);
@@ -360,27 +423,5 @@ mod tests {
         assert!(res.attack_roll >= 1 && res.attack_roll <= 20);
         assert_eq!(res.attack_mod, 5); // STR 20
         assert_eq!(res.dodge_dc, 10); // 10 + DEX 10 (0)
-    }
-
-    #[test]
-    fn test_get_equipped_weapon() {
-        let mut app = setup_test_app();
-        let player = app.world.spawn((Player,));
-        let _sword = app.world.spawn((
-            Weapon {
-                power_bonus: 5,
-                weight: WeaponWeight::Medium,
-                damage_n_dice: 1,
-                damage_die_type: 8,
-                two_handed: false,
-            },
-            Equippable { slot: EquipmentSlot::MainHand },
-            Equipped { slot: EquipmentSlot::MainHand },
-            InBackpack { owner: player },
-        ));
-
-        let weapon = app.get_equipped_weapon(player);
-        assert!(weapon.is_some());
-        assert_eq!(weapon.unwrap().power_bonus, 5);
     }
 }

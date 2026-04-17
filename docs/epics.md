@@ -1,11 +1,9 @@
-# Epics Overview: RustLike v0.6 - "The Great Gateway"
+# Epics Overview: RustLike v0.7 - "The Refining Winds"
 
-This version focuses exclusively on the player's entry point into the game, providing a professional and atmospheric interactive main menu.
+This version focuses on strengthening the development foundation through automation and starting a major content expansion to enrich the player's journey.
 
-## 1. The Great Gateway (Main Menu)
-Implement a polished main menu featuring:
-- ASCII art game title: `FUTURE DUNGEON`.
-- Options for **New Game**, **Load Game**, and **Exit**.
-- Animated background with a starry parallax effect.
-- Themed color palettes (Cyber-Magic, Retro Tech, etc.).
-- Credit text: `Created by Aaron Wilson`.
+## 1. Automated Builds & CICD
+Implement robust automation to ensure code quality and consistent builds across environments.
+
+## 2. Content Pass
+Expand the game's items, monsters, and dungeon variations to provide a richer, more diverse gameplay experience.

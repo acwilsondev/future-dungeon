@@ -22,7 +22,9 @@ impl App {
         if let Some(item_id) = item_to_pick {
             let item_name = self.get_item_name(item_id);
             let _ = self.world.remove_one::<Position>(item_id);
-            let _ = self.world.insert_one(item_id, InBackpack { owner: player_id });
+            let _ = self
+                .world
+                .insert_one(item_id, InBackpack { owner: player_id });
             self.log.push(format!("You pick up the {}.", item_name));
             self.generate_noise(player_pos.x, player_pos.y, 2.0);
 
@@ -66,7 +68,9 @@ impl App {
                 .push(format!("You buy the {} for {} gold.", item_name, price));
 
             // Transfer item
-            let _ = self.world.insert_one(item_id, InBackpack { owner: player_id });
+            let _ = self
+                .world
+                .insert_one(item_id, InBackpack { owner: player_id });
         } else {
             self.log.push("You cannot afford that!".to_string());
         }
@@ -117,7 +121,11 @@ mod tests {
     fn test_pick_up_item() {
         let mut app = setup_test_app();
         let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
-        let item = app.world.spawn((Item, Position { x: 10, y: 10 }, Name("Test Item".to_string())));
+        let item = app.world.spawn((
+            Item,
+            Position { x: 10, y: 10 },
+            Name("Test Item".to_string()),
+        ));
 
         app.pick_up_item();
 
@@ -159,7 +167,7 @@ mod tests {
             Item,
             InBackpack { owner: player },
             ItemValue { price: 40 },
-            Name("Old Sword".to_string())
+            Name("Old Sword".to_string()),
         ));
 
         app.sell_item(item);

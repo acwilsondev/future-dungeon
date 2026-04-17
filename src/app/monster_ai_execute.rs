@@ -41,18 +41,26 @@ impl App {
                 } else {
                     (0, 0)
                 };
-                
+
                 self.apply_attack_result(target_id, &res, tx, ty);
 
                 if target_id == player_id {
-                    let target_hp = self.world.get::<&CombatStats>(target_id).map(|s| s.hp).unwrap_or(0);
+                    let target_hp = self
+                        .world
+                        .get::<&CombatStats>(target_id)
+                        .map(|s| s.hp)
+                        .unwrap_or(0);
                     if target_hp <= 0 {
                         self.log.push("You are dead!".to_string());
                         self.state = RunState::Dead;
                         self.death = true;
                     }
                 } else {
-                    let target_hp = self.world.get::<&CombatStats>(target_id).map(|s| s.hp).unwrap_or(0);
+                    let target_hp = self
+                        .world
+                        .get::<&CombatStats>(target_id)
+                        .map(|s| s.hp)
+                        .unwrap_or(0);
                     if target_hp <= 0 {
                         self.log.push(format!("{} dies!", res.target_name));
                         // Monsters killing monsters? Despawn?
@@ -65,11 +73,19 @@ impl App {
             }
             MonsterAction::RangedAttack(target_id) => {
                 let (tx, ty, disadvantage) = {
-                    let Ok(m_pos) = self.world.get::<&Position>(id) else { return; };
-                    let Ok(t_pos) = self.world.get::<&Position>(target_id) else { return; };
-                    let Ok(rw) = self.world.get::<&RangedWeapon>(id) else { return; };
-                    
-                    let dist = (((m_pos.x as f32 - t_pos.x as f32).powi(2) + (m_pos.y as f32 - t_pos.y as f32).powi(2)).sqrt()) as i32;
+                    let Ok(m_pos) = self.world.get::<&Position>(id) else {
+                        return;
+                    };
+                    let Ok(t_pos) = self.world.get::<&Position>(target_id) else {
+                        return;
+                    };
+                    let Ok(rw) = self.world.get::<&RangedWeapon>(id) else {
+                        return;
+                    };
+
+                    let dist = (((m_pos.x as f32 - t_pos.x as f32).powi(2)
+                        + (m_pos.y as f32 - t_pos.y as f32).powi(2))
+                    .sqrt()) as i32;
                     let d = if dist > rw.range {
                         ((dist - rw.range) / rw.range_increment) as u32 + 1
                     } else {
@@ -82,14 +98,22 @@ impl App {
                 self.apply_attack_result(target_id, &res, tx, ty);
 
                 if target_id == player_id {
-                    let target_hp = self.world.get::<&CombatStats>(target_id).map(|s| s.hp).unwrap_or(0);
+                    let target_hp = self
+                        .world
+                        .get::<&CombatStats>(target_id)
+                        .map(|s| s.hp)
+                        .unwrap_or(0);
                     if target_hp <= 0 {
                         self.log.push("You are dead!".to_string());
                         self.state = RunState::Dead;
                         self.death = true;
                     }
                 } else {
-                    let target_hp = self.world.get::<&CombatStats>(target_id).map(|s| s.hp).unwrap_or(0);
+                    let target_hp = self
+                        .world
+                        .get::<&CombatStats>(target_id)
+                        .map(|s| s.hp)
+                        .unwrap_or(0);
                     if target_hp <= 0 {
                         self.log.push(format!("{} dies!", res.target_name));
                         if let Err(e) = self.world.despawn(target_id) {
@@ -147,7 +171,12 @@ mod tests {
         let monster = app.world.spawn((
             Monster,
             Position { x: 10, y: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
         ));
         let player = app.world.spawn((Player, Position { x: 20, y: 20 }));
         let mut occupied = HashSet::new();
@@ -168,19 +197,48 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 20, max_hp: 20, defense: 2, power: 5 }
+            Attributes {
+                strength: 10,
+                dexterity: 1,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 20,
+                max_hp: 20,
+                defense: 2,
+                power: 5,
+            },
         ));
         let monster = app.world.spawn((
             Monster,
             Name("Orc".to_string()),
             Position { x: 11, y: 10 },
-            Attributes { strength: 30, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 6 }
+            Attributes {
+                strength: 30,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 6,
+            },
         ));
         let mut occupied = HashSet::new();
 
-        app.execute_monster_action(monster, MonsterAction::Attack(player), player, &mut occupied);
+        app.execute_monster_action(
+            monster,
+            MonsterAction::Attack(player),
+            player,
+            &mut occupied,
+        );
 
         let stats = app.world.get::<&CombatStats>(player).unwrap();
         assert!(stats.hp < 20);
@@ -193,20 +251,53 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 100, max_hp: 100, defense: 0, power: 5 }
+            Attributes {
+                strength: 10,
+                dexterity: 1,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 100,
+                max_hp: 100,
+                defense: 0,
+                power: 5,
+            },
         ));
         let monster = app.world.spawn((
             Monster,
             Name("Archer".to_string()),
             Position { x: 15, y: 10 },
-            Attributes { strength: 10, dexterity: 50, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            RangedWeapon { range: 8, range_increment: 12, damage_bonus: 4 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+            Attributes {
+                strength: 10,
+                dexterity: 50,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            RangedWeapon {
+                range: 8,
+                range_increment: 12,
+                damage_bonus: 4,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
         ));
         let mut occupied = HashSet::new();
 
-        app.execute_monster_action(monster, MonsterAction::RangedAttack(player), player, &mut occupied);
+        app.execute_monster_action(
+            monster,
+            MonsterAction::RangedAttack(player),
+            player,
+            &mut occupied,
+        );
 
         let stats = app.world.get::<&CombatStats>(player).unwrap();
         assert!(stats.hp < 100);
@@ -220,7 +311,14 @@ mod tests {
         let monster1 = app.world.spawn((
             Monster,
             Name("Orc1".to_string()),
-            Attributes { strength: 50, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 50,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 10,
                 max_hp: 10,
@@ -231,7 +329,14 @@ mod tests {
         let monster2 = app.world.spawn((
             Monster,
             Name("Orc2".to_string()),
-            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 1,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 50,
                 max_hp: 50,
@@ -258,7 +363,14 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 1,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 2,
                 max_hp: 20,
@@ -269,7 +381,14 @@ mod tests {
         let monster = app.world.spawn((
             Monster,
             Name("Orc".to_string()),
-            Attributes { strength: 30, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 30,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 10,
                 max_hp: 10,
@@ -279,7 +398,12 @@ mod tests {
         ));
         let mut occupied = HashSet::new();
 
-        app.execute_monster_action(monster, MonsterAction::Attack(player), player, &mut occupied);
+        app.execute_monster_action(
+            monster,
+            MonsterAction::Attack(player),
+            player,
+            &mut occupied,
+        );
 
         assert_eq!(app.state, RunState::Dead);
         assert!(app.death);
@@ -291,27 +415,75 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Name("Player".to_string()),
-            Attributes { strength: 10, dexterity: 10, constitution: 50, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 }
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 50,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 20,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
         ));
         let monster = app.world.spawn((
             Monster,
             Name("Spider".to_string()),
-            Attributes { strength: 50, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            Poison { damage: 2, turns: 5 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+            Attributes {
+                strength: 50,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            Poison {
+                damage: 2,
+                turns: 5,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
         ));
         let mut occupied = HashSet::new();
 
-        app.execute_monster_action(monster, MonsterAction::Attack(player), player, &mut occupied);
+        app.execute_monster_action(
+            monster,
+            MonsterAction::Attack(player),
+            player,
+            &mut occupied,
+        );
 
         let has_poison = app.world.get::<&Poison>(player).is_ok();
         assert!(!has_poison);
         assert!(app.log.iter().any(|l| l.contains("resists the poison")));
 
-        app.world.insert_one(player, Attributes { strength: 10, dexterity: 10, constitution: -100, intelligence: 10, wisdom: 10, charisma: 10 }).unwrap();
-        app.execute_monster_action(monster, MonsterAction::Attack(player), player, &mut occupied);
+        app.world
+            .insert_one(
+                player,
+                Attributes {
+                    strength: 10,
+                    dexterity: 10,
+                    constitution: -100,
+                    intelligence: 10,
+                    wisdom: 10,
+                    charisma: 10,
+                },
+            )
+            .unwrap();
+        app.execute_monster_action(
+            monster,
+            MonsterAction::Attack(player),
+            player,
+            &mut occupied,
+        );
         assert!(app.world.get::<&Poison>(player).is_ok());
     }
 }
-

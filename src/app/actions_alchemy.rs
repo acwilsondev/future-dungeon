@@ -175,13 +175,13 @@ mod tests {
             Item,
             Name("Potion of Strength".to_string()),
             Potion { heal_amount: 0 },
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
         let _p2 = app.world.spawn((
             Item,
             Name("Potion of Speed".to_string()),
             Potion { heal_amount: 0 },
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
 
         app.inventory_cursor = 0;
@@ -206,13 +206,13 @@ mod tests {
             Item,
             Name("Health Potion".to_string()),
             Potion { heal_amount: 10 },
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
         let _p2 = app.world.spawn((
             Item,
             Name("Mana Potion".to_string()),
             Potion { heal_amount: 10 },
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
 
         app.inventory_cursor = 0;

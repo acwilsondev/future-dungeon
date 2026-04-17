@@ -208,11 +208,14 @@ mod tests {
     #[test]
     fn test_blocking_entities() {
         let mut app = setup_test_app();
-        app.world.spawn((Position { x: 10, y: 10 }, Monster, Name("M".to_string())));
+        app.world
+            .spawn((Position { x: 10, y: 10 }, Monster, Name("M".to_string())));
         app.world.spawn((Position { x: 11, y: 10 }, Merchant));
         app.world.spawn((Position { x: 12, y: 10 }, AlchemyStation));
-        app.world.spawn((Position { x: 13, y: 10 }, Door { open: false }));
-        app.world.spawn((Position { x: 14, y: 10 }, Door { open: true }));
+        app.world
+            .spawn((Position { x: 13, y: 10 }, Door { open: false }));
+        app.world
+            .spawn((Position { x: 14, y: 10 }, Door { open: true }));
 
         app.update_blocked_and_opaque();
 
@@ -234,7 +237,7 @@ mod tests {
                 color: (255, 255, 255),
                 remaining_turns: None,
                 flicker: false,
-            }
+            },
         ));
 
         app.update_lighting();
@@ -265,7 +268,7 @@ mod tests {
         let _player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            Viewshed { visible_tiles: 10 }
+            Viewshed { visible_tiles: 10 },
         ));
 
         // Case 1: Player at 10,10, target at 12,10, but NO LIGHT
@@ -281,7 +284,7 @@ mod tests {
                 color: (255, 255, 255),
                 remaining_turns: None,
                 flicker: false,
-            }
+            },
         ));
         app.update_fov();
         assert!(app.map.visible[(10 * 80 + 12) as usize]);

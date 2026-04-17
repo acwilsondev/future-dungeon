@@ -17,10 +17,7 @@ impl App {
             mb.stairs_up.0,
             mb.stairs_up.1,
             false,
-            (
-                self.dungeon_level.saturating_sub(1),
-                self.current_branch,
-            ),
+            (self.dungeon_level.saturating_sub(1), self.current_branch),
         );
 
         if let Some(alt_down) = mb.stairs_down_alt {
@@ -48,13 +45,17 @@ impl App {
             return;
         }
 
-        let multiplier = if mb.floor_modifier == FloorModifier::Bright { 5 } else { 1 };
+        let multiplier = if mb.floor_modifier == FloorModifier::Bright {
+            5
+        } else {
+            1
+        };
         let light_color = match mb.biome {
             Biome::Dungeon => Color::Rgb(100, 149, 237), // Cornflower Blue
-            Biome::Caves => Color::Rgb(50, 205, 50),    // Lime Green
-            Biome::Crypt => Color::Rgb(138, 43, 226),   // Blue Violet
-            Biome::Temple => Color::Rgb(255, 69, 0),    // Orange Red
-            Biome::Hell => Color::Rgb(255, 0, 0),       // Red
+            Biome::Caves => Color::Rgb(50, 205, 50),     // Lime Green
+            Biome::Crypt => Color::Rgb(138, 43, 226),    // Blue Violet
+            Biome::Temple => Color::Rgb(255, 69, 0),     // Orange Red
+            Biome::Hell => Color::Rgb(255, 0, 0),        // Red
         };
 
         for (i, room) in mb.rooms.iter().enumerate().skip(1) {

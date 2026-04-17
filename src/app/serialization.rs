@@ -2,126 +2,6 @@ use crate::app::{App, Branch, EntitySnapshot};
 use crate::components::*;
 use hecs::World;
 
-pub fn serialize_world(world: &World) -> Vec<EntitySnapshot> {
-    let mut entities = Vec::new();
-    for (id, (render, render_order)) in world.query::<(&Renderable, &RenderOrder)>().iter()
-    {
-        let pos = world.get::<&Position>(id).ok().map(|p| *p);
-        let name = world.get::<&Name>(id).ok().map(|n| (*n).clone());
-        let stats = world.get::<&CombatStats>(id).ok().map(|s| *s);
-        let attributes = world.get::<&Attributes>(id).ok().map(|a| *a);
-        let potion = world.get::<&Potion>(id).ok().map(|p| *p);
-        let weapon = world.get::<&Weapon>(id).ok().map(|w| *w);
-        let armor = world.get::<&Armor>(id).ok().map(|a| *a);
-        let door = world.get::<&Door>(id).ok().map(|d| *d);
-        let trap = world.get::<&Trap>(id).ok().map(|t| *t);
-        let ranged = world.get::<&Ranged>(id).ok().map(|r| *r);
-        let ranged_weapon = world.get::<&RangedWeapon>(id).ok().map(|rw| *rw);
-        let aoe = world.get::<&AreaOfEffect>(id).ok().map(|a| *a);
-        let confusion = world.get::<&Confusion>(id).ok().map(|c| *c);
-        let poison = world.get::<&Poison>(id).ok().map(|p| *p);
-        let strength = world.get::<&Strength>(id).ok().map(|s| *s);
-        let speed = world.get::<&Speed>(id).ok().map(|s| *s);
-        let faction = world.get::<&Faction>(id).ok().map(|f| *f);
-        let viewshed = world.get::<&Viewshed>(id).ok().map(|v| *v);
-        let personality = world.get::<&AIPersonality>(id).ok().map(|p| *p);
-        let experience = world.get::<&Experience>(id).ok().map(|e| *e);
-        let perks = world.get::<&Perks>(id).ok().map(|p| (*p).clone());
-        let alert_state = world.get::<&AlertState>(id).ok().map(|a| *a);
-        let hearing = world.get::<&Hearing>(id).ok().map(|h| *h);
-        let boss = world.get::<&Boss>(id).ok().map(|b| (*b).clone());
-        let light_source = world.get::<&LightSource>(id).ok().map(|l| *l);
-        let gold = world.get::<&Gold>(id).ok().map(|g| *g);
-        let item_value = world.get::<&ItemValue>(id).ok().map(|v| *v);
-        let obfuscated_name = world
-            .get::<&ObfuscatedName>(id)
-            .ok()
-            .map(|n| (*n).clone());
-        let cursed = world.get::<&Cursed>(id).ok().map(|c| *c);
-        let equippable = world.get::<&Equippable>(id).ok().map(|e| *e);
-        let equipped = world.get::<&Equipped>(id).ok().map(|e| *e);
-
-        entities.push(EntitySnapshot {
-            pos,
-            render: *render,
-            render_order: *render_order,
-            name,
-            stats,
-            attributes,
-            potion,
-            weapon,
-            armor,
-            door,
-            trap,
-            ranged,
-            ranged_weapon,
-            aoe,
-            confusion,
-            poison,
-            strength,
-            speed,
-            faction,
-            viewshed,
-            personality,
-            experience,
-            perks,
-            alert_state,
-            hearing,
-            boss,
-            light_source,
-            gold,
-            item_value,
-            obfuscated_name,
-            cursed,
-            equippable,
-            equipped,
-            last_hit_by_player: world.get::<&LastHitByPlayer>(id).is_ok(),
-            is_merchant: world.get::<&Merchant>(id).is_ok(),
-            ammo: world.get::<&Ammunition>(id).is_ok(),
-            consumable: world.get::<&Consumable>(id).is_ok(),
-            in_backpack: world.get::<&InBackpack>(id).is_ok(),
-            is_player: world.get::<&Player>(id).is_ok(),
-            is_monster: world.get::<&Monster>(id).is_ok(),
-            is_wisp: world.get::<&Wisp>(id).is_ok(),
-            is_item: world.get::<&Item>(id).is_ok(),
-            is_down_stairs: world.get::<&DownStairs>(id).is_ok(),
-            is_up_stairs: world.get::<&UpStairs>(id).is_ok(),
-            destination: world
-                .get::<&DownStairs>(id)
-                .ok()
-                .map(|s| s.destination)
-                .or_else(|| world.get::<&UpStairs>(id).ok().map(|s| s.destination)),
-        });
-    }
-    entities
-}
-
-pub fn deserialize_world(entities: &[EntitySnapshot]) -> World {
-    let mut world = World::new();
-    let mut player_entity = None;
-    let mut in_backpack_markers = Vec::new();
-
-    for e in entities {
-        let mut cb = hecs::EntityBuilder::new();
-        App::add_components_to_builder(&mut cb, e);
-
-        let entity = world.spawn(cb.build());
-        if e.is_player {
-            player_entity = Some(entity);
-        }
-        if e.in_backpack {
-            in_backpack_markers.push(entity);
-        }
-    }
-
-    if let Some(player) = player_entity {
-        for id in in_backpack_markers {
-            let _ = world.insert_one(id, InBackpack { owner: player });
-        }
-    }
-    world
-}
-
 impl App {
     pub fn pack_entities(&mut self) {
         self.entities.clear();
@@ -409,40 +289,75 @@ mod tests {
     use super::*;
     use ratatui::prelude::Color;
 
+    fn setup_test_app() -> App {
+        let mut app = App::new_random();
+        app.world = World::new();
+        app
+    }
+
     #[test]
     fn test_comprehensive_serialization() {
-        let mut app = App::new_test(42);
-        app.world = World::new();
-        
+        let mut app = setup_test_app();
+
         // 1. Player entity
         let player = app.world.spawn((
             Player,
             Position { x: 1, y: 2 },
-            Renderable { glyph: '@', fg: Color::White },
+            Renderable {
+                glyph: '@',
+                fg: Color::White,
+            },
             RenderOrder::Player,
             Name("Hero".to_string()),
-            CombatStats { hp: 10, max_hp: 20, defense: 3, power: 4 },
-            Experience { level: 5, xp: 100, next_level_xp: 200, xp_reward: 0 },
-            Perks { traits: vec![Perk::Toughness] },
+            CombatStats {
+                hp: 10,
+                max_hp: 20,
+                defense: 3,
+                power: 4,
+            },
+            Experience {
+                level: 5,
+                xp: 100,
+                next_level_xp: 200,
+                xp_reward: 0,
+            },
+            Perks {
+                traits: vec![Perk::Toughness],
+            },
             Gold { amount: 50 },
             Viewshed { visible_tiles: 10 },
             Faction(FactionKind::Player),
             AIPersonality(Personality::Brave),
-            LightSource { range: 5, base_range: 5, color: (1,2,3), remaining_turns: Some(10), flicker: true },
+            LightSource {
+                range: 5,
+                base_range: 5,
+                color: (1, 2, 3),
+                remaining_turns: Some(10),
+                flicker: true,
+            },
         ));
 
         // 2. Item 1: Potion
         app.world.spawn((
             Item,
             Position { x: 3, y: 4 },
-            Renderable { glyph: '!', fg: Color::Red },
+            Renderable {
+                glyph: '!',
+                fg: Color::Red,
+            },
             RenderOrder::Item,
             Name("Uber Potion".to_string()),
             Potion { heal_amount: 50 },
             AreaOfEffect { radius: 3 },
             Confusion { turns: 5 },
-            Poison { damage: 2, turns: 3 },
-            Strength { amount: 5, turns: 10 },
+            Poison {
+                damage: 2,
+                turns: 3,
+            },
+            Strength {
+                amount: 5,
+                turns: 10,
+            },
             Speed { turns: 10 },
             ItemValue { price: 100 },
             ObfuscatedName("Strange Potion".to_string()),
@@ -454,7 +369,10 @@ mod tests {
         app.world.spawn((
             Item,
             Position { x: 10, y: 10 },
-            Renderable { glyph: '/', fg: Color::White },
+            Renderable {
+                glyph: '/',
+                fg: Color::White,
+            },
             RenderOrder::Item,
             Name("Cursed Sword".to_string()),
             Weapon {
@@ -464,21 +382,37 @@ mod tests {
                 damage_die_type: 6,
                 two_handed: true,
             },
-            RangedWeapon { range: 8, range_increment: 12, damage_bonus: 10 },
+            RangedWeapon {
+                range: 8,
+                range_increment: 12,
+                damage_bonus: 10,
+            },
             Cursed,
-            Equippable { slot: EquipmentSlot::MainHand },
-            Equipped { slot: EquipmentSlot::MainHand },
+            Equippable {
+                slot: EquipmentSlot::MainHand,
+            },
+            Equipped {
+                slot: EquipmentSlot::MainHand,
+            },
             InBackpack { owner: player },
         ));
 
         // 4. Environment
         app.world.spawn((
             Position { x: 5, y: 6 },
-            Renderable { glyph: '+', fg: Color::Gray },
+            Renderable {
+                glyph: '+',
+                fg: Color::Gray,
+            },
             RenderOrder::Map,
             Door { open: false },
-            Trap { damage: 10, revealed: true },
-            DownStairs { destination: (2, Branch::Main) },
+            Trap {
+                damage: 10,
+                revealed: true,
+            },
+            DownStairs {
+                destination: (2, Branch::Main),
+            },
         ));
 
         // 5. Pack
@@ -491,8 +425,18 @@ mod tests {
         app2.unpack_entities().unwrap();
 
         // 7. Verify components on player
-        let mut player_query = app2.world.query::<(&Player, &Name, &CombatStats, &Experience, &Perks, &Gold, &Viewshed, &LightSource)>();
-        let (_, (_, name, stats, exp, perks, gold, viewshed, light)) = player_query.iter().next().unwrap();
+        let mut player_query = app2.world.query::<(
+            &Player,
+            &Name,
+            &CombatStats,
+            &Experience,
+            &Perks,
+            &Gold,
+            &Viewshed,
+            &LightSource,
+        )>();
+        let (_, (_, name, stats, exp, perks, gold, viewshed, light)) =
+            player_query.iter().next().unwrap();
         assert_eq!(name.0, "Hero");
         assert_eq!(stats.hp, 10);
         assert_eq!(exp.level, 5);
@@ -502,21 +446,34 @@ mod tests {
         assert_eq!(light.remaining_turns, Some(10));
 
         // 8. Verify Potion
-        let mut potion_query = app2.world.query::<(&Potion, &AreaOfEffect, &Confusion, &Poison, &Strength, &Speed, &ItemValue, &ObfuscatedName, &Consumable)>();
-        let (_, (potion, aoe, _confusion, _poison, _strength, _speed, val, obf, _)) = potion_query.iter().next().unwrap();
+        let mut potion_query = app2.world.query::<(
+            &Potion,
+            &AreaOfEffect,
+            &Confusion,
+            &Poison,
+            &Strength,
+            &Speed,
+            &ItemValue,
+            &ObfuscatedName,
+            &Consumable,
+        )>();
+        let (_, (potion, aoe, _confusion, _poison, _strength, _speed, val, obf, _)) =
+            potion_query.iter().next().unwrap();
         assert_eq!(potion.heal_amount, 50);
         assert_eq!(aoe.radius, 3);
         assert_eq!(val.price, 100);
         assert_eq!(obf.0, "Strange Potion");
 
         // 9. Verify Cursed Weapon
-        let mut weapon_query = app2.world.query::<(&Weapon, &RangedWeapon, &Cursed, &Equippable, &Equipped)>();
+        let mut weapon_query = app2
+            .world
+            .query::<(&Weapon, &RangedWeapon, &Cursed, &Equippable, &Equipped)>();
         let (_, (weapon, rw, _, equippable, equipped)) = weapon_query.iter().next().unwrap();
         assert_eq!(weapon.power_bonus, 10);
         assert_eq!(rw.damage_bonus, 10);
         assert_eq!(equippable.slot, EquipmentSlot::MainHand);
         assert_eq!(equipped.slot, EquipmentSlot::MainHand);
-        
+
         // 10. Verify environment
         let mut env_query = app2.world.query::<(&Door, &Trap, &DownStairs)>();
         let (_, (door, trap, stairs)) = env_query.iter().next().unwrap();

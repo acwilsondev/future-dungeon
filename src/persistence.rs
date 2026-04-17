@@ -51,15 +51,26 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
-            Renderable { glyph: '@', fg: ratatui::prelude::Color::Yellow },
+            CombatStats {
+                hp: 20,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
+            Renderable {
+                glyph: '@',
+                fg: ratatui::prelude::Color::Yellow,
+            },
             RenderOrder::Player,
         ));
         app.world.spawn((
             Item,
             Name("Sword".to_string()),
             InBackpack { owner: player },
-            Renderable { glyph: '/', fg: ratatui::prelude::Color::White },
+            Renderable {
+                glyph: '/',
+                fg: ratatui::prelude::Color::White,
+            },
             RenderOrder::Item,
         ));
 

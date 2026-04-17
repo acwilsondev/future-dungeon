@@ -61,7 +61,6 @@ pub enum EquipmentSlot {
     RightFinger,
 }
 
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Equippable {
     pub slot: EquipmentSlot,

@@ -1,5 +1,4 @@
 use crate::components::*;
-use crate::map::Map;
 use serde::{Deserialize, Serialize};
 
 /// A snapshot of an entity for serialization
@@ -89,4 +88,3 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub destination: Option<(u16, Branch)>,
 }
-

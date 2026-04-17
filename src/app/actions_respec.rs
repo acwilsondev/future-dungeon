@@ -5,11 +5,19 @@ use crate::components::*;
 impl App {
     pub fn init_respec(&mut self) {
         let player_id = self.get_player_id().unwrap();
-        
-        let level = self.world.get::<&Experience>(player_id).map(|e| e.level).unwrap_or(1);
+
+        let level = self
+            .world
+            .get::<&Experience>(player_id)
+            .map(|e| e.level)
+            .unwrap_or(1);
         self.respec_points = level - 1;
 
-        let class = self.world.get::<&Class>(player_id).map(|c| c.class).unwrap_or(CharacterClass::Fighter);
+        let class = self
+            .world
+            .get::<&Class>(player_id)
+            .map(|c| c.class)
+            .unwrap_or(CharacterClass::Fighter);
 
         // Base attributes for Fighter (currently only class)
         let base_attrs = match class {
@@ -25,7 +33,10 @@ impl App {
 
         self.world.insert_one(player_id, base_attrs).unwrap();
         self.recalculate_player_max_hp();
-        self.log.push(format!("You have {} attribute points to redistribute.", self.respec_points));
+        self.log.push(format!(
+            "You have {} attribute points to redistribute.",
+            self.respec_points
+        ));
     }
 
     pub fn handle_respec_input(&mut self, action: Action) {
@@ -74,9 +85,10 @@ impl App {
                     }
                     self.respec_points -= 1;
                     self.recalculate_player_max_hp();
-                    
+
                     if self.respec_points == 0 {
-                        self.log.push("You have finished redistributing your attributes.".to_string());
+                        self.log
+                            .push("You have finished redistributing your attributes.".to_string());
                         self.state = RunState::AwaitingInput;
                     }
                 } else {
@@ -104,7 +116,12 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
             Attributes {
                 strength: 10,
                 dexterity: 10,
@@ -113,9 +130,16 @@ mod tests {
                 wisdom: 10,
                 charisma: 10,
             },
-            Experience { level: 3, xp: 0, next_level_xp: 0, xp_reward: 0 },
-            Class { class: CharacterClass::Fighter },
-            Position { x: 0, y: 0 }
+            Experience {
+                level: 3,
+                xp: 0,
+                next_level_xp: 0,
+                xp_reward: 0,
+            },
+            Class {
+                class: CharacterClass::Fighter,
+            },
+            Position { x: 0, y: 0 },
         ));
 
         app.init_respec();
@@ -142,7 +166,7 @@ mod tests {
         {
             let attr = app.world.get::<&Attributes>(player).unwrap();
             assert_eq!(attr.constitution, 15); // 14 + 1
-            // Recalculate: 16 + (3 * 8) + (3 * 2) = 16 + 24 + 6 = 46
+                                               // Recalculate: 16 + (3 * 8) + (3 * 2) = 16 + 24 + 6 = 46
             let stats = app.world.get::<&CombatStats>(player).unwrap();
             assert_eq!(stats.max_hp, 46);
         }

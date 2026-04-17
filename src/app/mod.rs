@@ -20,14 +20,14 @@ mod items_equip;
 mod items_shop;
 mod items_use_basic;
 mod items_use_ranged;
-mod level_gen_helpers;
 mod level_gen;
+mod level_gen_helpers;
 mod level_transition;
+mod monster;
 mod monster_ai_calc;
 mod monster_ai_execute;
 mod monster_boss;
 mod monster_perception;
-mod monster;
 mod player_move;
 mod serialization;
 mod snapshot;
@@ -168,9 +168,12 @@ impl App {
         app.init_stars();
         app
     }
+}
 
+#[cfg(test)]
+impl App {
     pub fn new_test(seed: u64) -> Self {
-        Self {
+        let mut app = Self {
             exit: false,
             death: false,
             world: World::new(),
@@ -207,6 +210,8 @@ impl App {
             escaping: false,
             rng: ChaCha8Rng::seed_from_u64(seed),
             content: Content::load(),
-        }
+        };
+        app.init_stars();
+        app
     }
 }

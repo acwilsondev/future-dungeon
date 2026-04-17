@@ -105,7 +105,7 @@ impl MapBuilder {
         // 3. Determine Theme
         if depth % 10 == 5 {
             self.theme = LevelTheme::SingleRoom;
-        } else if depth % 10 == 0 {
+        } else if depth.is_multiple_of(10) {
             self.theme = LevelTheme::BossArena;
         } else {
             self.theme = match self.biome {
@@ -158,7 +158,8 @@ impl MapBuilder {
         self.stairs_up = (arena.x1 as u16 + 1, center.1 as u16);
         self.boss_spawn = Some((arena.x2 as u16 - 5, center.1 as u16));
         self.stairs_down = (arena.x2 as u16 - 2, center.1 as u16);
-        self.item_spawns.push((arena.x2 as u16 - 3, center.1 as u16));
+        self.item_spawns
+            .push((arena.x2 as u16 - 3, center.1 as u16));
     }
 
     fn build_single_room(&mut self) {
@@ -235,7 +236,7 @@ impl MapBuilder {
             let x = rng.gen_range(2..center_x - w - 2);
             let y = rng.gen_range(2..self.map.height as i32 - h - 2);
             let left_room = Rect::new(x, y, w, h);
-            
+
             let mut ok = true;
             for r in &rooms {
                 if left_room.intersects(r) {
@@ -259,7 +260,7 @@ impl MapBuilder {
         self.rooms = rooms;
         self.player_start = (center_x as u16, 2);
         self.stairs_up = (center_x as u16, 2);
-        self.stairs_down = (center_x as u16, self.map.height as u16 - 3);
+        self.stairs_down = (center_x as u16, self.map.height - 3);
         self.place_doors(rng);
     }
 
@@ -546,8 +547,8 @@ impl MapBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_chacha::ChaCha8Rng;
     use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     #[test]
     fn test_map_builder_rooms() {

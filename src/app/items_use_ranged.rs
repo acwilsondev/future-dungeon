@@ -71,7 +71,8 @@ impl App {
                 if !is_player || !self.god_mode {
                     stats.hp -= damage;
                 } else {
-                    self.log.push("Debug: Player is in God Mode! No AOE damage taken.".to_string());
+                    self.log
+                        .push("Debug: Player is in God Mode! No AOE damage taken.".to_string());
                 }
                 if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
                     flash_pos = Some(*t_pos);
@@ -167,9 +168,15 @@ impl App {
         specific_weapon: Option<hecs::Entity>,
         disadvantage_count: u32,
     ) {
-        let res = self.resolve_attack(attacker, target_id, specific_weapon, disadvantage_count, true);
+        let res = self.resolve_attack(
+            attacker,
+            target_id,
+            specific_weapon,
+            disadvantage_count,
+            true,
+        );
         self.apply_attack_result(target_id, &res, actual_target.0, actual_target.1);
-        
+
         if res.hit {
             let _ = self.world.insert_one(target_id, LastHitByPlayer);
             let _ = self.world.insert_one(target_id, AlertState::Aggressive);
@@ -182,7 +189,11 @@ impl App {
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
             if stats.hp <= 0 {
                 to_despawn.push(id);
-                let name = self.world.get::<&Name>(id).map(|n| n.0.clone()).unwrap_or("Monster".to_string());
+                let name = self
+                    .world
+                    .get::<&Name>(id)
+                    .map(|n| n.0.clone())
+                    .unwrap_or("Monster".to_string());
                 self.log.push(format!("{} dies!", name));
                 if let Ok(exp) = self.world.get::<&Experience>(id) {
                     total_xp = total_xp.saturating_add(exp.xp_reward);
@@ -232,10 +243,18 @@ impl App {
             self.add_projectile_animation(&line, actual_target);
 
             // Collect info before mutations
-            let aoe_radius = self.world.get::<&AreaOfEffect>(item_id).ok().map(|a| a.radius);
+            let aoe_radius = self
+                .world
+                .get::<&AreaOfEffect>(item_id)
+                .ok()
+                .map(|a| a.radius);
             let confusion_turns = self.world.get::<&Confusion>(item_id).ok().map(|c| c.turns);
             let poison_effect = self.world.get::<&Poison>(item_id).ok().map(|p| *p);
-            let mut power = self.world.get::<&CombatStats>(item_id).map(|s| s.power).unwrap_or(10);
+            let mut power = self
+                .world
+                .get::<&CombatStats>(item_id)
+                .map(|s| s.power)
+                .unwrap_or(10);
             let mut disadvantage = 0;
             let ranged_weapon_info = self.world.get::<&RangedWeapon>(item_id).ok().map(|rw| *rw);
             if let Some(rw) = ranged_weapon_info {
@@ -252,7 +271,12 @@ impl App {
             if let Some(radius) = aoe_radius {
                 self.handle_aoe_effect(radius, actual_target, power, &item_name);
             } else if confusion_turns.is_some() || poison_effect.is_some() {
-                self.handle_status_effect(actual_target, &item_name, confusion_turns, poison_effect);
+                self.handle_status_effect(
+                    actual_target,
+                    &item_name,
+                    confusion_turns,
+                    poison_effect,
+                );
             } else {
                 let mut targets = Vec::new();
                 for (id, (pos, _)) in self.world.query::<(&Position, &Monster)>().iter() {
@@ -310,8 +334,10 @@ impl App {
     }
 
     pub fn trigger_ranged_targeting(&mut self) {
-        let Some(player_id) = self.get_player_id() else { return; };
-        
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
+
         let mut ranged_item = None;
         for slot in [EquipmentSlot::MainHand, EquipmentSlot::OffHand] {
             for (id, (eq, _rw)) in self.world.query::<(&Equipped, &RangedWeapon)>().iter() {
@@ -322,7 +348,9 @@ impl App {
                     }
                 }
             }
-            if ranged_item.is_some() { break; }
+            if ranged_item.is_some() {
+                break;
+            }
         }
 
         if let Some(item_id) = ranged_item {
@@ -331,9 +359,10 @@ impl App {
                 .query::<(&Ammunition, &InBackpack)>()
                 .iter()
                 .any(|(_, (_, backpack))| backpack.owner == player_id);
-            
+
             if !has_ammo {
-                self.log.push("You have no ammunition for this weapon!".to_string());
+                self.log
+                    .push("You have no ammunition for this weapon!".to_string());
                 return;
             }
 
@@ -345,7 +374,8 @@ impl App {
                 self.log.push(format!("Select target for {}...", item_name));
             }
         } else {
-            self.log.push("You have no ranged weapon equipped!".to_string());
+            self.log
+                .push("You have no ranged weapon equipped!".to_string());
         }
     }
 }
@@ -373,22 +403,51 @@ mod tests {
         let monster1 = app.world.spawn((
             Monster,
             Position { x: 12, y: 10 },
-            Attributes { strength: 10, dexterity: -100, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+            Attributes {
+                strength: 10,
+                dexterity: -100,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
         ));
         let monster2 = app.world.spawn((
             Monster,
             Position { x: 13, y: 10 },
-            Attributes { strength: 10, dexterity: -100, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 }
+            Attributes {
+                strength: 10,
+                dexterity: -100,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
         ));
         let scroll = app.world.spawn((
             Item,
             Name("Fire Scroll".to_string()),
             AreaOfEffect { radius: 3 },
-            CombatStats { hp: 0, max_hp: 0, defense: 0, power: 8 },
+            CombatStats {
+                hp: 0,
+                max_hp: 0,
+                defense: 0,
+                power: 8,
+            },
             Consumable,
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
 
         app.targeting_item = Some(scroll);
@@ -408,28 +467,49 @@ mod tests {
         let player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            Attributes { strength: 10, dexterity: 50, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 50,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
         ));
         let monster = app.world.spawn((
             Monster,
             Position { x: 15, y: 10 },
-            Attributes { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
-            CombatStats { hp: 100, max_hp: 100, defense: 0, power: 1 }
-            ));
-            let bow = app.world.spawn((
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 100,
+                max_hp: 100,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let bow = app.world.spawn((
             Item,
             Name("Shortbow".to_string()),
-            RangedWeapon { range: 8, range_increment: 12, damage_bonus: 4 },
-            InBackpack { owner: player }
-            ));
-            let _arrows = app.world.spawn((
-            Item,
-            Ammunition,
-            InBackpack { owner: player }
-            ));
+            RangedWeapon {
+                range: 8,
+                range_increment: 12,
+                damage_bonus: 4,
+            },
+            InBackpack { owner: player },
+        ));
+        let _arrows = app
+            .world
+            .spawn((Item, Ammunition, InBackpack { owner: player }));
 
-            app.targeting_item = Some(bow);
-            app.targeting_cursor = (15, 10);
+        app.targeting_item = Some(bow);
+        app.targeting_cursor = (15, 10);
         app.fire_targeting_item();
 
         let stats = app.world.get::<&CombatStats>(monster).unwrap();
@@ -468,7 +548,14 @@ mod tests {
         let monster1 = app.world.spawn((
             Monster,
             Position { x: 12, y: 10 },
-            Attributes { strength: 10, dexterity: 10, constitution: 10, intelligence: -100, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: -100,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 10,
                 max_hp: 10,
@@ -479,7 +566,14 @@ mod tests {
         let monster2 = app.world.spawn((
             Monster,
             Position { x: 10, y: 12 },
-            Attributes { strength: 10, dexterity: 10, constitution: -100, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: -100,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 10,
                 max_hp: 10,
