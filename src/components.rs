@@ -244,7 +244,7 @@ pub struct Attributes {
 
 impl Attributes {
     pub fn get_modifier(score: i32) -> i32 {
-        (score - 10) / 2
+        (score - 10).div_euclid(2)
     }
 }
 
@@ -348,9 +348,28 @@ pub struct Gold {
 pub struct Levitation;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Regeneration;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Merchant;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ItemValue {
     pub price: i32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_modifier_floor_division() {
+        assert_eq!(Attributes::get_modifier(10), 0);
+        assert_eq!(Attributes::get_modifier(11), 0);
+        assert_eq!(Attributes::get_modifier(12), 1);
+        assert_eq!(Attributes::get_modifier(9), -1); // was 0 with truncating division
+        assert_eq!(Attributes::get_modifier(8), -1);
+        assert_eq!(Attributes::get_modifier(7), -2);
+        assert_eq!(Attributes::get_modifier(1), -5);
+    }
 }

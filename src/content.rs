@@ -83,6 +83,8 @@ pub struct RawItem {
     pub light: Option<RawLightSource>,
     #[serde(default)]
     pub levitation: bool,
+    #[serde(default)]
+    pub regeneration: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -91,9 +93,13 @@ pub struct Content {
     pub items: Vec<RawItem>,
 }
 
+const REQUIRED_ITEMS: &[&str] = &["Amulet of the Ancients", "Identification Scroll"];
+
 impl Content {
     pub fn load_from_str(s: &str) -> anyhow::Result<Self> {
-        Ok(serde_json::from_str(s)?)
+        let content: Self = serde_json::from_str(s)?;
+        content.validate()?;
+        Ok(content)
     }
 
     pub fn load_from_path(path: &str) -> anyhow::Result<Self> {
@@ -103,6 +109,15 @@ impl Content {
 
     pub fn load() -> anyhow::Result<Self> {
         Self::load_from_path("content.json")
+    }
+
+    fn validate(&self) -> anyhow::Result<()> {
+        for name in REQUIRED_ITEMS {
+            if !self.items.iter().any(|i| i.name == *name) {
+                anyhow::bail!("content.json is missing required item: \"{}\"", name);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -120,5 +135,16 @@ mod tests {
     fn test_load_bad_json_returns_err() {
         let result = Content::load_from_str("{ not valid json ]]]");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_missing_required_item_returns_err() {
+        let json = r#"{"monsters":[],"items":[]}"#;
+        let result = Content::load_from_str(json);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Amulet of the Ancients"));
     }
 }

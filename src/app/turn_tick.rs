@@ -17,6 +17,14 @@ impl App {
         self.cleanup_noise();
         self.apply_status_effects(player_id);
         self.handle_dead_monsters_from_poison();
+        self.trim_log();
+    }
+
+    fn trim_log(&mut self) {
+        const MAX_LOG: usize = 500;
+        if self.log.len() > MAX_LOG {
+            self.log.drain(0..self.log.len() - MAX_LOG);
+        }
     }
 
     fn update_light_sources(&mut self, player_id: hecs::Entity) {
@@ -76,21 +84,12 @@ impl App {
 
     fn apply_passive_equipment_effects(&mut self, player_id: hecs::Entity) {
         if self.turn_count.is_multiple_of(5) {
-            let mut regen = false;
-            for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
-                if backpack.owner == player_id {
-                    let name = self
-                        .world
-                        .get::<&Name>(id)
-                        .map(|n| n.0.clone())
-                        .unwrap_or_default();
-                    if name == "Ring of Regeneration" {
-                        regen = true;
-                        break;
-                    }
-                }
-            }
-            if regen {
+            let has_regen = self
+                .world
+                .query::<(&Equipped, &InBackpack, &Regeneration)>()
+                .iter()
+                .any(|(_, (_, backpack, _))| backpack.owner == player_id);
+            if has_regen {
                 if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                     if stats.hp < stats.max_hp {
                         stats.hp += 1;
@@ -431,7 +430,7 @@ mod tests {
         ));
         app.world.spawn((
             Item,
-            Name("Ring of Regeneration".to_string()),
+            Regeneration,
             Equipped {
                 slot: EquipmentSlot::LeftFinger,
             },

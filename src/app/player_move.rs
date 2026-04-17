@@ -33,7 +33,9 @@ impl App {
     }
 
     fn handle_combat(&mut self, target_id: hecs::Entity, _player_power: i32, x: u16, y: u16) {
-        let player_id = self.get_player_id().unwrap();
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
         let mut res = self.resolve_attack(player_id, target_id, None, 0, false);
 
         // Sneak Attack? (Keep this as special player ability)
@@ -293,7 +295,12 @@ impl App {
             return;
         }
 
-        if !self.map.blocked[(new_y * self.map.width + new_x) as usize] {
+        if self
+            .map
+            .idx(new_x, new_y)
+            .map(|i| !self.map.blocked[i])
+            .unwrap_or(false)
+        {
             let Some(player_id) = self.get_player_id() else {
                 return;
             };

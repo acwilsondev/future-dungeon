@@ -51,3 +51,10 @@ pub enum VisualEffect {
 pub fn default_runstate() -> RunState {
     RunState::AwaitingInput
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ShopMode {
+    #[default]
+    Buy,
+    Sell,
+}

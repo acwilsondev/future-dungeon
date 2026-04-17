@@ -1,6 +1,5 @@
 use crate::actions::Action;
 use crate::app::{App, RunState};
-use crate::components::*;
 
 impl App {
     pub fn handle_level_up_input(&mut self, action: Action) {
@@ -17,35 +16,8 @@ impl App {
             }
             Action::MenuSelect => {
                 if let Some(player_id) = self.get_player_id() {
-                    if let Ok(mut attr) = self.world.get::<&mut Attributes>(player_id) {
-                        match self.level_up_cursor {
-                            0 => {
-                                attr.strength += 1;
-                                self.log.push("Strength increased!".to_string());
-                            }
-                            1 => {
-                                attr.dexterity += 1;
-                                self.log.push("Dexterity increased!".to_string());
-                            }
-                            2 => {
-                                attr.constitution += 1;
-                                self.log.push("Constitution increased!".to_string());
-                            }
-                            3 => {
-                                attr.intelligence += 1;
-                                self.log.push("Intelligence increased!".to_string());
-                            }
-                            4 => {
-                                attr.wisdom += 1;
-                                self.log.push("Wisdom increased!".to_string());
-                            }
-                            5 => {
-                                attr.charisma += 1;
-                                self.log.push("Charisma increased!".to_string());
-                            }
-                            _ => {}
-                        }
-                    }
+                    let cursor = self.level_up_cursor;
+                    self.increment_attribute(player_id, cursor);
                     self.recalculate_player_max_hp();
                 }
                 self.state = RunState::MonsterTurn;
@@ -58,6 +30,7 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::components::*;
     use hecs::World;
 
     fn setup_test_app() -> App {

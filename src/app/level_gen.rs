@@ -12,13 +12,14 @@ impl App {
     ) -> &'a T {
         let total: f32 = items.iter().map(&spawn_chance).sum();
         let mut roll = self.rng.gen_range(0.0..total);
-        for item in items {
-            if roll < spawn_chance(item) {
+        for item in items.iter().take(items.len() - 1) {
+            let chance = spawn_chance(item);
+            if roll < chance {
                 return item;
             }
-            roll -= spawn_chance(item);
+            roll -= chance;
         }
-        &items[0]
+        items.last().unwrap_or(&items[0])
     }
 
     fn handle_traveling_entities(
@@ -110,7 +111,7 @@ impl App {
     ) {
         let mut monster_spawns = mb.monster_spawns.clone();
         if self.escaping {
-            monster_spawns.extend(mb.monster_spawns.clone());
+            monster_spawns.extend_from_slice(&mb.monster_spawns);
         }
 
         for spawn in &monster_spawns {
@@ -198,7 +199,6 @@ impl App {
             Branch::Gardens => "Gardens",
             Branch::Vaults => "Vaults",
         };
-        let branch_string = branch_str.to_string();
 
         let available_items: Vec<crate::content::RawItem> = self
             .content
@@ -208,7 +208,7 @@ impl App {
             .filter(|i| {
                 i.branches
                     .as_ref()
-                    .is_none_or(|b| b.contains(&branch_string))
+                    .is_none_or(|b| b.iter().any(|s| s == branch_str))
             })
             .filter(|i| i.biomes.as_ref().is_none_or(|b| b.contains(&mb.biome)))
             .cloned()
@@ -233,7 +233,7 @@ impl App {
             .filter(|m| {
                 m.branches
                     .as_ref()
-                    .is_none_or(|b| b.contains(&branch_string))
+                    .is_none_or(|b| b.iter().any(|s| s == branch_str))
             })
             .filter(|m| m.biomes.as_ref().is_none_or(|b| b.contains(&mb.biome)))
             .cloned()
@@ -333,6 +333,31 @@ mod tests {
         // Floor 10 should have a Boss
         let boss_exists = app.world.query::<&Boss>().iter().count() > 0;
         assert!(boss_exists, "Floor 10 should have a Boss");
+    }
+
+    #[test]
+    fn test_select_weighted_last_item_selectable() {
+        let mut app = App::new_test(42);
+        // All weight on the last item — it must always be returned.
+        let items = vec![("first", 0.0f32), ("middle", 0.0f32), ("last", 1.0f32)];
+        for _ in 0..20 {
+            let result = app.select_weighted(&items, |i| i.1);
+            assert_eq!(
+                result.0, "last",
+                "last item should always be selected when it has all the weight"
+            );
+        }
+    }
+
+    #[test]
+    fn test_select_weighted_first_item_selectable() {
+        let mut app = App::new_test(42);
+        // All weight on the first item.
+        let items = vec![("first", 1.0f32), ("last", 0.0f32)];
+        for _ in 0..20 {
+            let result = app.select_weighted(&items, |i| i.1);
+            assert_eq!(result.0, "first");
+        }
     }
 
     #[test]

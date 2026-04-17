@@ -4,7 +4,9 @@ use crate::components::*;
 
 impl App {
     pub fn init_respec(&mut self) {
-        let player_id = self.get_player_id().unwrap();
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
 
         let level = self
             .world
@@ -53,36 +55,11 @@ impl App {
             }
             Action::MenuSelect => {
                 if self.respec_points > 0 {
-                    let player_id = self.get_player_id().unwrap();
-                    if let Ok(mut attr) = self.world.get::<&mut Attributes>(player_id) {
-                        match self.level_up_cursor {
-                            0 => {
-                                attr.strength += 1;
-                                self.log.push("Strength increased!".to_string());
-                            }
-                            1 => {
-                                attr.dexterity += 1;
-                                self.log.push("Dexterity increased!".to_string());
-                            }
-                            2 => {
-                                attr.constitution += 1;
-                                self.log.push("Constitution increased!".to_string());
-                            }
-                            3 => {
-                                attr.intelligence += 1;
-                                self.log.push("Intelligence increased!".to_string());
-                            }
-                            4 => {
-                                attr.wisdom += 1;
-                                self.log.push("Wisdom increased!".to_string());
-                            }
-                            5 => {
-                                attr.charisma += 1;
-                                self.log.push("Charisma increased!".to_string());
-                            }
-                            _ => {}
-                        }
-                    }
+                    let Some(player_id) = self.get_player_id() else {
+                        return;
+                    };
+                    let cursor = self.level_up_cursor;
+                    self.increment_attribute(player_id, cursor);
                     self.respec_points -= 1;
                     self.recalculate_player_max_hp();
 

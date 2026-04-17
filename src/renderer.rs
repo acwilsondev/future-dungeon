@@ -1,4 +1,4 @@
-use crate::app::{App, RunState, VisualEffect};
+use crate::app::{App, RunState, ShopMode, VisualEffect};
 use crate::components::*;
 use crate::map::TileType;
 use bracket_pathfinding::prelude::*;
@@ -714,35 +714,34 @@ fn render_shop(app: &App, frame: &mut Frame) {
         .map(|g| g.amount)
         .unwrap_or(0);
 
-    let title = if app.shop_mode == 0 {
-        format!(" Merchant Shop (Buy) - Your Gold: {} ", player_gold)
-    } else {
-        format!(" Merchant Shop (Sell) - Your Gold: {} ", player_gold)
+    let title = match app.shop_mode {
+        ShopMode::Buy => format!(" Merchant Shop (Buy) - Your Gold: {} ", player_gold),
+        ShopMode::Sell => format!(" Merchant Shop (Sell) - Your Gold: {} ", player_gold),
     };
     let block = Block::default().borders(Borders::ALL).title(title);
 
-    let items: Vec<(hecs::Entity, String, i32)> = if app.shop_mode == 0 {
-        // Buy: Merchant's backpack
-        if let Some(merchant_id) = app.active_merchant {
-            app.world
-                .query::<(&Item, &InBackpack, &Name, &ItemValue)>()
-                .iter()
-                .filter(|(_, (_, backpack, _, _))| backpack.owner == merchant_id)
-                .map(|(id, (_, _, name, value))| (id, name.0.clone(), value.price))
-                .collect()
-        } else {
-            Vec::new()
+    let items: Vec<(hecs::Entity, String, i32)> = match app.shop_mode {
+        ShopMode::Buy => {
+            if let Some(merchant_id) = app.active_merchant {
+                app.world
+                    .query::<(&Item, &InBackpack, &Name, &ItemValue)>()
+                    .iter()
+                    .filter(|(_, (_, backpack, _, _))| backpack.owner == merchant_id)
+                    .map(|(id, (_, _, name, value))| (id, name.0.clone(), value.price))
+                    .collect()
+            } else {
+                Vec::new()
+            }
         }
-    } else {
-        // Sell: Player's backpack (Filter out equipped items)
-        app.world
+        ShopMode::Sell => app
+            .world
             .query::<(&Item, &InBackpack, &Name, &ItemValue)>()
             .iter()
             .filter(|(id, (_, backpack, _, _))| {
                 backpack.owner == player_id && app.world.get::<&Equipped>(*id).is_err()
             })
             .map(|(id, (_, _, name, value))| (id, name.0.clone(), value.price / 2))
-            .collect()
+            .collect(),
     };
 
     if items.is_empty() {

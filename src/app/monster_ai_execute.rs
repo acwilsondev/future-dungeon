@@ -4,6 +4,32 @@ use bracket_pathfinding::prelude::*;
 use ratatui::prelude::Color;
 
 impl App {
+    fn handle_attack_outcome(
+        &mut self,
+        target_id: hecs::Entity,
+        player_id: hecs::Entity,
+        target_name: &str,
+    ) {
+        let target_hp = self
+            .world
+            .get::<&CombatStats>(target_id)
+            .map(|s| s.hp)
+            .unwrap_or(0);
+        if target_hp <= 0 {
+            if target_id == player_id {
+                self.log.push("You are dead!".to_string());
+                self.state = RunState::Dead;
+                self.death = true;
+            } else {
+                self.log.push(format!("{} dies!", target_name));
+                if let Err(e) = self.world.despawn(target_id) {
+                    log::error!("Failed to despawn monster killed by monster: {}", e);
+                }
+                self.update_blocked_and_opaque();
+            }
+        }
+    }
+
     pub fn execute_monster_action(
         &mut self,
         id: hecs::Entity,
@@ -44,35 +70,9 @@ impl App {
                 } else {
                     (0, 0)
                 };
-
                 self.apply_attack_result(target_id, &res, tx, ty);
-
-                if target_id == player_id {
-                    let target_hp = self
-                        .world
-                        .get::<&CombatStats>(target_id)
-                        .map(|s| s.hp)
-                        .unwrap_or(0);
-                    if target_hp <= 0 {
-                        self.log.push("You are dead!".to_string());
-                        self.state = RunState::Dead;
-                        self.death = true;
-                    }
-                } else {
-                    let target_hp = self
-                        .world
-                        .get::<&CombatStats>(target_id)
-                        .map(|s| s.hp)
-                        .unwrap_or(0);
-                    if target_hp <= 0 {
-                        self.log.push(format!("{} dies!", res.target_name));
-                        // Monsters killing monsters? Despawn?
-                        if let Err(e) = self.world.despawn(target_id) {
-                            log::error!("Failed to despawn monster killed by monster: {}", e);
-                        }
-                        self.update_blocked_and_opaque();
-                    }
-                }
+                let target_name = res.target_name.clone();
+                self.handle_attack_outcome(target_id, player_id, &target_name);
             }
             MonsterAction::RangedAttack(target_id) => {
                 let (tx, ty, disadvantage) = {
@@ -99,32 +99,8 @@ impl App {
 
                 let res = self.resolve_attack(id, target_id, Some(id), disadvantage, true);
                 self.apply_attack_result(target_id, &res, tx, ty);
-
-                if target_id == player_id {
-                    let target_hp = self
-                        .world
-                        .get::<&CombatStats>(target_id)
-                        .map(|s| s.hp)
-                        .unwrap_or(0);
-                    if target_hp <= 0 {
-                        self.log.push("You are dead!".to_string());
-                        self.state = RunState::Dead;
-                        self.death = true;
-                    }
-                } else {
-                    let target_hp = self
-                        .world
-                        .get::<&CombatStats>(target_id)
-                        .map(|s| s.hp)
-                        .unwrap_or(0);
-                    if target_hp <= 0 {
-                        self.log.push(format!("{} dies!", res.target_name));
-                        if let Err(e) = self.world.despawn(target_id) {
-                            log::error!("Failed to despawn monster killed by monster: {}", e);
-                        }
-                        self.update_blocked_and_opaque();
-                    }
-                }
+                let target_name = res.target_name.clone();
+                self.handle_attack_outcome(target_id, player_id, &target_name);
 
                 // Add projectile animation
                 if let (Ok(m_pos), Ok(t_pos)) = (
