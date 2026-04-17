@@ -424,4 +424,98 @@ mod tests {
         assert_eq!(res.attack_mod, 5); // STR 20
         assert_eq!(res.dodge_dc, 10); // 10 + DEX 10 (0)
     }
+
+    #[test]
+    fn test_zero_defense_damage_at_least_one() {
+        let mut app = setup_test_app();
+        let attacker = app.world.spawn((
+            Name("Attacker".to_string()),
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
+        ));
+        let target = app.world.spawn((
+            Name("Target".to_string()),
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 100,
+                max_hp: 100,
+                defense: 0,
+                power: 0,
+            },
+        ));
+
+        // Run many attacks; whenever one hits, damage must be >= 1
+        for _ in 0..50 {
+            let res = app.resolve_attack(attacker, target, None, 0, false);
+            if res.hit {
+                assert!(res.damage >= 1, "damage must be at least 1 on a hit");
+            }
+        }
+    }
+
+    #[test]
+    fn test_overkill_damage_does_not_panic() {
+        let mut app = setup_test_app();
+        let attacker = app.world.spawn((
+            Name("Giant".to_string()),
+            Attributes {
+                strength: 30,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 100,
+                max_hp: 100,
+                defense: 0,
+                power: 100,
+            },
+        ));
+        let target = app.world.spawn((
+            Name("Rat".to_string()),
+            Attributes {
+                strength: 1,
+                dexterity: 1,
+                constitution: 1,
+                intelligence: 1,
+                wisdom: 1,
+                charisma: 1,
+            },
+            CombatStats {
+                hp: 1,
+                max_hp: 1,
+                defense: 0,
+                power: 0,
+            },
+        ));
+
+        let res = app.resolve_attack(attacker, target, None, 0, false);
+        // Overkill should not panic; if it hit, damage > target hp is fine
+        if res.hit {
+            assert!(res.damage >= 1);
+        }
+        // Apply it without panicking
+        app.apply_attack_result(target, &res, 0, 0);
+    }
 }

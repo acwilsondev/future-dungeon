@@ -85,12 +85,6 @@ impl App {
         }
 
         for (pos, amount) in noise_sources {
-            // Sound propagation using Dijkstra-like approach to "bend" around corners
-            let mut dijkstra =
-                DijkstraMap::new(self.map.width, self.map.height, &[], &self.map, 20.0);
-            dijkstra.map[self.map.point2d_to_index(Point::new(pos.x, pos.y))] = 0.0;
-
-            // Let's use a BFS for sound propagation
             let mut queue = std::collections::VecDeque::new();
             queue.push_back((pos.x, pos.y, amount));
 

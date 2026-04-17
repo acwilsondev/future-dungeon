@@ -107,7 +107,9 @@ impl App {
             );
             let mut blocked = false;
             for p in line.iter().skip(1).take(line.len() - 2) {
-                let is_blocked = self.map.idx(p.x as u16, p.y as u16)
+                let is_blocked = self
+                    .map
+                    .idx(p.x as u16, p.y as u16)
                     .map(|i| self.map.blocked[i])
                     .unwrap_or(true);
                 if is_blocked {

@@ -81,6 +81,8 @@ pub struct RawItem {
     pub branches: Option<Vec<String>>,
     pub biomes: Option<Vec<crate::components::Biome>>,
     pub light: Option<RawLightSource>,
+    #[serde(default)]
+    pub levitation: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]

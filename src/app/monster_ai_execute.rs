@@ -23,11 +23,12 @@ impl App {
                         return;
                     }
                 };
-                let passable = self.map.idx(new_x, new_y)
+                let passable = self
+                    .map
+                    .idx(new_x, new_y)
                     .map(|i| !self.map.blocked[i])
                     .unwrap_or(false);
-                if !occupied_positions.contains(&(new_x, new_y)) && passable
-                {
+                if !occupied_positions.contains(&(new_x, new_y)) && passable {
                     if let Ok(mut pos) = self.world.get::<&mut Position>(id) {
                         occupied_positions.remove(&(pos.x, pos.y));
                         pos.x = new_x;
@@ -175,7 +176,12 @@ mod tests {
         let monster = app.world.spawn((
             Monster,
             Position { x: 40, y: 49 },
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 1 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
         ));
         let player = app.world.spawn((Player, Position { x: 40, y: 0 }));
         let mut occupied = HashSet::new();

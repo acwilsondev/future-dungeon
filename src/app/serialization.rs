@@ -78,6 +78,7 @@ impl App {
                 equippable,
                 equipped,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
+                is_levitation: self.world.get::<&Levitation>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
                 ammo: self.world.get::<&Ammunition>(id).is_ok(),
                 consumable: self.world.get::<&Consumable>(id).is_ok(),
@@ -205,6 +206,9 @@ impl App {
         }
         if e.last_hit_by_player {
             cb.add(LastHitByPlayer);
+        }
+        if e.is_levitation {
+            cb.add(Levitation);
         }
         if e.is_merchant {
             cb.add(Merchant);

@@ -206,6 +206,9 @@ pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Ent
             flicker: light.flicker,
         });
     }
+    if raw.levitation {
+        cb.add(Levitation);
+    }
 
     world.spawn(cb.build())
 }
@@ -489,6 +492,9 @@ pub fn spawn_item_in_backpack(
             remaining_turns: light.turns,
             flicker: light.flicker,
         });
+    }
+    if raw.levitation {
+        cb.add(Levitation);
     }
 
     world.spawn(cb.build())

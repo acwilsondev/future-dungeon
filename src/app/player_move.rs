@@ -130,20 +130,11 @@ impl App {
         }
 
         for (id, trap) in traps_at_pos {
-            let mut levitating = false;
-            for (eq_id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
-                if backpack.owner == player_id && eq.slot == EquipmentSlot::Feet {
-                    let name = self
-                        .world
-                        .get::<&Name>(eq_id)
-                        .map(|n| n.0.clone())
-                        .unwrap_or_default();
-                    if name == "Boots of Levitation" {
-                        levitating = true;
-                        break;
-                    }
-                }
-            }
+            let levitating = self
+                .world
+                .query::<(&Equipped, &InBackpack, &Levitation)>()
+                .iter()
+                .any(|(_, (_, backpack, _))| backpack.owner == player_id);
 
             if levitating {
                 if !trap.revealed {

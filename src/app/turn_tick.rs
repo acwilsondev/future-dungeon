@@ -2,6 +2,8 @@ use crate::app::{App, RunState};
 use crate::components::*;
 use rand::Rng;
 
+const TORCH_FADE_TURNS: i32 = 1000;
+
 impl App {
     pub fn on_turn_tick(&mut self) {
         self.turn_count += 1;
@@ -25,7 +27,7 @@ impl App {
                 if let Some(turns) = light.remaining_turns {
                     if turns > 0 {
                         light.remaining_turns = Some(turns - 1);
-                        if turns == 1001 {
+                        if turns == TORCH_FADE_TURNS + 1 {
                             light.base_range /= 2;
                             light.range = light.range.min(light.base_range);
                             any_light_changed = true;

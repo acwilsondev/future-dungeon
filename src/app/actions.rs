@@ -261,7 +261,8 @@ impl App {
                         let Some(player_id) = self.get_player_id() else {
                             return;
                         };
-                        let Some(pos) = self.world.get::<&Position>(player_id).ok().map(|p| *p) else {
+                        let Some(pos) = self.world.get::<&Position>(player_id).ok().map(|p| *p)
+                        else {
                             return;
                         };
                         crate::spawner::spawn_item(&mut self.world, pos.x, pos.y, &item_raw);

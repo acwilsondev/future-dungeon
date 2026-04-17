@@ -5,6 +5,22 @@ use hecs::World;
 use rand::Rng;
 
 impl App {
+    fn select_weighted<'a, T>(
+        &mut self,
+        items: &'a [T],
+        spawn_chance: impl Fn(&T) -> f32,
+    ) -> &'a T {
+        let total: f32 = items.iter().map(&spawn_chance).sum();
+        let mut roll = self.rng.gen_range(0.0..total);
+        for item in items {
+            if roll < spawn_chance(item) {
+                return item;
+            }
+            roll -= spawn_chance(item);
+        }
+        &items[0]
+    }
+
     fn handle_traveling_entities(
         &mut self,
         traveling_entities: Vec<EntitySnapshot>,
@@ -34,16 +50,7 @@ impl App {
                 center.1 as u16,
             );
             for _ in 0..5 {
-                let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-                let mut roll = self.rng.gen_range(0.0..total_chance);
-                let mut selected_item = available_items[0];
-                for item in available_items {
-                    if roll < item.spawn_chance {
-                        selected_item = item;
-                        break;
-                    }
-                    roll -= item.spawn_chance;
-                }
+                let selected_item = self.select_weighted(available_items, |i| i.spawn_chance);
                 crate::spawner::spawn_item_in_backpack(&mut self.world, merchant, selected_item);
             }
 
@@ -66,16 +73,7 @@ impl App {
             let merchant =
                 crate::spawner::spawn_merchant(&mut self.world, center.0 as u16, center.1 as u16);
             for _ in 0..3 {
-                let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-                let mut roll = self.rng.gen_range(0.0..total_chance);
-                let mut selected_item = available_items[0];
-                for item in available_items {
-                    if roll < item.spawn_chance {
-                        selected_item = item;
-                        break;
-                    }
-                    roll -= item.spawn_chance;
-                }
+                let selected_item = self.select_weighted(available_items, |i| i.spawn_chance);
                 crate::spawner::spawn_item_in_backpack(&mut self.world, merchant, selected_item);
             }
         }
@@ -119,16 +117,7 @@ impl App {
             if available_monsters.is_empty() {
                 break;
             }
-            let total_chance: f32 = available_monsters.iter().map(|m| m.spawn_chance).sum();
-            let mut roll = self.rng.gen_range(0.0..total_chance);
-            let mut selected_monster = available_monsters[0];
-            for m in available_monsters {
-                if roll < m.spawn_chance {
-                    selected_monster = m;
-                    break;
-                }
-                roll -= m.spawn_chance;
-            }
+            let selected_monster = self.select_weighted(available_monsters, |m| m.spawn_chance);
             crate::spawner::spawn_monster(
                 &mut self.world,
                 spawn.0,
@@ -183,16 +172,7 @@ impl App {
                 );
                 continue;
             }
-            let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-            let mut roll = self.rng.gen_range(0.0..total_chance);
-            let mut selected_item = available_items[0];
-            for item in available_items {
-                if roll < item.spawn_chance {
-                    selected_item = item;
-                    break;
-                }
-                roll -= item.spawn_chance;
-            }
+            let selected_item = self.select_weighted(available_items, |i| i.spawn_chance);
             crate::spawner::spawn_item(&mut self.world, spawn.0, spawn.1, selected_item);
         }
     }
@@ -218,6 +198,7 @@ impl App {
             Branch::Gardens => "Gardens",
             Branch::Vaults => "Vaults",
         };
+        let branch_string = branch_str.to_string();
 
         let available_items: Vec<crate::content::RawItem> = self
             .content
@@ -227,7 +208,7 @@ impl App {
             .filter(|i| {
                 i.branches
                     .as_ref()
-                    .is_none_or(|b| b.contains(&branch_str.to_string()))
+                    .is_none_or(|b| b.contains(&branch_string))
             })
             .filter(|i| i.biomes.as_ref().is_none_or(|b| b.contains(&mb.biome)))
             .cloned()
@@ -252,7 +233,7 @@ impl App {
             .filter(|m| {
                 m.branches
                     .as_ref()
-                    .is_none_or(|b| b.contains(&branch_str.to_string()))
+                    .is_none_or(|b| b.contains(&branch_string))
             })
             .filter(|m| m.biomes.as_ref().is_none_or(|b| b.contains(&mb.biome)))
             .cloned()
@@ -352,5 +333,27 @@ mod tests {
         // Floor 10 should have a Boss
         let boss_exists = app.world.query::<&Boss>().iter().count() > 0;
         assert!(boss_exists, "Floor 10 should have a Boss");
+    }
+
+    #[test]
+    fn test_escaping_doubles_monster_spawns() {
+        // Non-haven, non-boss floor so monsters spawn normally
+        let seed = 12345u64;
+
+        let mut normal_app = App::new_test(seed);
+        normal_app.dungeon_level = 3;
+        normal_app.generate_level(Vec::new());
+        let normal_count = normal_app.world.query::<&Monster>().iter().count();
+
+        let mut escaping_app = App::new_test(seed);
+        escaping_app.dungeon_level = 3;
+        escaping_app.escaping = true;
+        escaping_app.generate_level(Vec::new());
+        let escaping_count = escaping_app.world.query::<&Monster>().iter().count();
+
+        assert!(
+            escaping_count > normal_count,
+            "escaping flag should increase monster count ({normal_count} → {escaping_count})"
+        );
     }
 }
