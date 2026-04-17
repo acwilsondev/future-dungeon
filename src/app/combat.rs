@@ -104,7 +104,7 @@ impl App {
         for _ in 0..=disadvantage_count {
             rolls.push(self.rng.gen_range(1..=20));
         }
-        let roll = *rolls.iter().min().unwrap();
+        let roll = *rolls.iter().min().expect("rolls is never empty");
 
         let mut hit = false;
         let mut critical = false;
@@ -374,7 +374,7 @@ mod tests {
     use hecs::World;
 
     fn setup_test_app() -> App {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.world = World::new();
         app
     }

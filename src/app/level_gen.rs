@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_starting_equipment() {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.generate_level(Vec::new());
         app.apply_class_selection();
 
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_dungeon_rhythm_merchant_haven() {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.dungeon_level = 5;
         app.generate_level(Vec::new());
 
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_dungeon_rhythm_boss_arena() {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.dungeon_level = 10;
         app.generate_level(Vec::new());
 

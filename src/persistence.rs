@@ -46,7 +46,7 @@ mod tests {
 
     #[test]
     fn test_save_load_game() {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.world = hecs::World::new();
         let player = app.world.spawn((
             Player,

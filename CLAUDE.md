@@ -17,6 +17,16 @@ Run a single test: `cargo test test_name` (e.g. `cargo test test_save_load_game`
 
 The project uses `#![deny(clippy::all)]`, so all clippy warnings are compile errors. Always run `make lint` before committing.
 
+## Workflow
+
+Use Red-Green-Refactor for all fixes and features:
+
+1. **Red** — write a failing test that demonstrates the bug or missing behaviour. Confirm it fails before writing any fix.
+2. **Green** — make the minimal change to pass the test.
+3. **Refactor** — clean up without breaking the test.
+
+Never fix a bug without a test that would have caught it.
+
 ## Architecture
 
 RustLike is a terminal roguelike using `ratatui`/`crossterm` for rendering and `hecs` for the ECS.

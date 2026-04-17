@@ -121,7 +121,10 @@ impl App {
 
     pub fn apply_class_selection(&mut self) {
         use crate::components::*;
-        let player_id = self.get_player_id().unwrap();
+        let Some(player_id) = self.get_player_id() else {
+            log::error!("apply_class_selection: player not found");
+            return;
+        };
 
         if self.class_selection == 0 {
             // Fighter
@@ -133,7 +136,7 @@ impl App {
                 wisdom: 12,
                 charisma: 10,
             };
-            self.world.insert_one(player_id, attrs).unwrap();
+            self.world.insert_one(player_id, attrs).ok();
             let hp = 24 + Attributes::get_modifier(attrs.constitution);
             self.world
                 .insert_one(
@@ -145,7 +148,7 @@ impl App {
                         power: 5,
                     },
                 )
-                .unwrap();
+                .ok();
             self.world
                 .insert_one(
                     player_id,
@@ -153,7 +156,7 @@ impl App {
                         class: CharacterClass::Fighter,
                     },
                 )
-                .unwrap();
+                .ok();
 
             // Give starting equipment: Longsword, Shield, Chainmail
             let starting_items = ["Chainmail", "Shield", "Torch", "Longsword", "Health Potion"];
@@ -255,8 +258,12 @@ impl App {
                         .find(|i| i.name == item_name)
                         .cloned()
                     {
-                        let player_id = self.get_player_id().unwrap();
-                        let pos = *self.world.get::<&Position>(player_id).unwrap();
+                        let Some(player_id) = self.get_player_id() else {
+                            return;
+                        };
+                        let Some(pos) = self.world.get::<&Position>(player_id).ok().map(|p| *p) else {
+                            return;
+                        };
                         crate::spawner::spawn_item(&mut self.world, pos.x, pos.y, &item_raw);
                         self.log.push(format!("Debug: Spawned {}", item_name));
                     } else {
@@ -276,7 +283,9 @@ impl App {
                 }
             }
             "heal" => {
-                let player_id = self.get_player_id().unwrap();
+                let Some(player_id) = self.get_player_id() else {
+                    return;
+                };
                 if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                     stats.hp = stats.max_hp;
                     self.log.push("Debug: Healed player".to_string());
@@ -291,7 +300,9 @@ impl App {
                 self.log.push("Debug: Revealed map".to_string());
             }
             "levelup" => {
-                let player_id = self.get_player_id().unwrap();
+                let Some(player_id) = self.get_player_id() else {
+                    return;
+                };
                 let needed = if let Ok(exp) = self.world.get::<&Experience>(player_id) {
                     Some(exp.next_level_xp - exp.xp)
                 } else {

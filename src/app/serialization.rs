@@ -290,7 +290,7 @@ mod tests {
     use ratatui::prelude::Color;
 
     fn setup_test_app() -> App {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.world = World::new();
         app
     }

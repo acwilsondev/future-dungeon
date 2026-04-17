@@ -90,9 +90,33 @@ pub struct Content {
 }
 
 impl Content {
-    pub fn load() -> Self {
-        let content_str =
-            std::fs::read_to_string("content.json").expect("Failed to read content.json");
-        serde_json::from_str(&content_str).expect("Failed to parse content.json")
+    pub fn load_from_str(s: &str) -> anyhow::Result<Self> {
+        Ok(serde_json::from_str(s)?)
+    }
+
+    pub fn load_from_path(path: &str) -> anyhow::Result<Self> {
+        let s = std::fs::read_to_string(path)?;
+        Self::load_from_str(&s)
+    }
+
+    pub fn load() -> anyhow::Result<Self> {
+        Self::load_from_path("content.json")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_nonexistent_file_returns_err() {
+        let result = Content::load_from_path("this_file_does_not_exist_xyz.json");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_bad_json_returns_err() {
+        let result = Content::load_from_str("{ not valid json ]]]");
+        assert!(result.is_err());
     }
 }

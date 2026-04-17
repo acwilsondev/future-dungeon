@@ -45,6 +45,13 @@ impl Map {
         }
     }
 
+    pub fn idx(&self, x: u16, y: u16) -> Option<usize> {
+        if x >= self.width || y >= self.height {
+            return None;
+        }
+        Some((y * self.width + x) as usize)
+    }
+
     pub fn get_tile(&self, x: u16, y: u16) -> TileType {
         if x >= self.width || y >= self.height {
             return TileType::Wall;

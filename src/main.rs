@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     let mut engine = Engine::new()?;
 
     // Always start at the Main Menu
-    let mut app = App::new();
+    let mut app = App::new()?;
 
     let mut last_frame = Instant::now();
 

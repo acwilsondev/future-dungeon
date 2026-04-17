@@ -6,9 +6,9 @@ Fixes identified in code review, ordered by priority.
 
 ## Critical — Panic Risks
 
-- [ ] **Unwrap in hot paths** — Replace `.unwrap()` with `let...else` returns in `src/app/actions.rs:124`, `src/app/turn_tick.rs:260+`, `src/app/actions_shop.rs:141-143`, and other ECS query sites in `combat.rs` and `monster.rs`.
-- [ ] **Map index bounds check** — Add a helper `fn map_idx(&self, x: u16, y: u16) -> Option<usize>` and use it in `src/app/monster_ai_execute.rs:19-20` and `monster_ai_calc.rs:110` instead of direct indexing.
-- [ ] **Content loading panic** — Change `Content::load()` in `src/content.rs:92-97` to return `Result` and propagate to `main` instead of using `.expect()`.
+- [x] **Unwrap in hot paths** — Replace `.unwrap()` with `let...else` returns in `src/app/actions.rs:124`, `src/app/turn_tick.rs:260+`, `src/app/actions_shop.rs:141-143`, and other ECS query sites in `combat.rs` and `monster.rs`.
+- [x] **Map index bounds check** — Add a helper `fn map_idx(&self, x: u16, y: u16) -> Option<usize>` and use it in `src/app/monster_ai_execute.rs:19-20` and `monster_ai_calc.rs:110` instead of direct indexing.
+- [x] **Content loading panic** — Change `Content::load()` in `src/content.rs:92-97` to return `Result` and propagate to `main` instead of using `.expect()`.
 
 ---
 

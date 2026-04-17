@@ -121,11 +121,11 @@ fn default_rng() -> ChaCha8Rng {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new() -> anyhow::Result<Self> {
         Self::new_random()
     }
 
-    pub fn new_random() -> Self {
+    pub fn new_random() -> anyhow::Result<Self> {
         let seed = rand::random::<u64>();
         let mut app = Self {
             exit: false,
@@ -163,10 +163,10 @@ impl App {
             turn_count: 0,
             escaping: false,
             rng: ChaCha8Rng::seed_from_u64(seed),
-            content: Content::load(),
+            content: Content::load()?,
         };
         app.init_stars();
-        app
+        Ok(app)
     }
 }
 
@@ -209,7 +209,7 @@ impl App {
             turn_count: 0,
             escaping: false,
             rng: ChaCha8Rng::seed_from_u64(seed),
-            content: Content::load(),
+            content: Content::load().expect("content.json must be present for tests"),
         };
         app.init_stars();
         app

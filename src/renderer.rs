@@ -1476,7 +1476,7 @@ mod tests {
     fn test_render_basic() {
         use ratatui::backend::TestBackend;
         use ratatui::Terminal;
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.map = crate::map::Map::new(80, 50);
         app.world.spawn((
             Position { x: 10, y: 10 },
@@ -1498,7 +1498,7 @@ mod tests {
     fn test_render_states() {
         use ratatui::backend::TestBackend;
         use ratatui::Terminal;
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.map = crate::map::Map::new(80, 50);
         app.world.spawn((Position { x: 10, y: 10 }, Player));
 
