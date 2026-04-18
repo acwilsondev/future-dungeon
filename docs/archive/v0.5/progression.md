@@ -1,5 +1,7 @@
 # Progression
 
+**Status:** Development Complete
+
 To make the **1–20 Level Arc** work across **99 Floors**, we need to calculate a "Monster Value" per floor that feeds into a quadratic XP curve.
 
 If we assume the player clears **~80%** of a floor, we can bake that "missing 20%" into the curve so they don't feel forced to full-clear every single corner just to stay on pace.

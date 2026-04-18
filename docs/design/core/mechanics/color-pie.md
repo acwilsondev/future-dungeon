@@ -7,21 +7,25 @@
 - **The Vibe:** The blinding light of a newborn star. High-tech paladins and solar monks.
 - **Gameplay:** Buff-heavy. Focuses on **Shielding**, **Damage Multipliers**, and **Radiance** (illuminating the map and burning enemies who look directly at you).
 - **References:** Jedi, Protoss
+- **Preferred Damage Types:**
+  - Fire
 
-| **Effect Name** | **Engine Behavior**            | **Save**             | **Status**                        |
-| --------------- | ------------------------------ | -------------------- | --------------------------------- |
-| **Radiance**    | Target(s) gain Light(X, Y).    | None                 | Approved                          |
-| **Fortify**     | Target(s) gain Fortified(X, Y) | None                 | Approved                          |
-| **Shield**      | Targets(s) gain Shielded(X, Y) | None                 | Approved                          |
-| **Refraction**  |                                |                      | Not Approved, unsure about effect |
-| **Burn**        | Target(s) gain Burning(X, Y)   | DEX                  | Approved                          |
-| **Fire Damage** | Deals X damage.                | DEX for half damage. | Approved                          |
+| **Effect Name** | **Engine Behavior**              | **Save**             | **Status** |
+| --------------- | -------------------------------- | -------------------- | ---------- |
+| **Radiance**    | Target(s) gain Light(X, Y).      | None                 | Approved   |
+| **Fortify**     | Target(s) gain Fortified(X, Y)   | None                 | Approved   |
+| **Aegis**       | Targets(s) gain AegisBoost(X, Y) | None                 | Approved   |
+| **Refraction**  | Target(s) gain Refraction(X, Y)  | None                 | Approved   |
+| **Burn**        | Target(s) gain Burning(X, Y)     | DEX                  | Approved   |
+| **Fire Damage** | Deals X damage.                  | DEX for half damage. | Approved   |
 
 ### 2. Purple: The Nihil (Sith-like / Shadow / Gravity)
 
-- **The Vibe:** The crushing weight of a black hole. Forbidden knowledge and ego-dissolution. Warlocks, mysic assassins.
-- **Gameplay:** Debuff-heavy. Focuses on **Life-Leech**, **Slows**, **Confusion**, and **Entropy** (armor degradation). It’s about making the enemy too weak to fight back.
+- **The Vibe:** The crushing weight of a black hole. Forbidden knowledge and ego-dissolution. Warlocks, mystic assassins.
+- **Gameplay:** Debuff-heavy. Focuses on **LifeDrain**, **Slows**, **Confusion**, and **Entropy** (armor degradation). It’s about making the enemy too weak to fight back.
 - **References**: Sith, Dark Protoss
+- **Preferred Damage Types:**
+  - Life Drain
 
 | **Effect Name**         | **Engine Behavior**                                                          | **Save**           | **Status**               |
 | ----------------------- | ---------------------------------------------------------------------------- | ------------------ | ------------------------ |
@@ -32,6 +36,7 @@
 | **Confusion**           | Add a Confusion(X, Y) status to targets.                                     | WIS                | Approved                 |
 | **Crush**               | Target(s) gain Crushing(X, Y)                                                | CON                | Approved                 |
 | **Crush Damage**        | Deals X damage.                                                              | CON for half       | Approved                 |
+| **Lose Life**           | Typeless reduction in Health that bypasses AV.                               | CON for half       | Approved                 |
 
 ### 3. Iron: The Kinetic (Mundane / Industrial / Grit)
 
@@ -39,27 +44,34 @@
 - **Gameplay:** The baseline. Focuses on **Reliability**, **Physical Defense**, and **Tactical Tools** (grappling hooks, barricades, smoke grenades). It doesn't rely on magic so it's immune.
 - **References:** Terrans
 - **Wider Effect Access:** Generally, Iron color has access to whatever effects can be explained by technology, with proportionately higher costs.
+- **Preferred Damage Types:**
+  - Physical
+   Fire
 
-| **Effect Name**         | **Engine Behavior**                                                                                                                                                         | **Save**   | **Status**           |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | -------------------- |
+| **Effect Name**         | **Engine Behavior**                                                                                                                                                  | **Save**   | **Status**           |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | -------------------- |
 | **Impact**              | Moves entity `X` tiles away. If targets hit a wall, they take `1d6` damage per tile they could not move. If the target is a point, all entities within X are pushed. | CON        | Approved             |
-| **Barricade**           | Creates a wall for Y turns.                                                                                                                                                 | None       | Needs targeting rule |
-| **Bleed**               | Grants Bleeding(X, Y).                                                                                                                                                      | CON or DEX | Approved             |
-| **Create [Type] Cloud** | Creates a Cloud of a given type that disperses.                                                                                                                             | None       | Needs Clouds         |
-| **Hardened**            | Unknown                                                                                                                                                                     |            | Needs definition.    |
+| **Barricade**           | Creates a wall for Y turns.                                                                                                                                          | None       | Needs targeting rule |
+| **Bleed**               | Grants Damage<Physical>(X, Y).                                                                                                                                       | CON or DEX | Approved             |
+| **Create [Type] Cloud** | Creates a Cloud of a given type that disperses.                                                                                                                      | None       | Needs Clouds         |
+| **Hardened**            | Unknown                                                                                                                                                              |            | Needs definition.    |
 
 ### 4. Cyan: The Aetheric (Alien / Weird Nature / Fae)
 
 - **The Vibe:** Bioluminescent jungles, crystalline growths, and non-Euclidean geometry.
 - **Gameplay:** The "Trickster" color. Focuses on **Teleportation**, **Cloning**, **Phasing** (walking through walls), and **Probability**. It’s less about damage and more about breaking the "rules" of the grid.
+- **Preferred Damage Types:**
+  - Psychic
+  - Force
+  - Physical (Slashing, Piercing)
 
 | **Effect Name** | **Engine Behavior**                                                                 | **Save**             | **Approved** |
 | --------------- | ----------------------------------------------------------------------------------- | -------------------- | ------------ |
-| **Phase**       | Gains Phasing(X) (can walk through walls)                                           | None                 |              |
-| **Blink**       | Instantaneous change of `Entity` coordinates. Bypasses all intervening traps/tiles. | CHA if targets enemy |              |
-| **Clone**       | Creates a `Decoy_Entity` with 1 HP that shares the creator's ASCII symbol.          | None                 |              |
-| **Flicker**     | Gains Flicker(X, Y) (ignore attacks, effects)                                       | None                 |              |
-| **Anchor**      | Gains Anchored(X)                                                                   |                      |              |
+| **Phase**       | Gains Phasing(X)                                                                    | None                 | Approved     |
+| **Blink**       | Instantaneous change of `Entity` coordinates. Bypasses all intervening traps/tiles. | CHA if targets enemy | Approved     |
+| **Clone**       | Creates a `Decoy_Entity` with 1 HP that shares the creator's ASCII symbol.          | None                 | Approved     |
+| **Flicker**     | Gains Flicker(X, Y) (ignore attacks, effects)                                       | None                 | Approved     |
+| **Anchor**      | Gains Anchored(X)                                                                   | STR                  | Approved     |
 | **Warp**        | Gains Warped(X, Y)                                                                  | CON                  | Approved     |
 
 ### 5. Emerald: The Bio-Mass (Evolution / Toxic / Hive)
@@ -67,16 +79,19 @@
 - **The Vibe:** Corrosive fluids, chitinous plating, and rapid mutation.
 - **Gameplay:** Sustained pressure. Focuses on **Damage-over-Time (Poison/Acid)**, **Summoning** (spawn mini-drones or bio-larvae), and **Self-Mutation** (growing wings or extra limbs for a few turns).
 - **References:** Zerg
+- **Favored Damage Types:**
+- Physical
+- Poison
+- Acid
 
-| **Effect Name** | **Type**    | **Systemic Hook**    | **Engine Behavior**                                                                 |
-| --------------- | ----------- | -------------------- | ----------------------------------------------------------------------------------- |
-| **Infect**      | Offensive   | **Propagation**      | On `Entity_Death`, effect jumps to all `Entities` in adjacent tiles.                |
-| **Spawn**       | Summoning   | **AI Logic**         | Creates `Minion_Entities` that follow basic `Seek_Player` or `Protect_Caster` AI.   |
-| **Mire**        | Map Utility | **Movement Cost**    | Increases `Turn_Cost` to exit a tile (e.g., moving out of this tile takes 2 turns). |
-| **Corrode**     | Offensive   | **DOT**              | Damage that scales over time (`Damage = Base + (Turns_Active * Scale)`).            |
-| **Mutation**    | Buff        | **Conditional Stat** | Grants a random `Iron`, `Cyan`, or `Orange` effect for a limited `Turn_Duration`.   |
-| **Poison**      | Damage      | Damage               | Deals X damage for Y turns.                                                         |
-| **Heal**        | Healing     | **Healing**          | Recover X health for Y turns.                                                       |
+| **Effect Name** | **Engine Behavior**                                                                 | **Save** | **Approved** |
+| --------------- | ----------------------------------------------------------------------------------- | -------- | ------------ |
+| **Spawn**       | Creates `Minion_Entities` that follow basic `Seek_Player` or `Protect_Caster` AI.   |          |              |
+| **Mire**        | Increases `Turn_Cost` to exit a tile (e.g., moving out of this tile takes 2 turns). |          |              |
+| **Corrode**     | Damage that scales over time (`Damage = Base + (Turns_Active * Scale)`).            |          |              |
+| **Mutation**    | Grants a random `Iron`, `Cyan`, or `Orange` effect for a limited `Turn_Duration`.   |          |              |
+| **Poison**      | Grants Poisoned(X, Y)                                                               |          |              |
+| **Heal**        | Recover X health for Y turns.                                                       |          |              |
 
 ## 1. The Foundation: Iron, Steel, & Dirt (Baseline)
 

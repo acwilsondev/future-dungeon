@@ -1,5 +1,7 @@
 # Gunplay
 
+**Status:** Active Development
+
 ## 1. Cover as a "Dodge" Modifier
 
 In a tile-based game, "Cover" is essentially a situational buff to your **Dodge DC**.
@@ -24,7 +26,7 @@ Not comprehensive:
 
 ## 3. The "Shield vs. Armor" Layer
 
-* **Shield Points:** A static number of points that regenerate after 5 turns of not taking damage.
+* **Aegis:** see [Aegis](aegis.md)
 * **Armor (AV):** Your current system where AV reduces incoming damage from each hit.
 * **Melee Weapons:** Melee weapons ignore shield points altogether.
 

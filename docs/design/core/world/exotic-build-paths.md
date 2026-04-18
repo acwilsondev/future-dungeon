@@ -40,10 +40,6 @@ The path of "Pure Grit." This build rejects both magical and biological evolutio
 
 * **Requirement:** Stays grounded in **Iron**-tier logic, ignoring all Mana and Mutations.
 * **Systemic Hook:** Focuses on **Hard Collisions** and tactical tools.
-* **Key Verbs:**
-  * **Impact:** Massive knockback that triggers `Wall_Collision` damage.
-  * **Barricade:** Manipulating the pathfinding engine by building walls in real-time.
-  * **Obscure:** Blocking Line of Sight (`LOS`) using smoke.
 * **Reliability:** Naturally **Hardened** against Energy Drains, EMPs, and metaphysical **Entropy**.
 
 ## Endings
