@@ -8,9 +8,10 @@ e = enhancement
 t = tech debt
 
 - (t) Automated Builds & CICD
-- (e) Content Pass
-- (e) Magic Spells
+- (e) Magic
   - Special Abilities and Learnable Scrolls
+- (e) 12 Point Energy Turn
+- (e) Content Pass
 - (t) Improved Abstractions
 - (e) Followers
 - (e) Advanced AI/Goal-Action-Planning

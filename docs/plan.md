@@ -1,59 +1,78 @@
 # Plan
 
-Improvements from the April 2026 code audit, ordered by priority.
+## docs/design/world/lore.md
+  
+  Status: 🟡 NEEDS MINOR UPDATE
+  How to update:
 
----
+- The Voidstar: Explicitly mention it is an octahedral source that balances the Solari/Nihil
+     conflict.
+- The Factions: Update the description of Biomass and Aetheric to use their color-pie names (Emerald
+     and Cyan).
+- The Biotic Eye: Define it specifically as the Cyan/Emerald (9 pt God-Lair) merger of Grid
+     Violation and Propagation.
 
-## Panic Risks
+## docs/design/world/dungeon_rhythm.md
+  
+  Status: 🔴 NEEDS MAJOR UPDATE
+  How to update:
 
-- [x] **Unwrap on `get_player_id()` in hot paths** — Replace `.unwrap()` with `let...else` returns in `src/app/player_move.rs:36`, `src/app/actions_respec.rs:7`, and `src/app/actions_respec.rs:56`. All other call sites already use the safe pattern.
-- [x] **Unchecked `map.blocked` index** — `src/app/player_move.rs:296` indexes directly without an upper-bound guard. Use `self.map.idx(new_x, new_y).map(|i| !self.map.blocked[i]).unwrap_or(false)` to match the safe pattern used everywhere else.
+- Epicness Hierarchy: Replace the generic "Biome" list with the Tier 1-9 Hierarchy from the color
+     pie.
+- Special Floors: Align "Holy Altar" with Solari (Orange) Fortify logic.
+- Biomes: Map "Caves" to Emerald (Biomass) and "Temple" to Solari/Nihil.
+- Random Modifiers: "Dark" and "Bright" modifiers should directly hook into the Radiance and Gloom
+     engine behaviors.
 
----
+## docs/design/world/endings.md
+  
+  Status: ✅ ALREADY ALIGNED
 
-## Duplication
+- Note: This document appears to have been written or updated alongside the color pie, as it already
+     uses the 5-color terminology correctly. No changes needed.
 
-- [x] **Duplicate `App` constructors** — `App::new_random()` and `App::new_test()` list every field twice with two lines of difference. Extract a private `App::build(seed: u64, content: Content) -> Self` that both call (`src/app/mod.rs:123–217`).
-- [x] **Duplicate spawner functions** — `spawn_item` and `spawn_item_in_backpack` share a 60+ line body differing only in one component. Extract `fn add_item_components(cb: &mut EntityBuilder, raw: &RawItem)` (`src/spawner.rs:133–214, 416–501`).
-- [x] **Duplicate attribute match blocks** — `handle_level_up_input` and `handle_respec_input` contain identical 6-arm attribute increment blocks. Extract `fn increment_attribute(&mut self, player_id: Entity, cursor: usize)` (`actions_levelup.rs:21–46`, `actions_respec.rs:58–87`).
-- [x] **Duplicate monster attack outcome handling** — Melee and ranged attack arms in `execute_monster_action` share identical ~25-line post-attack blocks. Extract `fn handle_attack_outcome(&mut self, ...)` (`src/app/monster_ai_execute.rs:40–148`).
+## docs/design/mechanics/player.md
+  
+  Status: 🔴 NEEDS MAJOR UPDATE
+  How to update:
 
----
+- Attributes: The "INT/WIS/CHA" split needs to be mapped to the color pie.
+  - INT -> Cyan (Logic/Grid).
+  - WIS -> Orange (Vision/Radiance).
+  - CHA -> Purple (Influence/Siphon).
+- Armor/Shields: Update the "Shields" section to use the Solari "HP Buffer" engine behavior.
+- Saves: Explicitly link saves to the color types (e.g., CON vs Emerald Corrode, STR vs Iron
+     Impact).
 
-## Architecture
+## docs/design/mechanics/exotic-build-paths.md
+  
+  Status: ✅ ALREADY ALIGNED
 
-- [x] **Magic string item effects** — `"Ring of Regeneration"` is matched by name in `src/app/turn_tick.rs:87`. Add a `Regeneration` component applied by the spawner so effects are data-driven and rename-safe. Audit for other magic-string item checks.
-- [x] **`shop_mode: usize`** — Replace the `// 0 = Buy, 1 = Sell` magic number with `enum ShopMode { Buy, Sell }` (`src/app/mod.rs:89`).
-- [ ] **God object `App`** — Long-term: split `src/app/mod.rs` into `GameState` (world, map, levels), `UIState` (cursors, active menus), and `PlayerStats` (kills, turns, flags). Coordinate with serialization.
+- Note: Like endings.md, this is functionally a companion to the color pie.
 
----
+## docs/design/mechanics/gunplay.md
+  
+  Status: 🟡 NEEDS MINOR UPDATE
+  How to update:
 
-## Correctness
+- Elemental Damage: Replace generic "Elemental" with the 5-color spectrum (e.g., Nihil-Entropy
+     rounds, Solari-Radiance lasers).
+- Tachyonic: Align this specifically with Cyan (Aetheric) logic as it targets shields.
+- Shredding: Align with Iron (Bleed/Impact) or Purple (Entropy).
 
-- [x] **`get_modifier` floor division** — `(score - 10) / 2` truncates toward zero in Rust; a score of 9 returns 0 instead of -1. Use `.div_euclid(2)` for D&D-correct floor behavior (`src/components.rs`).
-- [x] **`select_weighted` float rounding** — Fallback to index 0 when the loop exhausts biases the first item. Always iterate all-but-last items and return `items.last()` as the guaranteed fallback (`src/app/level_gen.rs:8–21`).
+## docs/design/mechanics/progression.md
+  
+  Status: 🟡 NEEDS MINOR UPDATE
+  How to update:
 
----
+- Equipment Beats: Map Tier 1-4 drops to the Epicness Hierarchy (1, 2-3, 4-6, 9).
+- Monster Scaling: Ensure the "Monster Level" (ML) stats (Dodge/AV) account for the Solari/Nihil
+     state modifications (Shields and Entropy).
 
-## Performance
+## docs/design/mechanics/equipment_galore.md
+  
+  Status: ⚪ STUB - NEEDS CONTENT
+  How to update:
 
-- [ ] **5 world scans per player step** — `get_interactable_at` runs 5 separate O(n) queries per movement. Consolidate into one query (`src/app/player_move.rs:6–33`).
-- [ ] **Redundant world queries in combat** — Several equipment helpers run separate full-world iterations; one nested query fetches `InBackpack` twice. Consolidate into joined queries (`src/app/combat.rs:23–275`).
-- [x] **`extend` with clone** — `monster_spawns.extend(mb.monster_spawns.clone())` should be `extend_from_slice(&mb.monster_spawns)` (`src/app/level_gen.rs:111`).
-
----
-
-## Robustness
-
-- [x] **`content.json` hardcoded relative path** — `Content::load()` silently fails if not run from the project root. Existing `load_from_path`/`load_from_str` API already supports this; noted for future embed-via-`include_str!` improvement.
-- [x] **No content validation** — `"Amulet of the Ancients"`, `"Identification Scroll"` are mandatory named items with no existence check at load time. Added `Content::validate()` called from `load_from_str`.
-- [x] **Unbounded log `Vec`** — `self.log` grows forever. Trimmed to 500 entries each turn tick (`src/app/turn_tick.rs`).
-
----
-
-## Test Coverage
-
-- [x] **`select_weighted` distribution** — Added `test_select_weighted_last_item_selectable` and `test_select_weighted_first_item_selectable`.
-- [ ] **`level_transition.rs`** — No tests for level transition logic at all.
-- [x] **`get_modifier` floor behavior** — Added `test_get_modifier_floor_division` verifying score 9 → -1.
-- [x] **Content validation** — Added `test_missing_required_item_returns_err`.
+- Use the Systemic Interaction Matrix from the color pie to generate the item list (e.g.,
+     "Phase-Wire Duct" for Iron/Cyan, "Solar-Infect Garden" items for Orange/Emerald).

@@ -8,13 +8,14 @@
 - **Gameplay:** Buff-heavy. Focuses on **Shielding**, **Damage Multipliers**, and **Radiance** (illuminating the map and burning enemies who look directly at you).
 - **References:** Jedi, Protoss
 
-| **Effect Name**  | **Type**       | **Systemic Hook**     | **Engine Behavior**                                                                     |
-| ---------------- | -------------- | --------------------- | --------------------------------------------------------------------------------------- |
-| **Radiance**     | Passive / Zone | **Vision / Light**    | Forces `is_revealed = true` on all tiles in radius. Negates `invisible` flags.          |
-| **Fortify**      | Defensive      | **Stat Modification** | Direct additive bonus to `Armor` or `Health`. Prevents stat degradation.                |
-| **Shield**       | Defensive      | **Damage Mitigation** | Creates a secondary `HP` buffer that must be depleted before the `Entity` takes damage. |
-| **Refraction**   | Defensive      | **Projectile Logic**  | If `is_hit` by a projectile, reverse `Velocity` vector toward `Origin`.                 |
-| **Illumination** | Map Utility    | **FOV Engine**        | Permanently flags tiles as `explored`.                                                  |
+| **Effect Name** | **Engine Behavior**            | **Save**             | **Status**                        |
+| --------------- | ------------------------------ | -------------------- | --------------------------------- |
+| **Radiance**    | Target(s) gain Light(X, Y).    | None                 | Approved                          |
+| **Fortify**     | Target(s) gain Fortified(X, Y) | None                 | Approved                          |
+| **Shield**      | Targets(s) gain Shielded(X, Y) | None                 | Approved                          |
+| **Refraction**  |                                |                      | Not Approved, unsure about effect |
+| **Burn**        | Target(s) gain Burning(X, Y)   | DEX                  | Approved                          |
+| **Fire Damage** | Deals X damage.                | DEX for half damage. | Approved                          |
 
 ### 2. Purple: The Nihil (Sith-like / Shadow / Gravity)
 
@@ -22,40 +23,44 @@
 - **Gameplay:** Debuff-heavy. Focuses on **Life-Leech**, **Slows**, **Confusion**, and **Entropy** (armor degradation). It’s about making the enemy too weak to fight back.
 - **References**: Sith, Dark Protoss
 
-| **Effect Name** | **Type**  | **Systemic Hook**   | **Engine Behavior**                                                               |
-| --------------- | --------- | ------------------- | --------------------------------------------------------------------------------- |
-| **Drain**       | Offensive | **Resource Siphon** | Subtracts `X` from target `Resource` (Magicka/Stamina) and adds to Caster.        |
-| **Gravity**     | Utility   | **Positioning**     | Moves `Entity` coordinates toward `Caster` or `CenterPoint` regardless of intent. |
-| **Entropy**     | Offensive | **Item Durability** | Permanent reduction in target `Armor_Value` or `Weapon_Die`. Non-restorable.      |
-| **Gloom**       | Debuff    | **Vision Range**    | Sets `FOV_Radius` of target to 1. Target cannot see beyond adjacent tiles.        |
-| **Confusion**   | Debuff    | **Input Logic**     | Randomizes the `Directional_Vector` of the target's next move action.             |
+| **Effect Name**         | **Engine Behavior**                                                          | **Save**           | **Status**               |
+| ----------------------- | ---------------------------------------------------------------------------- | ------------------ | ------------------------ |
+| **Drain** [STR, DEX...] | Adds a DrainedAbility(ABILITY, X, Y) status to one target.                   | Corresponding Stat | Hold for balancing.      |
+| **Gravity Well**        | Creates a Gravity Well at target location.                                   | None               | Approved                 |
+| **Entropy**             | Permanent reduction in target `Armor_Value` or `Weapon_Die`. Non-restorable. | CON                | Hold for system/balance. |
+| **Gloom**               | Add a Blinded(X, Y) status to targets.                                       | WIS                | Approved                 |
+| **Confusion**           | Add a Confusion(X, Y) status to targets.                                     | WIS                | Approved                 |
+| **Crush**               | Target(s) gain Crushing(X, Y)                                                | CON                | Approved                 |
+| **Crush Damage**        | Deals X damage.                                                              | CON for half       | Approved                 |
 
 ### 3. Iron: The Kinetic (Mundane / Industrial / Grit)
 
 - **The Vibe:** Cold steel, gunpowder, hydraulics, and manual labor. The "Human" element in a cosmic world.
 - **Gameplay:** The baseline. Focuses on **Reliability**, **Physical Defense**, and **Tactical Tools** (grappling hooks, barricades, smoke grenades). It doesn't rely on magic so it's immune.
 - **References:** Terrans
+- **Wider Effect Access:** Generally, Iron color has access to whatever effects can be explained by technology, with proportionately higher costs.
 
-| **Effect Name** | **Type**     | **Systemic Hook** | **Engine Behavior**                                                                 |
-| --------------- | ------------ | ----------------- | ----------------------------------------------------------------------------------- |
-| **Impact**      | Offensive    | **Knockback**     | Moves `Entity` `N` tiles away. Triggers `Wall_Collision` damage if path is blocked. |
-| **Barricade**   | Construction | **Pathfinding**   | Changes tile property from `walkable: true` to `walkable: false`.                   |
-| **Bleed**       | Offensive    | **Turn Ticking**  | Subtracts `Health` every `N` ticks. Bypasses `Energy_Shields`.                      |
-| **Obscure**     | Utility      | **LOS Block**     | Sets `is_transparent = false` on a tile without changing `walkable` status (Smoke). |
-| **Hardened**    | Defensive    | **Resistance**    | Grants immunity to `Energy_Drain` and `EMP` logic. Relies on `Physical_Resist`.     |
+| **Effect Name**         | **Engine Behavior**                                                                                                                                                         | **Save**   | **Status**           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | -------------------- |
+| **Impact**              | Moves entity `X` tiles away. If targets hit a wall, they take `1d6` damage per tile they could not move. If the target is a point, all entities within X are pushed. | CON        | Approved             |
+| **Barricade**           | Creates a wall for Y turns.                                                                                                                                                 | None       | Needs targeting rule |
+| **Bleed**               | Grants Bleeding(X, Y).                                                                                                                                                      | CON or DEX | Approved             |
+| **Create [Type] Cloud** | Creates a Cloud of a given type that disperses.                                                                                                                             | None       | Needs Clouds         |
+| **Hardened**            | Unknown                                                                                                                                                                     |            | Needs definition.    |
 
 ### 4. Cyan: The Aetheric (Alien / Weird Nature / Fae)
 
 - **The Vibe:** Bioluminescent jungles, crystalline growths, and non-Euclidean geometry.
 - **Gameplay:** The "Trickster" color. Focuses on **Teleportation**, **Cloning**, **Phasing** (walking through walls), and **Probability**. It’s less about damage and more about breaking the "rules" of the grid.
 
-| **Effect Name** | **Type**  | **Systemic Hook**    | **Engine Behavior**                                                                 |
-| --------------- | --------- | -------------------- | ----------------------------------------------------------------------------------- |
-| **Phase**       | Movement  | **Collision Bypass** | Temporarily allows `Entity` to move through `walkable: false` tiles.                |
-| **Blink**       | Movement  | **Teleportation**    | Instantaneous change of `Entity` coordinates. Bypasses all intervening traps/tiles. |
-| **Clone**       | Utility   | **Entity Spawning**  | Creates a `Decoy_Entity` with 1 HP that shares the player's ASCII symbol.           |
-| **Flicker**     | Defensive | **Evasion**          | `X%` chance to ignore any incoming `Offensive` effect by "desyncing" from the turn. |
-| **Anchor**      | Debuff    | **Coordinate Lock**  | Prevents any change in `Entity` coordinates (prevents Blink, Teleport, and Push).   |
+| **Effect Name** | **Engine Behavior**                                                                 | **Save**             | **Approved** |
+| --------------- | ----------------------------------------------------------------------------------- | -------------------- | ------------ |
+| **Phase**       | Gains Phasing(X) (can walk through walls)                                           | None                 |              |
+| **Blink**       | Instantaneous change of `Entity` coordinates. Bypasses all intervening traps/tiles. | CHA if targets enemy |              |
+| **Clone**       | Creates a `Decoy_Entity` with 1 HP that shares the creator's ASCII symbol.          | None                 |              |
+| **Flicker**     | Gains Flicker(X, Y) (ignore attacks, effects)                                       | None                 |              |
+| **Anchor**      | Gains Anchored(X)                                                                   |                      |              |
+| **Warp**        | Gains Warped(X, Y)                                                                  | CON                  | Approved     |
 
 ### 5. Emerald: The Bio-Mass (Evolution / Toxic / Hive)
 
@@ -63,13 +68,15 @@
 - **Gameplay:** Sustained pressure. Focuses on **Damage-over-Time (Poison/Acid)**, **Summoning** (spawn mini-drones or bio-larvae), and **Self-Mutation** (growing wings or extra limbs for a few turns).
 - **References:** Zerg
 
-|**Effect Name**|**Type**|**Systemic Hook**|**Engine Behavior**|
-|---|---|---|---|
-|**Infect**|Offensive|**Propagation**|On `Entity_Death`, effect jumps to all `Entities` in adjacent tiles.|
-|**Spawn**|Summoning|**AI Logic**|Creates `Minion_Entities` that follow basic `Seek_Player` or `Protect_Caster` AI.|
-|**Mire**|Map Utility|**Movement Cost**|Increases `Turn_Cost` to exit a tile (e.g., moving out of this tile takes 2 turns).|
-|**Corrode**|Offensive|**DOT**|Damage that scales over time (`Damage = Base + (Turns_Active * Scale)`).|
-|**Mutation**|Buff|**Conditional Stat**|Grants a random `Iron`, `Cyan`, or `Orange` effect for a limited `Turn_Duration`.|
+| **Effect Name** | **Type**    | **Systemic Hook**    | **Engine Behavior**                                                                 |
+| --------------- | ----------- | -------------------- | ----------------------------------------------------------------------------------- |
+| **Infect**      | Offensive   | **Propagation**      | On `Entity_Death`, effect jumps to all `Entities` in adjacent tiles.                |
+| **Spawn**       | Summoning   | **AI Logic**         | Creates `Minion_Entities` that follow basic `Seek_Player` or `Protect_Caster` AI.   |
+| **Mire**        | Map Utility | **Movement Cost**    | Increases `Turn_Cost` to exit a tile (e.g., moving out of this tile takes 2 turns). |
+| **Corrode**     | Offensive   | **DOT**              | Damage that scales over time (`Damage = Base + (Turns_Active * Scale)`).            |
+| **Mutation**    | Buff        | **Conditional Stat** | Grants a random `Iron`, `Cyan`, or `Orange` effect for a limited `Turn_Duration`.   |
+| **Poison**      | Damage      | Damage               | Deals X damage for Y turns.                                                         |
+| **Heal**        | Healing     | **Healing**          | Recover X health for Y turns.                                                       |
 
 ## 1. The Foundation: Iron, Steel, & Dirt (Baseline)
 

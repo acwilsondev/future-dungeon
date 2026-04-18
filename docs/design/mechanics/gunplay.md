@@ -24,7 +24,7 @@ Not comprehensive:
 
 ## 3. The "Shield vs. Armor" Layer
 
-* **Shields:** A static number of points that regenerate after 5 turns of not taking damage.
+* **Shield Points:** A static number of points that regenerate after 5 turns of not taking damage.
 * **Armor (AV):** Your current system where AV reduces incoming damage from each hit.
 * **Melee Weapons:** Melee weapons ignore shield points altogether.
 

@@ -1,8 +1,10 @@
+# Progression
+
 To make the **1–20 Level Arc** work across **99 Floors**, we need to calculate a "Monster Value" per floor that feeds into a quadratic XP curve.
 
 If we assume the player clears **~80%** of a floor, we can bake that "missing 20%" into the curve so they don't feel forced to full-clear every single corner just to stay on pace.
 
-### 1. The XP Curve Formula
+## 1. The XP Curve Formula
 
 To achieve the "Fast Start, Long Tail" feel, we’ll use a standard exponential growth formula for the **Total XP Required** for each level.
 
@@ -23,7 +25,7 @@ $$XP_{\text{Required}} = \text{Base} \times (\text{Level}^{\text{Exponent}})$$
 
 ---
 
-### 2. Floor "Budget" (Monster Density)
+## 2. Floor "Budget" (Monster Density)
 
 Each floor has a **Total XP Value** ($V_f$) based on the monsters spawned.
 
@@ -40,7 +42,7 @@ $$V_f = 100 + (f \times 20)$$
 
 ---
 
-### 3. Equipment "Drop Beats" (The Combinatorial Explosion)
+## 3. Equipment "Drop Beats" (The Combinatorial Explosion)
 
 Since the XP slows down, **Item Level (iLvl)** must pick up the slack. We can tie the "Quality" of items found to the Floor Number.
 
@@ -53,7 +55,7 @@ Since the XP slows down, **Item Level (iLvl)** must pick up the slack. We can ti
 
 ---
 
-### 4. The "Fighter-to-Wizard" Math Check
+## 4. The "Fighter-to-Wizard" Math Check
 
 If a Fighter decides to pivot on Floor 40 (Level 10):
 
@@ -62,7 +64,7 @@ If a Fighter decides to pivot on Floor 40 (Level 10):
 * **The Risk:** Because the XP curve has flattened out by Floor 40, they will only get about **10 more points** for the rest of the game.
 * **The Equipment Fix:** They MUST find "Combinatorial" gear (e.g., a +2 INT Amulet) to make the pivot viable, as the XP curve won't give them enough raw stat points to "catch up" naturally.
 
-### 5. Summary for your Doc
+## 5. Summary for your Doc
 
 > **XP & Scaling Logic**
 >

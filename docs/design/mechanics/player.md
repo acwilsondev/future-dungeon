@@ -95,9 +95,8 @@ Each attribute generally is associated with a type of "Save", which is a protect
     - stunning blows
     - rot
 - INT
-  - % chance to learn scrolls
   - % chance to identify monsters, items
-  - Arcane spell potency
+  - % chance to operate complex technology
   - SAVES (uncommon):
     - Confusion status effects
     - "Mind Blast" spells
@@ -111,6 +110,8 @@ Each attribute generally is associated with a type of "Save", which is a protect
     - magical illusions that hide enemies
 - CHA
   - Merchant price improvements
+  - % chance to learn scrolls
+  - Spell potency
   - Base encounter mood effect
   - Very small, hidden chance for lucky boons
   - SAVES (uncommon):
