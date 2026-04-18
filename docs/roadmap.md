@@ -8,10 +8,10 @@ e = enhancement
 t = tech debt
 
 - (t) Automated Builds & CICD
+- (e) Magic
+  - Special Abilities and Learnable Scrolls
+- (e) 12 Point Energy Turn
 - (e) Content Pass
-- (e) The Wizard TBD
-- (e) The Cleric TBD
-- (e) The Thief TBD
 - (t) Improved Abstractions
 - (e) Followers
 - (e) Advanced AI/Goal-Action-Planning
@@ -38,10 +38,10 @@ t = tech debt
 
 This section documents completed epics
 
-- (e) 0.6 Main Menu [main_menu.md](design/main_menu.md)
+- (e) 0.6 Main Menu [main_menu.md](archive/v0.6/main_menu.md)
   - Animated menu!
   - Load Game
 - v0.5
-  - (e) Dungeon rhythm. See [dungeon_rhythm.md](design/dungeon_rhythm.md)
+  - (e) Dungeon rhythm. See [dungeon_rhythm.md](design/world/dungeon_rhythm.md)
   - (e) Debug Console
-- (e) 0.4 Character Model. See [player.md](design/player.md)
+- (e) 0.4 Character Model. See [player.md](design/mechanics/player.md)

@@ -130,9 +130,7 @@ pub fn spawn_monster(
     world.spawn(cb.build())
 }
 
-pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Entity {
-    let mut cb = hecs::EntityBuilder::new();
-    cb.add(Position { x, y });
+fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
     cb.add(Renderable {
         glyph: raw.glyph,
         fg: Color::Rgb(raw.color.0, raw.color.1, raw.color.2),
@@ -206,7 +204,18 @@ pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Ent
             flicker: light.flicker,
         });
     }
+    if raw.levitation {
+        cb.add(Levitation);
+    }
+    if raw.regeneration {
+        cb.add(Regeneration);
+    }
+}
 
+pub fn spawn_item(world: &mut World, x: u16, y: u16, raw: &RawItem) -> hecs::Entity {
+    let mut cb = hecs::EntityBuilder::new();
+    cb.add(Position { x, y });
+    add_item_components(&mut cb, raw);
     world.spawn(cb.build())
 }
 
@@ -416,80 +425,7 @@ pub fn spawn_item_in_backpack(
     raw: &RawItem,
 ) -> hecs::Entity {
     let mut cb = hecs::EntityBuilder::new();
-    cb.add(Renderable {
-        glyph: raw.glyph,
-        fg: Color::Rgb(raw.color.0, raw.color.1, raw.color.2),
-    });
-    cb.add(RenderOrder::Item);
-    cb.add(Item);
-    cb.add(Name(raw.name.clone()));
-    cb.add(ItemValue { price: raw.price });
     cb.add(InBackpack { owner });
-
-    if let Some(obf) = &raw.obfuscated_name {
-        cb.add(ObfuscatedName(obf.clone()));
-    }
-    if let Some(true) = raw.cursed {
-        cb.add(Cursed);
-    }
-    if let Some(slot) = raw.slot {
-        cb.add(Equippable { slot });
-    }
-    if let Some(h) = raw.potion {
-        cb.add(Potion { heal_amount: h });
-    }
-    if let Some(w) = &raw.weapon {
-        cb.add(Weapon {
-            power_bonus: w.power_bonus,
-            weight: w.weight,
-            damage_n_dice: w.n_dice,
-            damage_die_type: w.die_type,
-            two_handed: w.two_handed,
-        });
-    }
-    if let Some(a) = &raw.armor {
-        cb.add(Armor {
-            defense_bonus: a.defense_bonus,
-            max_dex_bonus: a.max_dex_bonus,
-        });
-    }
-    if let Some(r) = raw.ranged {
-        cb.add(Ranged { range: r });
-    }
-    if let Some((r, inc, d)) = raw.ranged_weapon {
-        cb.add(RangedWeapon {
-            range: r,
-            range_increment: inc,
-            damage_bonus: d,
-        });
-    }
-    if let Some(r) = raw.aoe {
-        cb.add(AreaOfEffect { radius: r });
-    }
-    if let Some(t) = raw.confusion {
-        cb.add(Confusion { turns: t });
-    }
-    if let Some((d, t)) = raw.poison {
-        cb.add(Poison {
-            damage: d,
-            turns: t,
-        });
-    }
-    if raw.ammo {
-        cb.add(Ammunition);
-    }
-    if raw.consumable {
-        cb.add(Consumable);
-    }
-    if let Some(light) = &raw.light {
-        cb.add(LightSource {
-            range: light.range,
-            base_range: light.range,
-            color: light.color,
-            remaining_turns: light.turns,
-            flicker: light.flicker,
-        });
-    }
-
+    add_item_components(&mut cb, raw);
     world.spawn(cb.build())
 }

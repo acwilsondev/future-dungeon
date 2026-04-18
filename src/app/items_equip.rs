@@ -14,7 +14,11 @@ impl App {
         }
 
         if let Err(e) = self.world.remove_one::<Equipped>(item_id) {
-            log::error!("Failed to remove Equipped component from {:?}: {}", item_id, e);
+            log::error!(
+                "Failed to remove Equipped component from {:?}: {}",
+                item_id,
+                e
+            );
         }
         self.log.push(format!("You unequip the {}.", item_name));
         self.refresh_player_render();
@@ -31,7 +35,11 @@ impl App {
                 log::error!("Item {:?} not equippable during equip_item", item_id);
                 return;
             };
-            let two_handed = self.world.get::<&Weapon>(item_id).map(|w| w.two_handed).unwrap_or(false);
+            let two_handed = self
+                .world
+                .get::<&Weapon>(item_id)
+                .map(|w| w.two_handed)
+                .unwrap_or(false);
             (player_id, equippable.slot, two_handed)
         };
 
@@ -113,7 +121,11 @@ impl App {
         }
 
         if let Err(e) = self.world.insert_one(item_id, Equipped { slot }) {
-            log::error!("Failed to insert Equipped component for {:?}: {}", item_id, e);
+            log::error!(
+                "Failed to insert Equipped component for {:?}: {}",
+                item_id,
+                e
+            );
         }
         let item_name = self.get_item_name(item_id);
         self.log.push(format!("You equip the {}.", item_name));
@@ -140,8 +152,10 @@ mod tests {
         let item = app.world.spawn((
             Item,
             Name("Sword".to_string()),
-            Equippable { slot: EquipmentSlot::MainHand },
-            InBackpack { owner: player }
+            Equippable {
+                slot: EquipmentSlot::MainHand,
+            },
+            InBackpack { owner: player },
         ));
 
         app.equip_item(item);
@@ -159,10 +173,14 @@ mod tests {
         let item = app.world.spawn((
             Item,
             Name("Cursed Sword".to_string()),
-            Equippable { slot: EquipmentSlot::MainHand },
+            Equippable {
+                slot: EquipmentSlot::MainHand,
+            },
             InBackpack { owner: player },
-            Equipped { slot: EquipmentSlot::MainHand },
-            Cursed
+            Equipped {
+                slot: EquipmentSlot::MainHand,
+            },
+            Cursed,
         ));
 
         let success = app.unequip_item(item);
@@ -177,15 +195,21 @@ mod tests {
         let old_item = app.world.spawn((
             Item,
             Name("Old Sword".to_string()),
-            Equippable { slot: EquipmentSlot::MainHand },
+            Equippable {
+                slot: EquipmentSlot::MainHand,
+            },
             InBackpack { owner: player },
-            Equipped { slot: EquipmentSlot::MainHand }
+            Equipped {
+                slot: EquipmentSlot::MainHand,
+            },
         ));
         let new_item = app.world.spawn((
             Item,
             Name("New Sword".to_string()),
-            Equippable { slot: EquipmentSlot::MainHand },
-            InBackpack { owner: player }
+            Equippable {
+                slot: EquipmentSlot::MainHand,
+            },
+            InBackpack { owner: player },
         ));
 
         app.equip_item(new_item);

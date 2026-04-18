@@ -26,20 +26,20 @@ impl App {
         }
 
         // Update Visual Effects
-        self.effects.retain_mut(|effect| {
-            match effect {
-                VisualEffect::Flash { duration, .. } => {
-                    if *duration > 0 {
-                        *duration -= 1;
-                        true
-                    } else {
-                        false
-                    }
+        self.effects.retain_mut(|effect| match effect {
+            VisualEffect::Flash { duration, .. } => {
+                if *duration > 0 {
+                    *duration -= 1;
+                    true
+                } else {
+                    false
                 }
-                VisualEffect::Projectile { frame, speed, path, .. } => {
-                    *frame += 1;
-                    (*frame / *speed) < path.len() as u32
-                }
+            }
+            VisualEffect::Projectile {
+                frame, speed, path, ..
+            } => {
+                *frame += 1;
+                (*frame / *speed) < path.len() as u32
             }
         });
     }

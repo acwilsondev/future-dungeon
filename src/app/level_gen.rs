@@ -5,7 +5,28 @@ use hecs::World;
 use rand::Rng;
 
 impl App {
-    fn handle_traveling_entities(&mut self, traveling_entities: Vec<EntitySnapshot>, player_start: (u16, u16)) {
+    fn select_weighted<'a, T>(
+        &mut self,
+        items: &'a [T],
+        spawn_chance: impl Fn(&T) -> f32,
+    ) -> &'a T {
+        let total: f32 = items.iter().map(&spawn_chance).sum();
+        let mut roll = self.rng.random_range(0.0..total);
+        for item in items.iter().take(items.len() - 1) {
+            let chance = spawn_chance(item);
+            if roll < chance {
+                return item;
+            }
+            roll -= chance;
+        }
+        items.last().unwrap_or(&items[0])
+    }
+
+    fn handle_traveling_entities(
+        &mut self,
+        traveling_entities: Vec<EntitySnapshot>,
+        player_start: (u16, u16),
+    ) {
         self.entities = traveling_entities;
         if self.unpack_entities().is_ok() {
             let mut player_query = self.world.query::<(&mut Position, &Player)>();
@@ -16,47 +37,21 @@ impl App {
         }
     }
 
-    fn spawn_starting_equipment(&mut self, player_id: hecs::Entity) {
-        let starting_items = ["Torch", "Health Potion", "Dagger", "Leather Armor"];
-        for item_name in starting_items {
-            if let Some(item_raw) = self
-                .content
-                .items
-                .iter()
-                .find(|i| i.name == item_name)
-                .cloned()
-            {
-                let item_id = crate::spawner::spawn_item_in_backpack(
-                    &mut self.world,
-                    player_id,
-                    &item_raw,
-                );
-                self.identified_items.insert(item_name.to_string());
-                if item_name == "Dagger" || item_name == "Leather Armor" || item_name == "Torch"
-                {
-                    self.equip_item(item_id);
-                }
-            }
-        }
-    }
-
-    fn spawn_room_features(&mut self, mb: &MapBuilder, available_items: &[&crate::content::RawItem]) {
+    fn spawn_room_features(
+        &mut self,
+        mb: &MapBuilder,
+        available_items: &[&crate::content::RawItem],
+    ) {
         if self.dungeon_level % 10 == 5 {
             // Merchant Haven
             let center = mb.rooms[0].center();
-            let merchant =
-                crate::spawner::spawn_merchant(&mut self.world, center.0 as u16 + 2, center.1 as u16);
+            let merchant = crate::spawner::spawn_merchant(
+                &mut self.world,
+                center.0 as u16 + 2,
+                center.1 as u16,
+            );
             for _ in 0..5 {
-                let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-                let mut roll = self.rng.random_range(0.0..total_chance);
-                let mut selected_item = available_items[0];
-                for item in available_items {
-                    if roll < item.spawn_chance {
-                        selected_item = item;
-                        break;
-                    }
-                    roll -= item.spawn_chance;
-                }
+                let selected_item = self.select_weighted(available_items, |i| i.spawn_chance);
                 crate::spawner::spawn_item_in_backpack(&mut self.world, merchant, selected_item);
             }
 
@@ -64,7 +59,7 @@ impl App {
             return;
         }
 
-        if self.dungeon_level % 20 == 0 {
+        if self.dungeon_level.is_multiple_of(20) {
             // Reset Shrine hidden somewhere
             let room_idx = self.rng.random_range(0..mb.rooms.len());
             let pos = mb.rooms[room_idx].center();
@@ -79,16 +74,7 @@ impl App {
             let merchant =
                 crate::spawner::spawn_merchant(&mut self.world, center.0 as u16, center.1 as u16);
             for _ in 0..3 {
-                let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-                let mut roll = self.rng.random_range(0.0..total_chance);
-                let mut selected_item = available_items[0];
-                for item in available_items {
-                    if roll < item.spawn_chance {
-                        selected_item = item;
-                        break;
-                    }
-                    roll -= item.spawn_chance;
-                }
+                let selected_item = self.select_weighted(available_items, |i| i.spawn_chance);
                 crate::spawner::spawn_item_in_backpack(&mut self.world, merchant, selected_item);
             }
         }
@@ -118,26 +104,21 @@ impl App {
         }
     }
 
-    fn spawn_monsters(&mut self, mb: &MapBuilder, available_monsters: &[&crate::content::RawMonster]) {
+    fn spawn_monsters(
+        &mut self,
+        mb: &MapBuilder,
+        available_monsters: &[&crate::content::RawMonster],
+    ) {
         let mut monster_spawns = mb.monster_spawns.clone();
         if self.escaping {
-            monster_spawns.extend(mb.monster_spawns.clone());
+            monster_spawns.extend_from_slice(&mb.monster_spawns);
         }
 
         for spawn in &monster_spawns {
             if available_monsters.is_empty() {
                 break;
             }
-            let total_chance: f32 = available_monsters.iter().map(|m| m.spawn_chance).sum();
-            let mut roll = self.rng.random_range(0.0..total_chance);
-            let mut selected_monster = available_monsters[0];
-            for m in available_monsters {
-                if roll < m.spawn_chance {
-                    selected_monster = m;
-                    break;
-                }
-                roll -= m.spawn_chance;
-            }
+            let selected_monster = self.select_weighted(available_monsters, |m| m.spawn_chance);
             crate::spawner::spawn_monster(
                 &mut self.world,
                 spawn.0,
@@ -184,19 +165,15 @@ impl App {
 
         for spawn in &mb.item_spawns {
             if available_items.is_empty() || self.rng.random_bool(0.2) {
-                crate::spawner::spawn_gold(&mut self.world, spawn.0, spawn.1, self.rng.random_range(5..25));
+                crate::spawner::spawn_gold(
+                    &mut self.world,
+                    spawn.0,
+                    spawn.1,
+                    self.rng.random_range(5..25),
+                );
                 continue;
             }
-            let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-            let mut roll = self.rng.random_range(0.0..total_chance);
-            let mut selected_item = available_items[0];
-            for item in available_items {
-                if roll < item.spawn_chance {
-                    selected_item = item;
-                    break;
-                }
-                roll -= item.spawn_chance;
-            }
+            let selected_item = self.select_weighted(available_items, |i| i.spawn_chance);
             crate::spawner::spawn_item(&mut self.world, spawn.0, spawn.1, selected_item);
         }
     }
@@ -231,13 +208,9 @@ impl App {
             .filter(|i| {
                 i.branches
                     .as_ref()
-                    .map_or(true, |b| b.contains(&branch_str.to_string()))
+                    .is_none_or(|b| b.iter().any(|s| s == branch_str))
             })
-            .filter(|i| {
-                i.biomes
-                    .as_ref()
-                    .map_or(true, |b| b.contains(&mb.biome))
-            })
+            .filter(|i| i.biomes.as_ref().is_none_or(|b| b.contains(&mb.biome)))
             .cloned()
             .collect();
 
@@ -260,13 +233,9 @@ impl App {
             .filter(|m| {
                 m.branches
                     .as_ref()
-                    .map_or(true, |b| b.contains(&branch_str.to_string()))
+                    .is_none_or(|b| b.iter().any(|s| s == branch_str))
             })
-            .filter(|m| {
-                m.biomes
-                    .as_ref()
-                    .map_or(true, |b| b.contains(&mb.biome))
-            })
+            .filter(|m| m.biomes.as_ref().is_none_or(|b| b.contains(&mb.biome)))
             .cloned()
             .collect();
 
@@ -285,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_starting_equipment() {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.generate_level(Vec::new());
         app.apply_class_selection();
 
@@ -331,22 +300,25 @@ mod tests {
         assert!(has_shield, "Missing Shield");
         assert!(has_chainmail, "Missing Chainmail");
         assert_eq!(items_in_backpack, 5, "Should have 5 starting items");
-        assert_eq!(items_equipped, 3, "Longsword, Torch, Chainmail should be equipped (Shield is in backpack)");
+        assert_eq!(
+            items_equipped, 3,
+            "Longsword, Torch, Chainmail should be equipped (Shield is in backpack)"
+        );
     }
 
     #[test]
     fn test_dungeon_rhythm_merchant_haven() {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.dungeon_level = 5;
         app.generate_level(Vec::new());
 
         // Floor 5 should have a Merchant and a Holy Altar
         let merchant_exists = app.world.query::<&Merchant>().iter().count() > 0;
         let altar_exists = app.world.query::<&HolyAltar>().iter().count() > 0;
-        
+
         assert!(merchant_exists, "Floor 5 should have a Merchant");
         assert!(altar_exists, "Floor 5 should have a Holy Altar");
-        
+
         // Should have NO monsters on haven floors
         let monster_count = app.world.query::<&Monster>().iter().count();
         assert_eq!(monster_count, 0, "Floor 5 should have no monsters");
@@ -354,12 +326,59 @@ mod tests {
 
     #[test]
     fn test_dungeon_rhythm_boss_arena() {
-        let mut app = App::new_random();
+        let mut app = App::new_random().expect("content.json must be present for tests");
         app.dungeon_level = 10;
         app.generate_level(Vec::new());
 
         // Floor 10 should have a Boss
         let boss_exists = app.world.query::<&Boss>().iter().count() > 0;
         assert!(boss_exists, "Floor 10 should have a Boss");
+    }
+
+    #[test]
+    fn test_select_weighted_last_item_selectable() {
+        let mut app = App::new_test(42);
+        // All weight on the last item — it must always be returned.
+        let items = vec![("first", 0.0f32), ("middle", 0.0f32), ("last", 1.0f32)];
+        for _ in 0..20 {
+            let result = app.select_weighted(&items, |i| i.1);
+            assert_eq!(
+                result.0, "last",
+                "last item should always be selected when it has all the weight"
+            );
+        }
+    }
+
+    #[test]
+    fn test_select_weighted_first_item_selectable() {
+        let mut app = App::new_test(42);
+        // All weight on the first item.
+        let items = vec![("first", 1.0f32), ("last", 0.0f32)];
+        for _ in 0..20 {
+            let result = app.select_weighted(&items, |i| i.1);
+            assert_eq!(result.0, "first");
+        }
+    }
+
+    #[test]
+    fn test_escaping_doubles_monster_spawns() {
+        // Non-haven, non-boss floor so monsters spawn normally
+        let seed = 12345u64;
+
+        let mut normal_app = App::new_test(seed);
+        normal_app.dungeon_level = 3;
+        normal_app.generate_level(Vec::new());
+        let normal_count = normal_app.world.query::<&Monster>().iter().count();
+
+        let mut escaping_app = App::new_test(seed);
+        escaping_app.dungeon_level = 3;
+        escaping_app.escaping = true;
+        escaping_app.generate_level(Vec::new());
+        let escaping_count = escaping_app.world.query::<&Monster>().iter().count();
+
+        assert!(
+            escaping_count > normal_count,
+            "escaping flag should increase monster count ({normal_count} → {escaping_count})"
+        );
     }
 }

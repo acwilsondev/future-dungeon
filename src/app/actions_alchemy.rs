@@ -6,10 +6,8 @@ impl App {
     pub fn handle_alchemy_input(&mut self, action: Action) {
         match action {
             Action::CloseMenu => self.state = RunState::AwaitingInput,
-            Action::MenuUp => {
-                if self.inventory_cursor > 0 {
-                    self.inventory_cursor -= 1;
-                }
+            Action::MenuUp if self.inventory_cursor > 0 => {
+                self.inventory_cursor -= 1;
             }
             Action::MenuDown => {
                 if let Some(player_id) = self.get_player_id() {
@@ -175,13 +173,13 @@ mod tests {
             Item,
             Name("Potion of Strength".to_string()),
             Potion { heal_amount: 0 },
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
         let _p2 = app.world.spawn((
             Item,
             Name("Potion of Speed".to_string()),
             Potion { heal_amount: 0 },
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
 
         app.inventory_cursor = 0;
@@ -206,13 +204,13 @@ mod tests {
             Item,
             Name("Health Potion".to_string()),
             Potion { heal_amount: 10 },
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
         let _p2 = app.world.spawn((
             Item,
             Name("Mana Potion".to_string()),
             Potion { heal_amount: 10 },
-            InBackpack { owner: player }
+            InBackpack { owner: player },
         ));
 
         app.inventory_cursor = 0;

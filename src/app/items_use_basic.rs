@@ -76,7 +76,8 @@ impl App {
         }
 
         if self.world.get::<&Ranged>(item_id).is_ok()
-            || (self.world.get::<&RangedWeapon>(item_id).is_ok() && self.world.get::<&Equipped>(item_id).is_ok())
+            || (self.world.get::<&RangedWeapon>(item_id).is_ok()
+                && self.world.get::<&Equipped>(item_id).is_ok())
         {
             if self.world.get::<&RangedWeapon>(item_id).is_ok() {
                 // Check for ammo
@@ -137,7 +138,12 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            CombatStats { hp: 5, max_hp: 20, defense: 0, power: 5 },
+            CombatStats {
+                hp: 5,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
             Position { x: 0, y: 0 },
         ));
         let potion = app.world.spawn((
@@ -161,13 +167,21 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
+            CombatStats {
+                hp: 20,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
             Position { x: 0, y: 0 },
         ));
         let bad_item = app.world.spawn((
             Item,
             Name("Bad Mushroom".to_string()),
-            Poison { damage: 2, turns: 5 },
+            Poison {
+                damage: 2,
+                turns: 5,
+            },
             Consumable,
             InBackpack { owner: player },
         ));
@@ -183,13 +197,21 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            CombatStats { hp: 20, max_hp: 20, defense: 0, power: 5 },
+            CombatStats {
+                hp: 20,
+                max_hp: 20,
+                defense: 0,
+                power: 5,
+            },
             Position { x: 0, y: 0 },
         ));
         let strength_potion = app.world.spawn((
             Item,
             Name("Potion of Strength".to_string()),
-            Strength { amount: 2, turns: 10 },
+            Strength {
+                amount: 2,
+                turns: 10,
+            },
             Consumable,
             InBackpack { owner: player },
         ));
@@ -246,7 +268,9 @@ mod tests {
                 range_increment: 12,
                 damage_bonus: 2,
             },
-            Equippable { slot: EquipmentSlot::AnyHand },
+            Equippable {
+                slot: EquipmentSlot::AnyHand,
+            },
             InBackpack { owner: player },
         ));
 

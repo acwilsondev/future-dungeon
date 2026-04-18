@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(pwd)",
+      "Bash(delimit:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "mcp__delimit__*"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)"
+    ]
+  },
+  "_generated_by": "delimit_init",
+  "_note": "Edit freely. Delimit will never overwrite this file."
+}

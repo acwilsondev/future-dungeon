@@ -1,5 +1,5 @@
 use crate::actions::Action;
-use crate::app::{App, RunState};
+use crate::app::{App, RunState, ShopMode};
 use crate::components::*;
 
 impl App {
@@ -7,35 +7,38 @@ impl App {
         match action {
             Action::CloseMenu => self.state = RunState::AwaitingInput,
             Action::ToggleShopMode => {
-                self.shop_mode = (self.shop_mode + 1) % 2;
+                self.shop_mode = match self.shop_mode {
+                    ShopMode::Buy => ShopMode::Sell,
+                    ShopMode::Sell => ShopMode::Buy,
+                };
                 self.shop_cursor = 0;
             }
-            Action::MenuUp => {
-                if self.shop_cursor > 0 {
-                    self.shop_cursor -= 1;
-                }
+            Action::MenuUp if self.shop_cursor > 0 => {
+                self.shop_cursor -= 1;
             }
             Action::MenuDown => {
                 if let Some(player_id) = self.get_player_id() {
-                    let count = if self.shop_mode == 0 {
-                        if let Some(m_id) = self.active_merchant {
-                            self.world
-                                .query::<(&InBackpack,)>()
-                                .iter()
-                                .filter(|(_, (backpack,))| backpack.owner == m_id)
-                                .count()
-                        } else {
-                            0
+                    let count = match self.shop_mode {
+                        ShopMode::Buy => {
+                            if let Some(m_id) = self.active_merchant {
+                                self.world
+                                    .query::<(&InBackpack,)>()
+                                    .iter()
+                                    .filter(|(_, (backpack,))| backpack.owner == m_id)
+                                    .count()
+                            } else {
+                                0
+                            }
                         }
-                    } else {
-                        self.world
+                        ShopMode::Sell => self
+                            .world
                             .query::<(&InBackpack,)>()
                             .iter()
                             .filter(|(id, (backpack,))| {
                                 backpack.owner == player_id
                                     && self.world.get::<&Equipped>(*id).is_err()
                             })
-                            .count()
+                            .count(),
                     };
                     if count > 0 && self.shop_cursor < count - 1 {
                         self.shop_cursor += 1;
@@ -44,19 +47,21 @@ impl App {
             }
             Action::MenuSelect => {
                 if let Some(player_id) = self.get_player_id() {
-                    let item_to_trade = if self.shop_mode == 0 {
-                        if let Some(m_id) = self.active_merchant {
-                            self.world
-                                .query::<(&InBackpack,)>()
-                                .iter()
-                                .filter(|(_, (backpack,))| backpack.owner == m_id)
-                                .nth(self.shop_cursor)
-                                .map(|(id, _)| id)
-                        } else {
-                            None
+                    let item_to_trade = match self.shop_mode {
+                        ShopMode::Buy => {
+                            if let Some(m_id) = self.active_merchant {
+                                self.world
+                                    .query::<(&InBackpack,)>()
+                                    .iter()
+                                    .filter(|(_, (backpack,))| backpack.owner == m_id)
+                                    .nth(self.shop_cursor)
+                                    .map(|(id, _)| id)
+                            } else {
+                                None
+                            }
                         }
-                    } else {
-                        self.world
+                        ShopMode::Sell => self
+                            .world
                             .query::<(&InBackpack,)>()
                             .iter()
                             .filter(|(id, (backpack,))| {
@@ -64,13 +69,12 @@ impl App {
                                     && self.world.get::<&Equipped>(*id).is_err()
                             })
                             .nth(self.shop_cursor)
-                            .map(|(id, _)| id)
+                            .map(|(id, _)| id),
                     };
                     if let Some(id) = item_to_trade {
-                        if self.shop_mode == 0 {
-                            self.buy_item(id);
-                        } else {
-                            self.sell_item(id);
+                        match self.shop_mode {
+                            ShopMode::Buy => self.buy_item(id),
+                            ShopMode::Sell => self.sell_item(id),
                         }
                         self.shop_cursor = 0;
                     }
@@ -101,7 +105,7 @@ mod tests {
         app.world.spawn((Item, InBackpack { owner: merchant }));
         app.world.spawn((Item, InBackpack { owner: merchant }));
 
-        app.shop_mode = 0; // Buy mode
+        app.shop_mode = ShopMode::Buy;
         app.handle_shop_input(Action::MenuDown);
         assert_eq!(app.shop_cursor, 1);
 
@@ -112,27 +116,29 @@ mod tests {
     #[test]
     fn test_shop_toggle_mode() {
         let mut app = setup_test_app();
-        app.shop_mode = 0;
+        assert_eq!(app.shop_mode, ShopMode::Buy);
         app.handle_shop_input(Action::ToggleShopMode);
-        assert_eq!(app.shop_mode, 1);
+        assert_eq!(app.shop_mode, ShopMode::Sell);
         app.handle_shop_input(Action::ToggleShopMode);
-        assert_eq!(app.shop_mode, 0);
+        assert_eq!(app.shop_mode, ShopMode::Buy);
     }
 
     #[test]
     fn test_shop_buy_item() {
         let mut app = setup_test_app();
-        let player = app.world.spawn((Player, Gold { amount: 100 }, Position { x: 0, y: 0 }));
+        let player = app
+            .world
+            .spawn((Player, Gold { amount: 100 }, Position { x: 0, y: 0 }));
         let merchant = app.world.spawn((Merchant,));
         app.active_merchant = Some(merchant);
         let item = app.world.spawn((
             Item,
             InBackpack { owner: merchant },
             ItemValue { price: 50 },
-            Name("Shiny Sword".to_string())
+            Name("Shiny Sword".to_string()),
         ));
 
-        app.shop_mode = 0;
+        app.shop_mode = ShopMode::Buy;
         app.shop_cursor = 0;
         app.handle_shop_input(Action::MenuSelect);
 
@@ -145,17 +151,19 @@ mod tests {
     #[test]
     fn test_shop_buy_item_fail_no_gold() {
         let mut app = setup_test_app();
-        let _player = app.world.spawn((Player, Gold { amount: 10 }, Position { x: 0, y: 0 }));
+        let _player = app
+            .world
+            .spawn((Player, Gold { amount: 10 }, Position { x: 0, y: 0 }));
         let merchant = app.world.spawn((Merchant,));
         app.active_merchant = Some(merchant);
         let item = app.world.spawn((
             Item,
             InBackpack { owner: merchant },
             ItemValue { price: 50 },
-            Name("Expensive Sword".to_string())
+            Name("Expensive Sword".to_string()),
         ));
 
-        app.shop_mode = 0;
+        app.shop_mode = ShopMode::Buy;
         app.shop_cursor = 0;
         app.handle_shop_input(Action::MenuSelect);
 
@@ -166,15 +174,17 @@ mod tests {
     #[test]
     fn test_shop_sell_item() {
         let mut app = setup_test_app();
-        let player = app.world.spawn((Player, Gold { amount: 0 }, Position { x: 0, y: 0 }));
+        let player = app
+            .world
+            .spawn((Player, Gold { amount: 0 }, Position { x: 0, y: 0 }));
         let item = app.world.spawn((
             Item,
             InBackpack { owner: player },
             ItemValue { price: 50 },
-            Name("Old Boots".to_string())
+            Name("Old Boots".to_string()),
         ));
 
-        app.shop_mode = 1; // Sell mode
+        app.shop_mode = ShopMode::Sell;
         app.shop_cursor = 0;
         app.handle_shop_input(Action::MenuSelect);
 

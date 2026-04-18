@@ -2,6 +2,8 @@ use crate::app::{App, RunState};
 use crate::components::*;
 use rand::Rng;
 
+const TORCH_FADE_TURNS: i32 = 1000;
+
 impl App {
     pub fn on_turn_tick(&mut self) {
         self.turn_count += 1;
@@ -15,6 +17,14 @@ impl App {
         self.cleanup_noise();
         self.apply_status_effects(player_id);
         self.handle_dead_monsters_from_poison();
+        self.trim_log();
+    }
+
+    fn trim_log(&mut self) {
+        const MAX_LOG: usize = 500;
+        if self.log.len() > MAX_LOG {
+            self.log.drain(0..self.log.len() - MAX_LOG);
+        }
     }
 
     fn update_light_sources(&mut self, player_id: hecs::Entity) {
@@ -25,7 +35,7 @@ impl App {
                 if let Some(turns) = light.remaining_turns {
                     if turns > 0 {
                         light.remaining_turns = Some(turns - 1);
-                        if turns == 1001 {
+                        if turns == TORCH_FADE_TURNS + 1 {
                             light.base_range /= 2;
                             light.range = light.range.min(light.base_range);
                             any_light_changed = true;
@@ -74,21 +84,12 @@ impl App {
 
     fn apply_passive_equipment_effects(&mut self, player_id: hecs::Entity) {
         if self.turn_count.is_multiple_of(5) {
-            let mut regen = false;
-            for (id, (_eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
-                if backpack.owner == player_id {
-                    let name = self
-                        .world
-                        .get::<&Name>(id)
-                        .map(|n| n.0.clone())
-                        .unwrap_or_default();
-                    if name == "Ring of Regeneration" {
-                        regen = true;
-                        break;
-                    }
-                }
-            }
-            if regen {
+            let has_regen = self
+                .world
+                .query::<(&Equipped, &InBackpack, &Regeneration)>()
+                .iter()
+                .any(|(_, (_, backpack, _))| backpack.owner == player_id);
+            if has_regen {
                 if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                     if stats.hp < stats.max_hp {
                         stats.hp += 1;
@@ -249,7 +250,15 @@ mod tests {
             },
             Position { x: 0, y: 0 },
         ));
-        app.world.insert_one(player, Poison { damage: 2, turns: 3 }).unwrap();
+        app.world
+            .insert_one(
+                player,
+                Poison {
+                    damage: 2,
+                    turns: 3,
+                },
+            )
+            .unwrap();
 
         app.on_turn_tick();
         {
@@ -273,10 +282,17 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
             Position { x: 0, y: 0 },
         ));
-        app.world.insert_one(player, Confusion { turns: 2 }).unwrap();
+        app.world
+            .insert_one(player, Confusion { turns: 2 })
+            .unwrap();
 
         app.on_turn_tick();
         assert!(app.world.get::<&Confusion>(player).is_ok());
@@ -290,10 +306,23 @@ mod tests {
         let mut app = setup_test_app();
         let player = app.world.spawn((
             Player,
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
             Position { x: 0, y: 0 },
         ));
-        app.world.insert_one(player, Strength { amount: 3, turns: 2 }).unwrap();
+        app.world
+            .insert_one(
+                player,
+                Strength {
+                    amount: 3,
+                    turns: 2,
+                },
+            )
+            .unwrap();
         // Manually add the power bonus as would happen when using the item
         if let Ok(mut stats) = app.world.get::<&mut CombatStats>(player) {
             stats.power += 3;
@@ -319,7 +348,7 @@ mod tests {
                 color: (255, 255, 255),
                 remaining_turns: Some(1002),
                 flicker: false,
-            }
+            },
         ));
 
         app.on_turn_tick(); // turns -> 1001
@@ -354,16 +383,34 @@ mod tests {
         let _player = app.world.spawn((Player, Position { x: 0, y: 0 }));
         let monster = app.world.spawn((
             Monster,
-            CombatStats { hp: 1, max_hp: 10, defense: 0, power: 1 },
+            CombatStats {
+                hp: 1,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
             Position { x: 1, y: 1 },
             Name("Test Monster".to_string()),
-            Experience { level: 1, xp: 0, next_level_xp: 0, xp_reward: 10 }
+            Experience {
+                level: 1,
+                xp: 0,
+                next_level_xp: 0,
+                xp_reward: 10,
+            },
         ));
-        app.world.insert_one(monster, Poison { damage: 2, turns: 5 }).unwrap();
+        app.world
+            .insert_one(
+                monster,
+                Poison {
+                    damage: 2,
+                    turns: 5,
+                },
+            )
+            .unwrap();
         app.world.insert_one(monster, LastHitByPlayer).unwrap();
 
         app.on_turn_tick();
-        
+
         assert_eq!(app.monsters_killed, 1);
         assert!(app.world.get::<&Monster>(monster).is_err());
     }
@@ -383,7 +430,7 @@ mod tests {
         ));
         app.world.spawn((
             Item,
-            Name("Ring of Regeneration".to_string()),
+            Regeneration,
             Equipped {
                 slot: EquipmentSlot::LeftFinger,
             },
@@ -401,7 +448,8 @@ mod tests {
     fn test_noise_cleanup() {
         let mut app = setup_test_app();
         app.world.spawn((Player, Position { x: 0, y: 0 }));
-        app.world.spawn((Position { x: 1, y: 1 }, Noise { amount: 10.0 }));
+        app.world
+            .spawn((Position { x: 1, y: 1 }, Noise { amount: 10.0 }));
 
         app.on_turn_tick();
         // Player remains, noise is gone (Noise entity + possible noise generated by movement if we moved, but here we just tick)

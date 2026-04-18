@@ -271,7 +271,8 @@
       "glyph": "=", "color": [0, 255, 0],
       "price": 100, "ammo": false, "consumable": false,
       "spawn_chance": 0.05, "min_floor": 5, "max_floor": 999,
-      "slot": "RightFinger", "obfuscated_name": "Glimmering Ring", "biomes": null
+      "slot": "RightFinger", "obfuscated_name": "Glimmering Ring", "biomes": null,
+      "regeneration": true
     },
     {
       "name": "Frost Wand",

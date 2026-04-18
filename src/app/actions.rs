@@ -23,24 +23,18 @@ impl App {
             RunState::AwaitingInput => self.handle_awaiting_input(action),
             RunState::ShowLogHistory => match action {
                 Action::CloseMenu | Action::OpenLogHistory => self.state = RunState::AwaitingInput,
-                Action::MenuUp => {
-                    if self.log_cursor > 0 {
-                        self.log_cursor -= 1;
-                    }
+                Action::MenuUp if self.log_cursor > 0 => {
+                    self.log_cursor -= 1;
                 }
-                Action::MenuDown => {
-                    if self.log_cursor < self.log.len().saturating_sub(1) {
-                        self.log_cursor += 1;
-                    }
+                Action::MenuDown if self.log_cursor < self.log.len().saturating_sub(1) => {
+                    self.log_cursor += 1;
                 }
                 _ => {}
             },
             RunState::ShowBestiary => match action {
                 Action::CloseMenu | Action::OpenBestiary => self.state = RunState::AwaitingInput,
-                Action::MenuUp => {
-                    if self.bestiary_cursor > 0 {
-                        self.bestiary_cursor -= 1;
-                    }
+                Action::MenuUp if self.bestiary_cursor > 0 => {
+                    self.bestiary_cursor -= 1;
                 }
                 Action::MenuDown => {
                     let count = self.encountered_monsters.len();
@@ -77,15 +71,11 @@ impl App {
         let max_options = if has_save { 3 } else { 2 };
 
         match action {
-            Action::MenuUp => {
-                if self.main_menu_cursor > 0 {
-                    self.main_menu_cursor -= 1;
-                }
+            Action::MenuUp if self.main_menu_cursor > 0 => {
+                self.main_menu_cursor -= 1;
             }
-            Action::MenuDown => {
-                if self.main_menu_cursor < max_options - 1 {
-                    self.main_menu_cursor += 1;
-                }
+            Action::MenuDown if self.main_menu_cursor < max_options - 1 => {
+                self.main_menu_cursor += 1;
             }
             Action::MenuSelect => {
                 let selection = if !has_save && self.main_menu_cursor == 1 {
@@ -121,7 +111,10 @@ impl App {
 
     pub fn apply_class_selection(&mut self) {
         use crate::components::*;
-        let player_id = self.get_player_id().unwrap();
+        let Some(player_id) = self.get_player_id() else {
+            log::error!("apply_class_selection: player not found");
+            return;
+        };
 
         if self.class_selection == 0 {
             // Fighter
@@ -133,15 +126,27 @@ impl App {
                 wisdom: 12,
                 charisma: 10,
             };
-            self.world.insert_one(player_id, attrs).unwrap();
+            self.world.insert_one(player_id, attrs).ok();
             let hp = 24 + Attributes::get_modifier(attrs.constitution);
-            self.world.insert_one(player_id, CombatStats {
-                hp,
-                max_hp: hp,
-                defense: 0,
-                power: 5,
-            }).unwrap();
-            self.world.insert_one(player_id, Class { class: CharacterClass::Fighter }).unwrap();
+            self.world
+                .insert_one(
+                    player_id,
+                    CombatStats {
+                        hp,
+                        max_hp: hp,
+                        defense: 0,
+                        power: 5,
+                    },
+                )
+                .ok();
+            self.world
+                .insert_one(
+                    player_id,
+                    Class {
+                        class: CharacterClass::Fighter,
+                    },
+                )
+                .ok();
 
             // Give starting equipment: Longsword, Shield, Chainmail
             let starting_items = ["Chainmail", "Shield", "Torch", "Longsword", "Health Potion"];
@@ -159,7 +164,10 @@ impl App {
                         &item_raw,
                     );
                     self.identified_items.insert(item_name.to_string());
-                    if item_name == "Longsword" || item_name == "Shield" || item_name == "Chainmail" || item_name == "Torch"
+                    if item_name == "Longsword"
+                        || item_name == "Shield"
+                        || item_name == "Chainmail"
+                        || item_name == "Torch"
                     {
                         self.equip_item(item_id);
                     }
@@ -225,18 +233,33 @@ impl App {
 
         match parts[0] {
             "help" => {
-                self.log.push("Debug Commands: spawn [name], teleport [lvl], heal, reveal, levelup, god".to_string());
+                self.log.push(
+                    "Debug Commands: spawn [name], teleport [lvl], heal, reveal, levelup, god"
+                        .to_string(),
+                );
             }
             "spawn" => {
                 if parts.len() > 1 {
                     let item_name = parts[1..].join(" ");
-                    if let Some(item_raw) = self.content.items.iter().find(|i| i.name == item_name).cloned() {
-                        let player_id = self.get_player_id().unwrap();
-                        let pos = *self.world.get::<&Position>(player_id).unwrap();
+                    if let Some(item_raw) = self
+                        .content
+                        .items
+                        .iter()
+                        .find(|i| i.name == item_name)
+                        .cloned()
+                    {
+                        let Some(player_id) = self.get_player_id() else {
+                            return;
+                        };
+                        let Some(pos) = self.world.get::<&Position>(player_id).ok().map(|p| *p)
+                        else {
+                            return;
+                        };
                         crate::spawner::spawn_item(&mut self.world, pos.x, pos.y, &item_raw);
                         self.log.push(format!("Debug: Spawned {}", item_name));
                     } else {
-                        self.log.push(format!("Debug: Item '{}' not found", item_name));
+                        self.log
+                            .push(format!("Debug: Item '{}' not found", item_name));
                     }
                 }
             }
@@ -245,12 +268,15 @@ impl App {
                     if let Ok(level) = parts[1].parse::<u16>() {
                         let dest = (level, self.current_branch);
                         self.go_to_level(dest);
-                        self.log.push(format!("Debug: Teleported to level {}", level));
+                        self.log
+                            .push(format!("Debug: Teleported to level {}", level));
                     }
                 }
             }
             "heal" => {
-                let player_id = self.get_player_id().unwrap();
+                let Some(player_id) = self.get_player_id() else {
+                    return;
+                };
                 if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                     stats.hp = stats.max_hp;
                     self.log.push("Debug: Healed player".to_string());
@@ -265,7 +291,9 @@ impl App {
                 self.log.push("Debug: Revealed map".to_string());
             }
             "levelup" => {
-                let player_id = self.get_player_id().unwrap();
+                let Some(player_id) = self.get_player_id() else {
+                    return;
+                };
                 let needed = if let Ok(exp) = self.world.get::<&Experience>(player_id) {
                     Some(exp.next_level_xp - exp.xp)
                 } else {
@@ -278,10 +306,12 @@ impl App {
             }
             "god" => {
                 self.god_mode = !self.god_mode;
-                self.log.push(format!("Debug: God mode set to {}", self.god_mode));
+                self.log
+                    .push(format!("Debug: God mode set to {}", self.god_mode));
             }
             _ => {
-                self.log.push(format!("Debug: Unknown command '{}'", parts[0]));
+                self.log
+                    .push(format!("Debug: Unknown command '{}'", parts[0]));
             }
         }
     }

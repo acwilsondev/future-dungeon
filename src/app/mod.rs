@@ -20,14 +20,14 @@ mod items_equip;
 mod items_shop;
 mod items_use_basic;
 mod items_use_ranged;
-mod level_gen_helpers;
 mod level_gen;
+mod level_gen_helpers;
 mod level_transition;
+mod monster;
 mod monster_ai_calc;
 mod monster_ai_execute;
 mod monster_boss;
 mod monster_perception;
-mod monster;
 mod player_move;
 mod serialization;
 mod snapshot;
@@ -37,7 +37,7 @@ mod visual_effects;
 mod world_update;
 
 pub use snapshot::EntitySnapshot;
-pub use state::{default_runstate, MonsterAction, RunState, VisualEffect};
+pub use state::{default_runstate, MonsterAction, RunState, ShopMode, VisualEffect};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Star {
@@ -86,7 +86,7 @@ pub struct App {
     #[serde(skip)]
     pub active_merchant: Option<hecs::Entity>,
     #[serde(skip)]
-    pub shop_mode: usize, // 0 = Buy, 1 = Sell
+    pub shop_mode: ShopMode,
     #[serde(skip)]
     pub effects: Vec<VisualEffect>,
     #[serde(skip)]
@@ -121,55 +121,18 @@ fn default_rng() -> ChaCha8Rng {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new() -> anyhow::Result<Self> {
         Self::new_random()
     }
 
-    pub fn new_random() -> Self {
+    pub fn new_random() -> anyhow::Result<Self> {
         let seed = rand::random::<u64>();
-        let mut app = Self {
-            exit: false,
-            death: false,
-            world: World::new(),
-            map: Map::new(80, 50),
-            entities: Vec::new(),
-            levels: HashMap::new(),
-            log: vec!["Welcome to RustLike!".to_string()],
-            dungeon_level: 1,
-            current_branch: Branch::Main,
-            state: RunState::MainMenu,
-            main_menu_cursor: 0,
-            stars: Vec::new(),
-            class_selection: 0,
-            inventory_cursor: 0,
-            targeting_cursor: (0, 0),
-            targeting_item: None,
-            speed_toggle: true,
-            level_up_cursor: 0,
-            respec_points: 0,
-            shop_cursor: 0,
-            active_merchant: None,
-            shop_mode: 0,
-            effects: Vec::new(),
-            log_cursor: 0,
-            alchemy_selection: Vec::new(),
-            fps: 0.0,
-            debug_console_buffer: String::new(),
-            god_mode: false,
-            identified_items: std::collections::HashSet::new(),
-            encountered_monsters: std::collections::HashSet::new(),
-            bestiary_cursor: 0,
-            monsters_killed: 0,
-            turn_count: 0,
-            escaping: false,
-            rng: ChaCha8Rng::seed_from_u64(seed),
-            content: Content::load(),
-        };
+        let mut app = Self::build(seed, Content::load()?);
         app.init_stars();
-        app
+        Ok(app)
     }
 
-    pub fn new_test(seed: u64) -> Self {
+    fn build(seed: u64, content: Content) -> Self {
         Self {
             exit: false,
             death: false,
@@ -192,7 +155,7 @@ impl App {
             respec_points: 0,
             shop_cursor: 0,
             active_merchant: None,
-            shop_mode: 0,
+            shop_mode: ShopMode::Buy,
             effects: Vec::new(),
             log_cursor: 0,
             alchemy_selection: Vec::new(),
@@ -206,7 +169,17 @@ impl App {
             turn_count: 0,
             escaping: false,
             rng: ChaCha8Rng::seed_from_u64(seed),
-            content: Content::load(),
+            content,
         }
+    }
+}
+
+#[cfg(test)]
+impl App {
+    pub fn new_test(seed: u64) -> Self {
+        let content = Content::load().expect("content.json must be present for tests");
+        let mut app = Self::build(seed, content);
+        app.init_stars();
+        app
     }
 }

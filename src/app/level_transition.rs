@@ -252,7 +252,7 @@ mod tests {
         app.dungeon_level = 1;
         app.current_branch = Branch::Main;
         app.escaping = false;
-        
+
         // Spawn player and up stairs pointing to level 0 (as our new logic does)
         app.world.spawn((Position { x: 10, y: 10 }, Player));
         app.world.spawn((
@@ -263,7 +263,7 @@ mod tests {
         ));
 
         app.try_level_transition();
-        
+
         assert!(app.log.last().unwrap().contains("without the Amulet"));
         assert_eq!(app.dungeon_level, 1);
     }

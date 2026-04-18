@@ -1,5 +1,4 @@
 use crate::components::*;
-use crate::map::Map;
 use serde::{Deserialize, Serialize};
 
 /// A snapshot of an entity for serialization
@@ -69,6 +68,8 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub last_hit_by_player: bool,
     #[serde(default)]
+    pub is_levitation: bool,
+    #[serde(default)]
     pub is_merchant: bool,
     #[serde(default)]
     pub ammo: bool,
@@ -89,4 +90,3 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub destination: Option<(u16, Branch)>,
 }
-

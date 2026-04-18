@@ -85,12 +85,6 @@ impl App {
         }
 
         for (pos, amount) in noise_sources {
-            // Sound propagation using Dijkstra-like approach to "bend" around corners
-            let mut dijkstra =
-                DijkstraMap::new(self.map.width, self.map.height, &[], &self.map, 20.0);
-            dijkstra.map[self.map.point2d_to_index(Point::new(pos.x, pos.y))] = 0.0;
-
-            // Let's use a BFS for sound propagation
             let mut queue = std::collections::VecDeque::new();
             queue.push_back((pos.x, pos.y, amount));
 
@@ -208,11 +202,14 @@ mod tests {
     #[test]
     fn test_blocking_entities() {
         let mut app = setup_test_app();
-        app.world.spawn((Position { x: 10, y: 10 }, Monster, Name("M".to_string())));
+        app.world
+            .spawn((Position { x: 10, y: 10 }, Monster, Name("M".to_string())));
         app.world.spawn((Position { x: 11, y: 10 }, Merchant));
         app.world.spawn((Position { x: 12, y: 10 }, AlchemyStation));
-        app.world.spawn((Position { x: 13, y: 10 }, Door { open: false }));
-        app.world.spawn((Position { x: 14, y: 10 }, Door { open: true }));
+        app.world
+            .spawn((Position { x: 13, y: 10 }, Door { open: false }));
+        app.world
+            .spawn((Position { x: 14, y: 10 }, Door { open: true }));
 
         app.update_blocked_and_opaque();
 
@@ -234,7 +231,7 @@ mod tests {
                 color: (255, 255, 255),
                 remaining_turns: None,
                 flicker: false,
-            }
+            },
         ));
 
         app.update_lighting();
@@ -265,7 +262,7 @@ mod tests {
         let _player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
-            Viewshed { visible_tiles: 10 }
+            Viewshed { visible_tiles: 10 },
         ));
 
         // Case 1: Player at 10,10, target at 12,10, but NO LIGHT
@@ -281,7 +278,7 @@ mod tests {
                 color: (255, 255, 255),
                 remaining_turns: None,
                 flicker: false,
-            }
+            },
         ));
         app.update_fov();
         assert!(app.map.visible[(10 * 80 + 12) as usize]);

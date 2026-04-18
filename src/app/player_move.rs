@@ -33,7 +33,9 @@ impl App {
     }
 
     fn handle_combat(&mut self, target_id: hecs::Entity, _player_power: i32, x: u16, y: u16) {
-        let player_id = self.get_player_id().unwrap();
+        let Some(player_id) = self.get_player_id() else {
+            return;
+        };
         let mut res = self.resolve_attack(player_id, target_id, None, 0, false);
 
         // Sneak Attack? (Keep this as special player ability)
@@ -41,7 +43,8 @@ impl App {
             if *alert != AlertState::Aggressive {
                 res.hit = true;
                 res.damage *= 2;
-                self.log.push(format!("Sneak Attack on {}!", res.target_name));
+                self.log
+                    .push(format!("Sneak Attack on {}!", res.target_name));
             }
         }
 
@@ -59,7 +62,8 @@ impl App {
             };
             let chance = 10 + (attr_mod * 10); // 10% base + 10% per mod
             if self.rng.random_range(1..=100) <= chance {
-                let off_res = self.resolve_attack(player_id, target_id, Some(off_hand_id), 0, false);
+                let off_res =
+                    self.resolve_attack(player_id, target_id, Some(off_hand_id), 0, false);
                 self.apply_attack_result(target_id, &off_res, x, y);
             }
         }
@@ -76,7 +80,11 @@ impl App {
             let _ = self.world.insert_one(target_id, LastHitByPlayer);
             let _ = self.world.insert_one(target_id, AlertState::Aggressive);
         } else {
-            let name = self.world.get::<&Name>(target_id).map(|n| n.0.clone()).unwrap_or("Monster".to_string());
+            let name = self
+                .world
+                .get::<&Name>(target_id)
+                .map(|n| n.0.clone())
+                .unwrap_or("Monster".to_string());
             self.log.push(format!("{} dies!", name));
             let xp_reward = self
                 .world
@@ -124,39 +132,30 @@ impl App {
         }
 
         for (id, trap) in traps_at_pos {
-            let mut levitating = false;
-            for (eq_id, (eq, backpack)) in self.world.query::<(&Equipped, &InBackpack)>().iter() {
-                if backpack.owner == player_id && eq.slot == EquipmentSlot::Feet {
-                    let name = self
-                        .world
-                        .get::<&Name>(eq_id)
-                        .map(|n| n.0.clone())
-                        .unwrap_or_default();
-                    if name == "Boots of Levitation" {
-                        levitating = true;
-                        break;
-                    }
-                }
-            }
+            let levitating = self
+                .world
+                .query::<(&Equipped, &InBackpack, &Levitation)>()
+                .iter()
+                .any(|(_, (_, backpack, _))| backpack.owner == player_id);
 
             if levitating {
                 if !trap.revealed {
                     if let Ok(mut t) = self.world.get::<&mut Trap>(id) {
                         t.revealed = true;
                     }
-                    self.log.push("You levitate safely over a trap!".to_string());
+                    self.log
+                        .push("You levitate safely over a trap!".to_string());
                 }
             } else {
                 triggered_traps.push(id);
                 let mut damage = trap.damage;
-                if damage > 0 {
-                    if self.make_saving_throw(player_id, 12, SavingThrowKind::Dexterity) {
-                        damage /= 2;
-                        self.log.push("You dodge some of the trap's impact!".to_string());
-                    }
+                if damage > 0 && self.make_saving_throw(player_id, 12, SavingThrowKind::Dexterity) {
+                    damage /= 2;
+                    self.log
+                        .push("You dodge some of the trap's impact!".to_string());
                 }
                 total_damage += damage;
-                
+
                 if let Ok(mut t) = self.world.get::<&mut Trap>(id) {
                     t.revealed = true;
                 }
@@ -176,7 +175,8 @@ impl App {
 
         if total_damage > 0 {
             if self.god_mode {
-                self.log.push("Debug: Player is in God Mode! No trap damage taken.".to_string());
+                self.log
+                    .push("Debug: Player is in God Mode! No trap damage taken.".to_string());
             } else {
                 self.log
                     .push(format!("A trap deals {} damage to you!", total_damage));
@@ -244,7 +244,8 @@ impl App {
             if self.world.get::<&HolyAltar>(target_id).is_ok() {
                 if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
                     stats.hp = stats.max_hp;
-                    self.log.push("The Holy Altar fully restores your vitality!".to_string());
+                    self.log
+                        .push("The Holy Altar fully restores your vitality!".to_string());
                 }
                 if let Err(e) = self.world.despawn(target_id) {
                     log::error!("Failed to despawn Holy Altar after use: {}", e);
@@ -258,7 +259,9 @@ impl App {
             if self.world.get::<&ResetShrine>(target_id).is_ok() {
                 self.init_respec();
                 self.state = RunState::ShowResetShrine;
-                self.log.push("You approach the Reset Shrine. It vibrates with ancient power...".to_string());
+                self.log.push(
+                    "You approach the Reset Shrine. It vibrates with ancient power...".to_string(),
+                );
                 return;
             }
 
@@ -292,7 +295,12 @@ impl App {
             return;
         }
 
-        if !self.map.blocked[(new_y * self.map.width + new_x) as usize] {
+        if self
+            .map
+            .idx(new_x, new_y)
+            .map(|i| !self.map.blocked[i])
+            .unwrap_or(false)
+        {
             let Some(player_id) = self.get_player_id() else {
                 return;
             };
@@ -322,7 +330,7 @@ mod tests {
     fn setup_test_app() -> App {
         let mut app = App::new_test(42);
         app.world = World::new();
- // Clear random entities
+        // Clear random entities
         app.map = crate::map::Map::new(80, 50);
         for t in app.map.tiles.iter_mut() {
             *t = TileType::Floor;
@@ -384,7 +392,14 @@ mod tests {
         let player = app.world.spawn((
             Position { x: 10, y: 10 },
             Player,
-            Attributes { strength: 30, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 30,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 10,
                 max_hp: 10,
@@ -398,7 +413,14 @@ mod tests {
             Position { x: 11, y: 10 },
             Monster,
             Name("Test Monster".to_string()),
-            Attributes { strength: 10, dexterity: 1, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 1,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 50,
                 max_hp: 50,
@@ -466,7 +488,8 @@ mod tests {
             Gold { amount: 0 },
         ));
 
-        app.world.spawn((Position { x: 11, y: 10 }, Gold { amount: 50 }));
+        app.world
+            .spawn((Position { x: 11, y: 10 }, Gold { amount: 50 }));
 
         app.move_player(1, 0);
 
@@ -483,6 +506,14 @@ mod tests {
         let player = app.world.spawn((
             Position { x: 10, y: 10 },
             Player,
+            Attributes {
+                strength: 10,
+                dexterity: 1, // Fail saving throw
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 10,
                 max_hp: 10,
@@ -585,9 +616,21 @@ mod tests {
         let _player = app.world.spawn((
             Position { x: 10, y: 10 },
             Player,
-            CombatStats { hp: 10, max_hp: 10, defense: 0, power: 5 },
-            Experience { level: 5, xp: 0, next_level_xp: 0, xp_reward: 0 },
-            Class { class: CharacterClass::Fighter },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 5,
+            },
+            Experience {
+                level: 5,
+                xp: 0,
+                next_level_xp: 0,
+                xp_reward: 0,
+            },
+            Class {
+                class: CharacterClass::Fighter,
+            },
         ));
 
         app.world.spawn((Position { x: 11, y: 10 }, ResetShrine));
@@ -605,7 +648,14 @@ mod tests {
         let _player = app.world.spawn((
             Position { x: 10, y: 10 },
             Player,
-            Attributes { strength: 50, dexterity: 50, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 50,
+                dexterity: 50,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 10,
                 max_hp: 10,
@@ -618,7 +668,14 @@ mod tests {
             Position { x: 11, y: 10 },
             Monster,
             Name("Orc".to_string()),
-            Attributes { strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
             CombatStats {
                 hp: 100,
                 max_hp: 100,
