@@ -56,3 +56,35 @@ This document outlines the best practices, testing strategies, and documentation
 ### Input
 - Handle input asynchronously or via a non-blocking loop to ensure the game remains responsive.
 - Map keys to high-level game commands (e.g., `Direction::Up`) rather than handling raw key codes in the game loop.
+
+## 5. Agent Workflow (Gitflow)
+
+AI Agents working in this repository MUST strictly follow this Gitflow-inspired lifecycle for every task:
+
+### 1. Branching
+- **Mandate:** NEVER work on `main`.
+- **Action:** Immediately create a feature branch from `main` using the pattern `feature/description` or `fix/description`.
+- **Tool:** Use `run_shell_command("git checkout -b feature/your-feature-name")`.
+
+### 2. TDD (Test Driven Development)
+- **Workflow:** Follow the **Red-Green-Refactor** cycle.
+- **Step 1 (Red):** Write a failing test in the appropriate test module or file. Verify it fails by running `make test`.
+- **Step 2 (Green):** Implement the minimal code necessary to pass the test.
+- **Step 3 (Refactor):** Clean up the implementation while ensuring tests remain green.
+- **Validation:** Every feature or fix is incomplete without a verifying test.
+
+### 3. Conventional Commits
+- **Standard:** Use [Conventional Commits](https://www.conventionalcommits.org/) for all commit messages.
+- **Prefixes:**
+  - `feat:` for new features.
+  - `fix:` for bug fixes.
+  - `refactor:` for code changes that neither fix a bug nor add a feature.
+  - `test:` for adding or correcting tests.
+  - `docs:` for documentation changes.
+  - `chore:` for maintenance tasks.
+- **Example:** `feat: add perception component to monsters`
+
+### 4. Pull Request Preparation
+- **Cleanup:** Run `make lint` and `make harden` to ensure no regressions or linting errors.
+- **Finality:** Once the task is complete and verified, summarize the changes and create a PR using the GitHub CLI.
+- **Tool:** Use `run_shell_command("gh pr create --title 'prefix: description' --body 'Summary of changes'")`.
