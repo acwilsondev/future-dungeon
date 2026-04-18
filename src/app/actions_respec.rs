@@ -43,15 +43,11 @@ impl App {
 
     pub fn handle_respec_input(&mut self, action: Action) {
         match action {
-            Action::MenuUp => {
-                if self.level_up_cursor > 0 {
-                    self.level_up_cursor -= 1;
-                }
+            Action::MenuUp if self.level_up_cursor > 0 => {
+                self.level_up_cursor -= 1;
             }
-            Action::MenuDown => {
-                if self.level_up_cursor < 5 {
-                    self.level_up_cursor += 1;
-                }
+            Action::MenuDown if self.level_up_cursor < 5 => {
+                self.level_up_cursor += 1;
             }
             Action::MenuSelect => {
                 if self.respec_points > 0 {

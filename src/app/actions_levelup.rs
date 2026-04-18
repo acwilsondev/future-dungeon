@@ -4,15 +4,11 @@ use crate::app::{App, RunState};
 impl App {
     pub fn handle_level_up_input(&mut self, action: Action) {
         match action {
-            Action::MenuUp => {
-                if self.level_up_cursor > 0 {
-                    self.level_up_cursor -= 1;
-                }
+            Action::MenuUp if self.level_up_cursor > 0 => {
+                self.level_up_cursor -= 1;
             }
-            Action::MenuDown => {
-                if self.level_up_cursor < 5 {
-                    self.level_up_cursor += 1;
-                }
+            Action::MenuDown if self.level_up_cursor < 5 => {
+                self.level_up_cursor += 1;
             }
             Action::MenuSelect => {
                 if let Some(player_id) = self.get_player_id() {

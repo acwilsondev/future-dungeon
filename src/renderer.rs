@@ -153,7 +153,7 @@ fn draw_entities(
     {
         data.push((id, *pos, *render, *order));
     }
-    data.sort_by(|a, b| a.3.cmp(&b.3));
+    data.sort_by_key(|a| a.3);
 
     for (id, pos, render, _) in data {
         let idx = pos.y as usize * app.map.width as usize + pos.x as usize;

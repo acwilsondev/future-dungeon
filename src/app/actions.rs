@@ -23,24 +23,18 @@ impl App {
             RunState::AwaitingInput => self.handle_awaiting_input(action),
             RunState::ShowLogHistory => match action {
                 Action::CloseMenu | Action::OpenLogHistory => self.state = RunState::AwaitingInput,
-                Action::MenuUp => {
-                    if self.log_cursor > 0 {
-                        self.log_cursor -= 1;
-                    }
+                Action::MenuUp if self.log_cursor > 0 => {
+                    self.log_cursor -= 1;
                 }
-                Action::MenuDown => {
-                    if self.log_cursor < self.log.len().saturating_sub(1) {
-                        self.log_cursor += 1;
-                    }
+                Action::MenuDown if self.log_cursor < self.log.len().saturating_sub(1) => {
+                    self.log_cursor += 1;
                 }
                 _ => {}
             },
             RunState::ShowBestiary => match action {
                 Action::CloseMenu | Action::OpenBestiary => self.state = RunState::AwaitingInput,
-                Action::MenuUp => {
-                    if self.bestiary_cursor > 0 {
-                        self.bestiary_cursor -= 1;
-                    }
+                Action::MenuUp if self.bestiary_cursor > 0 => {
+                    self.bestiary_cursor -= 1;
                 }
                 Action::MenuDown => {
                     let count = self.encountered_monsters.len();
@@ -77,15 +71,11 @@ impl App {
         let max_options = if has_save { 3 } else { 2 };
 
         match action {
-            Action::MenuUp => {
-                if self.main_menu_cursor > 0 {
-                    self.main_menu_cursor -= 1;
-                }
+            Action::MenuUp if self.main_menu_cursor > 0 => {
+                self.main_menu_cursor -= 1;
             }
-            Action::MenuDown => {
-                if self.main_menu_cursor < max_options - 1 {
-                    self.main_menu_cursor += 1;
-                }
+            Action::MenuDown if self.main_menu_cursor < max_options - 1 => {
+                self.main_menu_cursor += 1;
             }
             Action::MenuSelect => {
                 let selection = if !has_save && self.main_menu_cursor == 1 {

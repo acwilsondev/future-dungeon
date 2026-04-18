@@ -13,10 +13,8 @@ impl App {
                 };
                 self.shop_cursor = 0;
             }
-            Action::MenuUp => {
-                if self.shop_cursor > 0 {
-                    self.shop_cursor -= 1;
-                }
+            Action::MenuUp if self.shop_cursor > 0 => {
+                self.shop_cursor -= 1;
             }
             Action::MenuDown => {
                 if let Some(player_id) = self.get_player_id() {

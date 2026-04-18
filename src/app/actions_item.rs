@@ -6,10 +6,8 @@ impl App {
     pub fn handle_inventory_input(&mut self, action: Action) {
         match action {
             Action::CloseMenu | Action::OpenInventory => self.state = RunState::AwaitingInput,
-            Action::MenuUp => {
-                if self.inventory_cursor > 0 {
-                    self.inventory_cursor -= 1;
-                }
+            Action::MenuUp if self.inventory_cursor > 0 => {
+                self.inventory_cursor -= 1;
             }
             Action::MenuDown => {
                 if let Some(player_id) = self.get_player_id() {
@@ -47,10 +45,8 @@ impl App {
     pub fn handle_identify_input(&mut self, action: Action) {
         match action {
             Action::CloseMenu => self.state = RunState::AwaitingInput,
-            Action::MenuUp => {
-                if self.inventory_cursor > 0 {
-                    self.inventory_cursor -= 1;
-                }
+            Action::MenuUp if self.inventory_cursor > 0 => {
+                self.inventory_cursor -= 1;
             }
             Action::MenuDown => {
                 if let Some(player_id) = self.get_player_id() {
