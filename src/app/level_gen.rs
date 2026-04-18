@@ -11,7 +11,7 @@ impl App {
         spawn_chance: impl Fn(&T) -> f32,
     ) -> &'a T {
         let total: f32 = items.iter().map(&spawn_chance).sum();
-        let mut roll = self.rng.gen_range(0.0..total);
+        let mut roll = self.rng.random_range(0.0..total);
         for item in items.iter().take(items.len() - 1) {
             let chance = spawn_chance(item);
             if roll < chance {
@@ -61,15 +61,15 @@ impl App {
 
         if self.dungeon_level.is_multiple_of(20) {
             // Reset Shrine hidden somewhere
-            let room_idx = self.rng.gen_range(0..mb.rooms.len());
+            let room_idx = self.rng.random_range(0..mb.rooms.len());
             let pos = mb.rooms[room_idx].center();
             crate::spawner::spawn_reset_shrine(&mut self.world, pos.0 as u16, pos.1 as u16);
         }
 
         // Normal spawning for non-haven floors
         // Spawn Merchant
-        if mb.rooms.len() > 1 && !available_items.is_empty() && self.rng.gen_bool(0.1) {
-            let room_idx = self.rng.gen_range(1..mb.rooms.len());
+        if mb.rooms.len() > 1 && !available_items.is_empty() && self.rng.random_bool(0.1) {
+            let room_idx = self.rng.random_range(1..mb.rooms.len());
             let center = mb.rooms[room_idx].center();
             let merchant =
                 crate::spawner::spawn_merchant(&mut self.world, center.0 as u16, center.1 as u16);
@@ -80,8 +80,8 @@ impl App {
         }
 
         // Spawn Alchemy Station
-        if mb.rooms.len() > 2 && self.rng.gen_bool(0.2) {
-            let room_idx = self.rng.gen_range(1..mb.rooms.len());
+        if mb.rooms.len() > 2 && self.rng.random_bool(0.2) {
+            let room_idx = self.rng.random_range(1..mb.rooms.len());
             let center = mb.rooms[room_idx].center();
             crate::spawner::spawn_alchemy_station(
                 &mut self.world,
@@ -164,12 +164,12 @@ impl App {
         }
 
         for spawn in &mb.item_spawns {
-            if available_items.is_empty() || self.rng.gen_bool(0.2) {
+            if available_items.is_empty() || self.rng.random_bool(0.2) {
                 crate::spawner::spawn_gold(
                     &mut self.world,
                     spawn.0,
                     spawn.1,
-                    self.rng.gen_range(5..25),
+                    self.rng.random_range(5..25),
                 );
                 continue;
             }

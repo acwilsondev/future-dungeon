@@ -102,7 +102,7 @@ impl App {
         // 2. Attack Roll (1d20 + mod)
         let mut rolls = Vec::new();
         for _ in 0..=disadvantage_count {
-            rolls.push(self.rng.gen_range(1..=20));
+            rolls.push(self.rng.random_range(1..=20));
         }
         let roll = *rolls.iter().min().expect("rolls is never empty");
 
@@ -135,7 +135,7 @@ impl App {
                 n_dice *= 2;
             }
             for _ in 0..n_dice {
-                weapon_roll += self.rng.gen_range(1..=damage_dice.1);
+                weapon_roll += self.rng.random_range(1..=damage_dice.1);
             }
 
             target_av = self.get_target_av(target);
@@ -183,7 +183,7 @@ impl App {
             SavingThrowKind::Charisma => self.get_attribute_modifier(entity, |a| a.charisma),
         };
 
-        let roll = self.rng.gen_range(1..=20);
+        let roll = self.rng.random_range(1..=20);
         let success = roll + modifier >= dc;
 
         let name = self

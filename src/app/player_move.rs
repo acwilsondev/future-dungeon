@@ -61,7 +61,7 @@ impl App {
                 self.get_dex_modifier(player_id)
             };
             let chance = 10 + (attr_mod * 10); // 10% base + 10% per mod
-            if self.rng.gen_range(1..=100) <= chance {
+            if self.rng.random_range(1..=100) <= chance {
                 let off_res =
                     self.resolve_attack(player_id, target_id, Some(off_hand_id), 0, false);
                 self.apply_attack_result(target_id, &off_res, x, y);

@@ -93,7 +93,7 @@ impl MapBuilder {
         };
 
         // 2. Determine Modifier
-        let mod_roll = rng.gen_range(0..100);
+        let mod_roll = rng.random_range(0..100);
         self.floor_modifier = if mod_roll < 20 {
             FloorModifier::Dark
         } else if mod_roll < 40 {
@@ -183,10 +183,10 @@ impl MapBuilder {
         const MAX_SIZE: i32 = 6;
 
         for _ in 0..MAX_ROOMS {
-            let w = rng.gen_range(MIN_SIZE..MAX_SIZE);
-            let h = rng.gen_range(MIN_SIZE..MAX_SIZE);
-            let x = rng.gen_range(1..self.map.width as i32 - w - 1);
-            let y = rng.gen_range(1..self.map.height as i32 - h - 1);
+            let w = rng.random_range(MIN_SIZE..MAX_SIZE);
+            let h = rng.random_range(MIN_SIZE..MAX_SIZE);
+            let x = rng.random_range(1..self.map.width as i32 - w - 1);
+            let y = rng.random_range(1..self.map.height as i32 - h - 1);
             let new_room = Rect::new(x, y, w, h);
 
             let mut ok = true;
@@ -204,7 +204,7 @@ impl MapBuilder {
                     let (new_x, new_y) = new_room.center();
                     let (prev_x, prev_y) = self.rooms[self.rooms.len() - 1].center();
 
-                    if rng.gen_bool(0.5) {
+                    if rng.random_bool(0.5) {
                         self.apply_horizontal_tunnel(prev_x, new_x, prev_y);
                         self.apply_vertical_tunnel(prev_y, new_y, new_x);
                     } else {
@@ -231,10 +231,10 @@ impl MapBuilder {
         self.apply_vertical_tunnel(2, self.map.height as i32 - 3, center_x);
 
         for _ in 0..10 {
-            let w = rng.gen_range(4..8);
-            let h = rng.gen_range(4..8);
-            let x = rng.gen_range(2..center_x - w - 2);
-            let y = rng.gen_range(2..self.map.height as i32 - h - 2);
+            let w = rng.random_range(4..8);
+            let h = rng.random_range(4..8);
+            let x = rng.random_range(2..center_x - w - 2);
+            let y = rng.random_range(2..self.map.height as i32 - h - 2);
             let left_room = Rect::new(x, y, w, h);
 
             let mut ok = true;
@@ -336,7 +336,7 @@ impl MapBuilder {
         candidates.dedup();
 
         for (x, y) in candidates {
-            if rng.gen_bool(0.7) {
+            if rng.random_bool(0.7) {
                 self.door_spawns.push((x, y));
             }
         }
@@ -348,10 +348,10 @@ impl MapBuilder {
         const MAX_SIZE: i32 = 10;
 
         for i in 0..MAX_ROOMS {
-            let w = rng.gen_range(MIN_SIZE..MAX_SIZE);
-            let h = rng.gen_range(MIN_SIZE..MAX_SIZE);
-            let x = rng.gen_range(1..self.map.width as i32 - w - 1);
-            let y = rng.gen_range(1..self.map.height as i32 - h - 1);
+            let w = rng.random_range(MIN_SIZE..MAX_SIZE);
+            let h = rng.random_range(MIN_SIZE..MAX_SIZE);
+            let x = rng.random_range(1..self.map.width as i32 - w - 1);
+            let y = rng.random_range(1..self.map.height as i32 - h - 1);
             let new_room = Rect::new(x, y, w, h);
 
             let mut ok = true;
@@ -363,7 +363,7 @@ impl MapBuilder {
             }
 
             if ok {
-                if i > 0 && rng.gen_bool(0.15) {
+                if i > 0 && rng.random_bool(0.15) {
                     self.spawn_vault(&new_room);
                 } else {
                     self.apply_room_to_map(&new_room);
@@ -373,7 +373,7 @@ impl MapBuilder {
                     let (new_x, new_y) = new_room.center();
                     let (prev_x, prev_y) = self.rooms[self.rooms.len() - 1].center();
 
-                    if rng.gen_bool(0.5) {
+                    if rng.random_bool(0.5) {
                         self.apply_horizontal_tunnel(prev_x, new_x, prev_y);
                         self.apply_vertical_tunnel(prev_y, new_y, new_x);
                     } else {
@@ -382,23 +382,23 @@ impl MapBuilder {
                     }
 
                     let center = new_room.center();
-                    if rng.gen_bool(0.7) {
+                    if rng.random_bool(0.7) {
                         self.monster_spawns.push((center.0 as u16, center.1 as u16));
                     }
-                    if rng.gen_bool(0.5) {
-                        let item_x = rng.gen_range(new_room.x1..new_room.x2) as u16;
-                        let item_y = rng.gen_range(new_room.y1..new_room.y2) as u16;
+                    if rng.random_bool(0.5) {
+                        let item_x = rng.random_range(new_room.x1..new_room.x2) as u16;
+                        let item_y = rng.random_range(new_room.y1..new_room.y2) as u16;
                         self.item_spawns.push((item_x, item_y));
                     }
-                    if rng.gen_bool(0.2) {
-                        let trap_x = rng.gen_range(new_room.x1..new_room.x2) as u16;
-                        let trap_y = rng.gen_range(new_room.y1..new_room.y2) as u16;
+                    if rng.random_bool(0.2) {
+                        let trap_x = rng.random_range(new_room.x1..new_room.x2) as u16;
+                        let trap_y = rng.random_range(new_room.y1..new_room.y2) as u16;
                         self.trap_spawns.push((trap_x, trap_y));
                     }
-                    if rng.gen_bool(0.4) {
+                    if rng.random_bool(0.4) {
                         // More traps/spores in branches will be handled by the game logic
-                        let trap_x = rng.gen_range(new_room.x1..new_room.x2) as u16;
-                        let trap_y = rng.gen_range(new_room.y1..new_room.y2) as u16;
+                        let trap_x = rng.random_range(new_room.x1..new_room.x2) as u16;
+                        let trap_y = rng.random_range(new_room.y1..new_room.y2) as u16;
                         self.trap_spawns.push((trap_x, trap_y));
                     }
                 } else {
@@ -413,7 +413,7 @@ impl MapBuilder {
         let end = self.rooms[self.rooms.len() - 1].center();
         self.stairs_down = (end.0 as u16, end.1 as u16);
 
-        if self.rooms.len() > 3 && rng.gen_bool(0.3) {
+        if self.rooms.len() > 3 && rng.random_bool(0.3) {
             let alt_end = self.rooms[self.rooms.len() - 2].center();
             self.stairs_down_alt = Some((alt_end.0 as u16, alt_end.1 as u16));
         }
@@ -440,7 +440,7 @@ impl MapBuilder {
 
     fn build_caves<R: Rng>(&mut self, rng: &mut R) {
         for tile in self.map.tiles.iter_mut() {
-            if rng.gen_bool(0.45) {
+            if rng.random_bool(0.45) {
                 *tile = TileType::Wall;
             } else {
                 *tile = TileType::Floor;
@@ -482,8 +482,8 @@ impl MapBuilder {
             != TileType::Floor
         {
             start_pos = (
-                rng.gen_range(1..self.map.width - 1),
-                rng.gen_range(1..self.map.height - 1),
+                rng.random_range(1..self.map.width - 1),
+                rng.random_range(1..self.map.height - 1),
             );
         }
         self.player_start = start_pos;
@@ -494,22 +494,22 @@ impl MapBuilder {
             || end_pos == start_pos
         {
             end_pos = (
-                rng.gen_range(1..self.map.width - 1),
-                rng.gen_range(1..self.map.height - 1),
+                rng.random_range(1..self.map.width - 1),
+                rng.random_range(1..self.map.height - 1),
             );
         }
         self.stairs_down = end_pos;
 
         for _ in 0..20 {
-            let x = rng.gen_range(1..self.map.width - 1);
-            let y = rng.gen_range(1..self.map.height - 1);
+            let x = rng.random_range(1..self.map.width - 1);
+            let y = rng.random_range(1..self.map.height - 1);
             if self.map.tiles[(y * self.map.width + x) as usize] == TileType::Floor {
                 self.monster_spawns.push((x, y));
             }
         }
         for _ in 0..10 {
-            let x = rng.gen_range(1..self.map.width - 1);
-            let y = rng.gen_range(1..self.map.height - 1);
+            let x = rng.random_range(1..self.map.width - 1);
+            let y = rng.random_range(1..self.map.height - 1);
             if self.map.tiles[(y * self.map.width + x) as usize] == TileType::Floor {
                 self.item_spawns.push((x, y));
             }

@@ -298,7 +298,7 @@ impl App {
                         if self.world.get::<&RangedWeapon>(off_hand_id).is_ok() {
                             let dex_mod = self.get_dex_modifier(player_id);
                             let chance = 10 + (dex_mod * 10);
-                            if self.rng.gen_range(1..=100) <= chance {
+                            if self.rng.random_range(1..=100) <= chance {
                                 self.handle_direct_damage(
                                     player_id,
                                     target_id,
