@@ -50,7 +50,6 @@ For example `Fortified<Stat>` must actually be implemented as `FortifiedStrength
 
 | Status Effect     | Type         | Description                                                                                                                |
 | :---------------- | :----------- | :------------------------------------------------------------------------------------------------------------------------- |
-| `AegisBoost`      | Buff         | Grants **M** temporary health for **D** turns.                                                                             |
 | `Armored`         | Buff         | Increases armor by **M** for **D** turns.                                                                                  |
 | `ManaDrought`     | Debuff       | Cannot recover any Mana (all colors) for **D** turns.                                                                      |
 | `Anchored`        | Debuff       | Target cannot be moved or teleported for **D** turns. (Including by self). STR save each turn to lose the status.          |
