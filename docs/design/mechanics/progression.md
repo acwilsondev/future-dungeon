@@ -57,9 +57,9 @@ Since the XP slows down, **Item Level (iLvl)** must pick up the slack. We can ti
 
 ## 4. The "Fighter-to-Wizard" Math Check
 
-If a Fighter decides to pivot on Floor 40 (Level 10):
+If a [Fighter](player.md) decides to pivot on Floor 40 (Level 10):
 
-* They have **10 Attribute Points** to spend.
+* They have **10 [Attribute Points](player.md)** to spend.
 * They need to hit **INT 13** just to have a **+1 Mod** (to start learning basic scrolls).
 * **The Risk:** Because the XP curve has flattened out by Floor 40, they will only get about **10 more points** for the rest of the game.
 * **The Equipment Fix:** They MUST find "Combinatorial" gear (e.g., a +2 INT Amulet) to make the pivot viable, as the XP curve won't give them enough raw stat points to "catch up" naturally.
@@ -133,8 +133,8 @@ To keep the **Unbounded Attributes** from breaking the game, use the **ML** to s
 * **Monster AV:** $ML \times 0.75$ (rounded).
 * **Monster Damage:** $ML \times 2$ (base).
 
-> **The Level 20 Fighter Check:**
-> If a Level 20 Fighter has +12 STR, they are rolling $1d20 + 12$.
+> **The Level 20 [Fighter](player.md) Check:**
+> If a Level 20 [Fighter](player.md) has +12 [STR](player.md), they are rolling $1d20 + 12$.
 > A **ML 20** monster has a Base Dodge DC of $10 + (20 \times 0.5) = 20$.
 > The Fighter still needs to roll an **8 or higher** to hit, keeping the end-game tactical.
 
@@ -154,6 +154,6 @@ To keep the **Unbounded Attributes** from breaking the game, use the **ML** to s
 
 ### One final thought for the "Fighter-to-Wizard" Pivot
 
-Because the **MLB** grows linearly but the **XP Curve** is exponential, a character who spends their early points on STR but switches to INT mid-game will find themselves in a "Math Debt." They will be fighting **ML 15** monsters with **ML 5** magical potency.
+Because the **MLB** grows linearly but the **XP Curve** is exponential, a character who spends their early points on [STR](player.md) but switches to [INT](player.md) mid-game will find themselves in a "Math Debt." They will be fighting **ML 15** monsters with **ML 5** magical potency.
 
 Does this "Monster Level Budget" feel like it gives the procedural generator enough room to breathe?

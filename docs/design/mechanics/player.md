@@ -98,7 +98,7 @@ Each attribute generally is associated with a type of "Save", which is a protect
   - % chance to identify monsters, items
   - % chance to operate complex technology
   - SAVES (uncommon):
-    - Confusion status effects
+    - Confusion [status effects](status_effects.md)
     - "Mind Blast" spells
 - WIS
   - Vision radius
@@ -106,7 +106,7 @@ Each attribute generally is associated with a type of "Save", which is a protect
   - Trap and hidden door detection
   - Divine spell potency
   - SAVES (common):
-    - Fear effects
+    - Fear [effects](status_effects.md)
     - magical illusions that hide enemies
 - CHA
   - Merchant price improvements
@@ -116,7 +116,7 @@ Each attribute generally is associated with a type of "Save", which is a protect
   - Very small, hidden chance for lucky boons
   - SAVES (uncommon):
     - Banishment
-    - "Charm" effects that force the player to move randomly
+    - "Charm" [effects](status_effects.md) that force the player to move randomly
     - Forced polymorph
 
 ### Other Attributes

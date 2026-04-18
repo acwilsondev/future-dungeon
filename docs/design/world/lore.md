@@ -1,6 +1,6 @@
 # Lore
 
-The general narrative of this game is that player is seeking a relic called the Voidstar, an octahedral source of power that reflects the As Above, So Below nature of the Solari / Nihil division. We won't bother working out why they want it. Maybe it's for peace, maybe it's for control.
+The general narrative of this game is that player is seeking a relic called the Voidstar, an octahedral source of power that reflects the As Above, So Below nature of the [Solari / Nihil](../mechanics/magic.md) division. We won't bother working out why they want it. Maybe it's for peace, maybe it's for control.
 
 The horrors of the universe- the Biomass and the Aetheric factions (not to mention unaffiliated parties), have infested the dungeon and have prevented previous survivors from recovering the relic.
 
