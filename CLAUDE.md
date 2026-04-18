@@ -21,6 +21,7 @@ The project uses `#![deny(clippy::all)]`, so all clippy warnings are compile err
 
 AI Agents MUST follow this workflow for all tasks:
 
+0. **Pull main:** Always pull latest before creating a new branch.
 1. **Branching:** Always create a `feature/description` or `fix/description` branch from `main`. NEVER work on `main`.
 2. **TDD (Red-Green-Refactor):**
     - **Red:** Write a failing test first. Confirm failure with `make test`.
@@ -37,9 +38,11 @@ Never fix a bug or add a feature without a verifying test.
 RustLike is a terminal roguelike using `ratatui`/`crossterm` for rendering and `hecs` for the ECS.
 
 ### Core loop (`src/main.rs`)
+
 Runs at ~60fps. Each tick: render → poll input → map key to `Action` via `input::map_key_to_action` (keyed by current `RunState`) → `app.process_action()`. After player acts, `RunState` transitions to `MonsterTurn` and `app.monster_turn()` runs.
 
 ### App (`src/app/`)
+
 `App` is the entire game state. It's split into domain-specific impl files:
 
 | File | Responsibility |
@@ -59,16 +62,21 @@ Runs at ~60fps. Each tick: render → poll input → map key to `Action` via `in
 | `visual_effects.rs` | Particle/projectile effects |
 
 ### ECS pattern
+
 All game objects are `hecs` entities with component bundles. Because `hecs::World` is not serializable, `pack_entities()` drains it into `Vec<EntitySnapshot>` (a tagged-component list) and `unpack_entities()` rebuilds it. This happens on save/load and level transitions.
 
 ### Content system (`src/content.rs` + `content.json`)
+
 Monsters, items, and their stats are defined in `content.json` as `RawMonster`/`RawItem` structs. `Content::load()` deserializes this at startup. `spawner.rs` reads `Content` to instantiate entities. To add a new monster or item, edit `content.json` — no code change needed unless adding new fields.
 
 ### RunState machine
+
 `RunState` in `src/app/state.rs` controls which UI panel renders and which keys are active. `input.rs` matches `(RunState, KeyCode)` to `Action`. Most UI state (cursor positions, active menus) is held as skipped-during-serde fields on `App`.
 
 ### Persistence (`src/persistence.rs`)
+
 Saves to `savegame.json` in the working directory. `load_game()` deletes the file immediately after reading (roguelike iron-man style). Death also deletes the save via `delete_save()`.
 
 ### Branching dungeon
+
 `Branch` enum (`Main`, `Gardens`, `Vaults`) and `dungeon_level` together key the `app.levels` cache. Stairs encode their `destination: (u16, Branch)` directly as a component.
