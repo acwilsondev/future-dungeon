@@ -14,7 +14,8 @@ StatusEffect:
         dice: int                       # how many die to roll
         sides: int                      # size of die to roll
         bonus: int                      # static modifier to add to the roll
-    ...                                 # additional fields as necessary
+    recovery_save: optional { STR | DEX | CON | INT | WIS | CHA }  # rolled each turn; success removes the status early
+    ...                                 # additional fields as needed
 ```
 
 In content files, we use a smaller specification of the effect.
@@ -23,10 +24,21 @@ In content files, we use a smaller specification of the effect.
 Armored:
     duration: optional int              # a duration of the effect in turns
     magnitude: !dice "1d6+2"            # valid die roll string representing the magnitude
-        # /^(?<dice>\d+)d(?<sides>\d+)(?:(?<sign>[+-])(?<bonus>\d+))$/
+        # Full form:  /^(?<dice>\d+)d(?<sides>\d+)(?:[+-](?<bonus>\d+))?$/   e.g. "2d6+3"
+        # Flat form:  /^(?<flat>\d+)$/                                        e.g. "50"
+        # A plain integer is treated as a flat constant (no dice rolled).
+    recovery_save: optional { STR | DEX | CON | INT | WIS | CHA }
 ```
 
 Status effects are processed at the beginning of a creature's turn.
+
+## Status Effect Flow
+
+1. `Affected` entity turn begins.
+2. Status effect logic is applied one time.
+3. `Duration` is decremented.
+4. If `Duration` is 0, the Status Effect is removed.
+5. Entity turn proceeds as normal.
 
 ## Status Effect Design Registry
 
@@ -34,11 +46,13 @@ Status effects are processed at the beginning of a creature's turn.
 
 For example `Fortified<Stat>` must actually be implemented as `FortifiedStrength`, etc.
 
+**Recovery Saves**: Where the description says "X save each turn to lose the status", this corresponds to setting `recovery_save: X` in the content file for that status. See `effects.md` for the distinction between application saves and recovery saves.
+
 | Status Effect     | Type         | Description                                                                                                                |
 | :---------------- | :----------- | :------------------------------------------------------------------------------------------------------------------------- |
 | `AegisBoost`      | Buff         | Grants **M** temporary health for **D** turns.                                                                             |
 | `Armored`         | Buff         | Increases armor by **M** for **D** turns.                                                                                  |
-| `Drought<Pool>`   | Debuff       | Cannot recover **Pool** for **D** turns.                                                                                   |
+| `ManaDrought`     | Debuff       | Cannot recover any Mana (all colors) for **D** turns.                                                                      |
 | `Anchored`        | Debuff       | Target cannot be moved or teleported for **D** turns. (Including by self). STR save each turn to lose the status.          |
 | `Blinded`         | Debuff       | Reduces vision radius to **M** (usually 0) for **D** turns. WIS save each turn to lose the status.                         |
 | `Confusion`       | Debuff       | **M%** chance to move/attack randomly for **D** turns. WIS save each turn and when damaged to lose the status.             |
@@ -57,20 +71,4 @@ For example `Fortified<Stat>` must actually be implemented as `FortifiedStrength
 | `Regen`           | Healing      | Restores **M** health per turn for **D** turns.                                                                            |
 | `Stunned`         | Debuff       | Cannot take actions for **D** turns (**M** as recovery threshold). WIS save each turn and when damaged to lose the status. |
 | `Warped`          | Debuff       | Randomly teleports target **M** tiles every turn for **D** turns. CON save each turn to lose the status.                   |
-| `LifeDrain`       | DOT          | Deals **M** necrotic damage per turn for **D** turns, healing the owner by the final damage amount.                        |
-
----
-
-## Technical Notes for Implementation
-
-### 1. The Magnitude (M) Variable
-
-In your system, **Magnitude** should be context-aware based on the Hook:
-
-* **Percentage:** For `Fortified` or `Flicker`.
-* **Flat Value:** For `Shielded` or `Regen`.
-* **Radius:** For `Light` or `Infected` propagation.
-
-### 4. Duration (Y) Logic
-
-* **D = 0:** Effect expires at the end of the current turn.
+| `LifeDrain`       | DoT          | Deals **M** necrotic damage per turn for **D** turns, healing the owner by the final damage amount.                        |

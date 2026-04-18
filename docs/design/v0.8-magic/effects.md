@@ -2,13 +2,15 @@
 
 **Status:** Active Development
 
-This document defines primitive game effects.
+This document defines primitive game effects. Effects and Status Effects may be applied by any entity — including monsters — via code. However, in v0.8, only the player goes through the full Spell/Cast flow. Monsters do not have Spellbooks or ManaPool components, but monster AI routines may invoke these effect opcodes directly.
 
-Content file representation of effects
+--- Content file representation of effects:
 
 ```yaml
 EffectBase: &EffectBase
-    save: optional { STR | DEX | CON | INT | WIS | CHA }
+    application_save: optional { STR | DEX | CON | INT | WIS | CHA }  # rolled once at cast time to resist initial application
+    shape: point | circle   # point = origin only; circle = radius around origin
+    radius: optional int    # only relevant when shape is circle
 
 # Applies a given status effect to the affected
 GrantStatus:
@@ -28,35 +30,36 @@ DealDamage:
     # damage roll given as [count]d[die]+[bonus]
     magnitude: !dice "1d6+2"
 
-# Moves the affected along the vector, legal moves only
+# Moves the affected along the vector, legal moves only.
+# The semantic meaning of xComponent/yComponent (e.g. away-from-caster, fixed-direction)
+# is defined by the specific opcode implementation, not this schema.
 Push:
     <<: *EffectBase
     xComponent: int
     yComponent: int
 
-# Instantly moves the affected to the relative location
+# Instantly moves the affected to the relative location.
+# Vector semantics are opcode-defined (see Push note above).
 Teleport:
     <<: *EffectBase
     xComponent: int
     yComponent: int
 
-# Permanent additive alteration to an attribute
-ModifyAttribute:
-    <<: *EffectBase
-    attribute: optional { STR | DEX | CON | INT | WIS | CHA }
-    magnitude: !dice "1d6+2"
-
 Heal:
     <<: *EffectBase
     magnitude: !dice "1d6+2"
 
-# Create an entity. Target is usually a location where the CreateEntity should be created.
+# Create an entity. The target must be a location (point); entity selection targets are not valid for this effect.
 CreateEntity:
     <<: *EffectBase
     entityType: string      # string representing the entity to create
-
 ```
 
 ## Resisting Effects
 
-Spell effects can be resisted by rolling a Save. A Spell's Save DC is equal to `10 + Spell Level + Caster's CHA mod`. The Save type is determined by the spell effect.
+There are two distinct save contexts in the magic system:
+
+- **Application save** (`application_save` on an effect): rolled once at cast time when the effect first applies. If the target succeeds, the effect does not apply to them at all.
+- **Recovery save** (`recovery_save` on a status effect): rolled each turn while the status is active. If the target succeeds, the status is removed early. See `status_effects.md`.
+
+A Spell's Save DC is equal to `10 + Spell Level + Caster's CHA mod`. The Save attribute is specified per-effect.
