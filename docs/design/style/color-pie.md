@@ -169,5 +169,3 @@ This scaling creates a clear hierarchy of "threat density." As the value increas
 - **Orange/Purple Products (The State War):** Focus on **Resource War** and **Vision**. These products manipulate the `FOV Engine` and `Resource Siphon` hooks to control the player's capacity to act.
 - **Cyan/Emerald Products (The Rule Breakers):** Focus on **Grid Violation** and **Scaling**. These products use `Collision Bypass` and `Propagation` to ensure the player is never truly safe, even behind "walkable: false" tiles.
 - **The Orange/Emerald "False Security":** This specific product utilizes `Radiance` (revealing the map) to lure the player into a sense of clarity, only to trigger `Mutation` and `Infect` hooks from "Titans" hiding in plain sight.
-
-Should the "Titans" in the **Orange / Emerald** zones have a specific systemic hook that punishes the player for being "revealed" by the light?
