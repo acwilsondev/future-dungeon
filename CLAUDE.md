@@ -17,15 +17,20 @@ Run a single test: `cargo test test_name` (e.g. `cargo test test_save_load_game`
 
 The project uses `#![deny(clippy::all)]`, so all clippy warnings are compile errors. Always run `make lint` before committing.
 
-## Workflow
+## Workflow (Gitflow)
 
-Use Red-Green-Refactor for all fixes and features:
+AI Agents MUST follow this workflow for all tasks:
 
-1. **Red** — write a failing test that demonstrates the bug or missing behaviour. Confirm it fails before writing any fix.
-2. **Green** — make the minimal change to pass the test.
-3. **Refactor** — clean up without breaking the test.
+1. **Branching:** Always create a `feature/description` or `fix/description` branch from `main`. NEVER work on `main`.
+2. **TDD (Red-Green-Refactor):**
+    - **Red:** Write a failing test first. Confirm failure with `make test`.
+    - **Green:** Implement minimal code to pass.
+    - **Refactor:** Clean up while keeping tests green.
+3. **Conventional Commits:** Standardize messages (e.g., `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`).
+4. **Validation:** Run `make lint` and `make harden` before completing a task.
+5. **Pull Request:** Use `gh pr create` to submit your changes for review.
 
-Never fix a bug without a test that would have caught it.
+Never fix a bug or add a feature without a verifying test.
 
 ## Architecture
 
