@@ -48,7 +48,7 @@ impl App {
                 crate::spawner::spawn_merchant(&mut self.world, center.0 as u16 + 2, center.1 as u16);
             for _ in 0..5 {
                 let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-                let mut roll = self.rng.gen_range(0.0..total_chance);
+                let mut roll = self.rng.random_range(0.0..total_chance);
                 let mut selected_item = available_items[0];
                 for item in available_items {
                     if roll < item.spawn_chance {
@@ -66,21 +66,21 @@ impl App {
 
         if self.dungeon_level % 20 == 0 {
             // Reset Shrine hidden somewhere
-            let room_idx = self.rng.gen_range(0..mb.rooms.len());
+            let room_idx = self.rng.random_range(0..mb.rooms.len());
             let pos = mb.rooms[room_idx].center();
             crate::spawner::spawn_reset_shrine(&mut self.world, pos.0 as u16, pos.1 as u16);
         }
 
         // Normal spawning for non-haven floors
         // Spawn Merchant
-        if mb.rooms.len() > 1 && !available_items.is_empty() && self.rng.gen_bool(0.1) {
-            let room_idx = self.rng.gen_range(1..mb.rooms.len());
+        if mb.rooms.len() > 1 && !available_items.is_empty() && self.rng.random_bool(0.1) {
+            let room_idx = self.rng.random_range(1..mb.rooms.len());
             let center = mb.rooms[room_idx].center();
             let merchant =
                 crate::spawner::spawn_merchant(&mut self.world, center.0 as u16, center.1 as u16);
             for _ in 0..3 {
                 let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-                let mut roll = self.rng.gen_range(0.0..total_chance);
+                let mut roll = self.rng.random_range(0.0..total_chance);
                 let mut selected_item = available_items[0];
                 for item in available_items {
                     if roll < item.spawn_chance {
@@ -94,8 +94,8 @@ impl App {
         }
 
         // Spawn Alchemy Station
-        if mb.rooms.len() > 2 && self.rng.gen_bool(0.2) {
-            let room_idx = self.rng.gen_range(1..mb.rooms.len());
+        if mb.rooms.len() > 2 && self.rng.random_bool(0.2) {
+            let room_idx = self.rng.random_range(1..mb.rooms.len());
             let center = mb.rooms[room_idx].center();
             crate::spawner::spawn_alchemy_station(
                 &mut self.world,
@@ -129,7 +129,7 @@ impl App {
                 break;
             }
             let total_chance: f32 = available_monsters.iter().map(|m| m.spawn_chance).sum();
-            let mut roll = self.rng.gen_range(0.0..total_chance);
+            let mut roll = self.rng.random_range(0.0..total_chance);
             let mut selected_monster = available_monsters[0];
             for m in available_monsters {
                 if roll < m.spawn_chance {
@@ -183,12 +183,12 @@ impl App {
         }
 
         for spawn in &mb.item_spawns {
-            if available_items.is_empty() || self.rng.gen_bool(0.2) {
-                crate::spawner::spawn_gold(&mut self.world, spawn.0, spawn.1, self.rng.gen_range(5..25));
+            if available_items.is_empty() || self.rng.random_bool(0.2) {
+                crate::spawner::spawn_gold(&mut self.world, spawn.0, spawn.1, self.rng.random_range(5..25));
                 continue;
             }
             let total_chance: f32 = available_items.iter().map(|i| i.spawn_chance).sum();
-            let mut roll = self.rng.gen_range(0.0..total_chance);
+            let mut roll = self.rng.random_range(0.0..total_chance);
             let mut selected_item = available_items[0];
             for item in available_items {
                 if roll < item.spawn_chance {

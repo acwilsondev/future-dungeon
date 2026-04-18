@@ -39,7 +39,7 @@ impl App {
                     }
                 }
                 if light.flicker {
-                    let flicker_amount = self.rng.gen_range(-1..=1);
+                    let flicker_amount = self.rng.random_range(-1..=1);
                     let new_range = (light.base_range + flicker_amount).max(1);
                     if new_range != light.range {
                         light.range = new_range;

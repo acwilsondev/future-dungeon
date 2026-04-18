@@ -5,10 +5,10 @@ impl App {
     pub fn init_stars(&mut self) {
         for _ in 0..100 {
             self.stars.push(Star {
-                x: self.rng.gen_range(0.0..200.0),
-                y: self.rng.gen_range(0.0..100.0),
-                speed: self.rng.gen_range(0.05..0.2),
-                brightness: self.rng.gen_range(50..255) as u8,
+                x: self.rng.random_range(0.0..200.0),
+                y: self.rng.random_range(0.0..100.0),
+                speed: self.rng.random_range(0.05..0.2),
+                brightness: self.rng.random_range(50..255) as u8,
             });
         }
     }
@@ -20,7 +20,7 @@ impl App {
                 star.x += star.speed;
                 if star.x > 200.0 {
                     star.x = 0.0;
-                    star.y = self.rng.gen_range(0.0..100.0);
+                    star.y = self.rng.random_range(0.0..100.0);
                 }
             }
         }

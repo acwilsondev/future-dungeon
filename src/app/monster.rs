@@ -68,7 +68,7 @@ impl App {
         // 4. Special Wisp movement (non-combat, random)
         let mut wisp_moves = Vec::new();
         for (id, _) in self.world.query::<&Wisp>().iter() {
-            wisp_moves.push((id, self.rng.gen_range(-1..=1), self.rng.gen_range(-1..=1)));
+            wisp_moves.push((id, self.rng.random_range(-1..=1), self.rng.random_range(-1..=1)));
         }
 
         for (id, dx, dy) in wisp_moves {

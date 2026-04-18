@@ -152,8 +152,8 @@ impl App {
 
         if self.world.get::<&Confusion>(id).is_ok() {
             return Some(MonsterAction::Move(
-                self.rng.gen_range(-1..=1),
-                self.rng.gen_range(-1..=1),
+                self.rng.random_range(-1..=1),
+                self.rng.random_range(-1..=1),
             ));
         }
 
