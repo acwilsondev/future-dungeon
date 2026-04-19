@@ -7,9 +7,14 @@ This document outlines planned initiatives.
 e = enhancement
 t = tech debt
 
-- (e) Content Pass
+- (e) Gunplay **In Progress**
+- (e) Content Pass & Content Manifests
+  - "Gold" -> "Glint"
 - (t) Improved Abstractions
 - (e) Advanced AI/Goal-Action-Planning
+- (t) Systems unification
+  - In particular, we want all creatures to leverage the general set of
+    components that the player gets.
 - (e) Lore
   - Solari/Nihil lore is dropped when the player gains a mana pip for the
     respective faction. It takes the form of a narrative, biased story.
@@ -37,6 +42,7 @@ t = tech debt
 These features are good ideas but not on the roadmap yet.
 
 - Corpses
+- Money should be called Glint
 - Inspect items/creatures with a Look action.
 - Game should log when you step on an item or dungeon feature.
 - Combat log should be state when an offhand attack is made.
