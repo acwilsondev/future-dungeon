@@ -1,5 +1,8 @@
-use crate::components::FactionKind;
-use crate::components::Personality;
+use crate::components::{
+    Attribute, BakedStatusEffect, DamageType, Dice, EffectInstruction, EffectMetadata,
+    EffectOpCode, EffectShape, FactionKind, ManaCost, Personality, Spell, TargetSelection,
+    TargetSpec,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -87,10 +90,69 @@ pub struct RawItem {
     pub regeneration: bool,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawManaCost {
+    pub orange: u32,
+    pub purple: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawTargetSpec {
+    pub range: Option<u32>,
+    pub selection: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawStatusEffect {
+    #[serde(rename = "type")]
+    pub status_type: String,
+    pub duration: Option<u32>,
+    #[serde(default)]
+    pub magnitude: Option<String>,
+    #[serde(default)]
+    pub recovery_save: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawSpellEffect {
+    #[serde(rename = "type")]
+    pub effect_type: String,
+    pub shape: String,
+    #[serde(default)]
+    pub radius: Option<u32>,
+    #[serde(default)]
+    pub application_save: Option<String>,
+    #[serde(default, rename = "damageType")]
+    pub damage_type: Option<String>,
+    #[serde(default)]
+    pub status: Option<RawStatusEffect>,
+    #[serde(default)]
+    pub magnitude: Option<String>,
+    #[serde(default, rename = "statusType")]
+    pub status_type: Option<String>,
+    #[serde(default, rename = "xComponent")]
+    pub x_component: Option<i32>,
+    #[serde(default, rename = "yComponent")]
+    pub y_component: Option<i32>,
+    #[serde(default, rename = "entityType")]
+    pub entity_type: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawSpell {
+    pub title: String,
+    pub description: String,
+    pub mana_cost: RawManaCost,
+    pub targeting: RawTargetSpec,
+    pub effects: Vec<RawSpellEffect>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Content {
     pub monsters: Vec<RawMonster>,
     pub items: Vec<RawItem>,
+    #[serde(default)]
+    pub spells: Vec<RawSpell>,
 }
 
 const REQUIRED_ITEMS: &[&str] = &["Amulet of the Ancients", "Identification Scroll"];
@@ -117,7 +179,229 @@ impl Content {
                 anyhow::bail!("content.json is missing required item: \"{}\"", name);
             }
         }
+        for raw in &self.spells {
+            raw.validate()?;
+        }
         Ok(())
+    }
+
+    /// Bake all spells into ECS-ready components.
+    #[allow(dead_code)]
+    pub fn bake_spells(&self) -> anyhow::Result<Vec<Spell>> {
+        self.spells.iter().map(|r| r.bake()).collect()
+    }
+
+    pub fn find_spell(&self, name: &str) -> anyhow::Result<Spell> {
+        for raw in &self.spells {
+            if raw.title == name {
+                return raw.bake();
+            }
+        }
+        anyhow::bail!("spell not found: {}", name)
+    }
+}
+
+pub fn parse_dice_string(s: &str) -> anyhow::Result<Dice> {
+    let trimmed = s.trim();
+    // Flat integer form: "50"
+    if let Ok(flat) = trimmed.parse::<i32>() {
+        return Ok(Dice::flat(flat));
+    }
+    // Full form: "2d6+3" or "2d6-1" or "1d10"
+    let lower = trimmed.to_ascii_lowercase();
+    let (count_str, rest) = match lower.split_once('d') {
+        Some(parts) => parts,
+        None => anyhow::bail!("invalid dice string: {}", s),
+    };
+    let count: u32 = count_str
+        .parse()
+        .map_err(|_| anyhow::anyhow!("invalid dice count in {}", s))?;
+    let (sides, bonus): (u32, i32) = if let Some(idx) = rest.find(['+', '-']) {
+        let sides: u32 = rest[..idx]
+            .parse()
+            .map_err(|_| anyhow::anyhow!("invalid dice sides in {}", s))?;
+        let bonus: i32 = rest[idx..]
+            .parse()
+            .map_err(|_| anyhow::anyhow!("invalid dice bonus in {}", s))?;
+        (sides, bonus)
+    } else {
+        let sides: u32 = rest
+            .parse()
+            .map_err(|_| anyhow::anyhow!("invalid dice sides in {}", s))?;
+        (sides, 0)
+    };
+    Ok(Dice {
+        count,
+        sides,
+        bonus,
+    })
+}
+
+fn parse_attribute(s: &str) -> anyhow::Result<Attribute> {
+    match s.to_ascii_uppercase().as_str() {
+        "STR" => Ok(Attribute::Strength),
+        "DEX" => Ok(Attribute::Dexterity),
+        "CON" => Ok(Attribute::Constitution),
+        "INT" => Ok(Attribute::Intelligence),
+        "WIS" => Ok(Attribute::Wisdom),
+        "CHA" => Ok(Attribute::Charisma),
+        _ => anyhow::bail!("unknown attribute: {}", s),
+    }
+}
+
+fn parse_selection(s: &str) -> anyhow::Result<TargetSelection> {
+    match s.to_ascii_lowercase().as_str() {
+        "entity" => Ok(TargetSelection::Entity),
+        "self" => Ok(TargetSelection::SelfCast),
+        "location" => Ok(TargetSelection::Location),
+        _ => anyhow::bail!("unknown target selection: {}", s),
+    }
+}
+
+fn parse_opcode(s: &str) -> anyhow::Result<EffectOpCode> {
+    match s {
+        "DealDamage" => Ok(EffectOpCode::DealDamage),
+        "GrantStatus" => Ok(EffectOpCode::GrantStatus),
+        "RemoveStatus" => Ok(EffectOpCode::RemoveStatus),
+        "Heal" => Ok(EffectOpCode::Heal),
+        "Push" => Ok(EffectOpCode::Push),
+        "Teleport" => Ok(EffectOpCode::Teleport),
+        "CreateEntity" => Ok(EffectOpCode::CreateEntity),
+        _ => anyhow::bail!("unknown effect opcode: {}", s),
+    }
+}
+
+fn parse_shape(s: &str) -> anyhow::Result<EffectShape> {
+    match s.to_ascii_lowercase().as_str() {
+        "point" => Ok(EffectShape::Point),
+        "circle" => Ok(EffectShape::Circle),
+        _ => anyhow::bail!("unknown effect shape: {}", s),
+    }
+}
+
+fn parse_damage_type(s: &str) -> anyhow::Result<DamageType> {
+    match s {
+        "Fire" => Ok(DamageType::Fire),
+        "Poison" => Ok(DamageType::Poison),
+        "Bludgeoning" => Ok(DamageType::Bludgeoning),
+        "Slashing" => Ok(DamageType::Slashing),
+        "Piercing" => Ok(DamageType::Piercing),
+        "Necrotic" => Ok(DamageType::Necrotic),
+        _ => anyhow::bail!("unknown damage type: {}", s),
+    }
+}
+
+impl RawStatusEffect {
+    pub fn bake(&self) -> anyhow::Result<BakedStatusEffect> {
+        let magnitude = match &self.magnitude {
+            Some(m) => Some(parse_dice_string(m)?),
+            None => None,
+        };
+        let recovery_save = match &self.recovery_save {
+            Some(s) => Some(parse_attribute(s)?),
+            None => None,
+        };
+        Ok(BakedStatusEffect {
+            status_type: self.status_type.clone(),
+            duration: self.duration,
+            magnitude,
+            recovery_save,
+        })
+    }
+}
+
+impl RawSpell {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        let level = self.mana_cost.orange + self.mana_cost.purple;
+        if self.mana_cost.orange > 0 && self.mana_cost.purple > 0 {
+            anyhow::bail!(
+                "Spell '{}': mixed orange+purple cost is invalid",
+                self.title
+            );
+        }
+        if level == 0 {
+            anyhow::bail!("Spell '{}': level-0 (free) spells are invalid", self.title);
+        }
+        Ok(())
+    }
+
+    pub fn bake(&self) -> anyhow::Result<Spell> {
+        self.validate()?;
+        let level = self.mana_cost.orange + self.mana_cost.purple;
+
+        let mut instructions = Vec::with_capacity(self.effects.len());
+        for e in &self.effects {
+            let opcode = parse_opcode(&e.effect_type)?;
+            let shape = parse_shape(&e.shape)?;
+            let magnitude = match &e.magnitude {
+                Some(m) => Some(parse_dice_string(m)?),
+                None => None,
+            };
+            let application_save = match &e.application_save {
+                Some(s) => Some(parse_attribute(s)?),
+                None => None,
+            };
+
+            let metadata = match opcode {
+                EffectOpCode::DealDamage => {
+                    let dt = e
+                        .damage_type
+                        .as_deref()
+                        .ok_or_else(|| anyhow::anyhow!("DealDamage requires damageType"))?;
+                    EffectMetadata::Damage(parse_damage_type(dt)?)
+                }
+                EffectOpCode::GrantStatus => {
+                    let s = e
+                        .status
+                        .as_ref()
+                        .ok_or_else(|| anyhow::anyhow!("GrantStatus requires status"))?;
+                    EffectMetadata::Status(s.bake()?)
+                }
+                EffectOpCode::RemoveStatus => {
+                    let t = e
+                        .status_type
+                        .clone()
+                        .ok_or_else(|| anyhow::anyhow!("RemoveStatus requires statusType"))?;
+                    EffectMetadata::RemoveStatus(t)
+                }
+                EffectOpCode::Push | EffectOpCode::Teleport => EffectMetadata::Vector {
+                    x: e.x_component.unwrap_or(0),
+                    y: e.y_component.unwrap_or(0),
+                },
+                EffectOpCode::CreateEntity => {
+                    let t = e
+                        .entity_type
+                        .clone()
+                        .ok_or_else(|| anyhow::anyhow!("CreateEntity requires entityType"))?;
+                    EffectMetadata::CreateEntity(t)
+                }
+                EffectOpCode::Heal => EffectMetadata::None,
+            };
+
+            instructions.push(EffectInstruction {
+                opcode,
+                shape,
+                radius: e.radius,
+                application_save,
+                magnitude,
+                metadata,
+            });
+        }
+
+        Ok(Spell {
+            title: self.title.clone(),
+            description: self.description.clone(),
+            mana_cost: ManaCost {
+                orange: self.mana_cost.orange,
+                purple: self.mana_cost.purple,
+            },
+            level,
+            targeting: TargetSpec {
+                range: self.targeting.range,
+                selection: parse_selection(&self.targeting.selection)?,
+            },
+            instructions,
+        })
     }
 }
 
@@ -146,5 +430,102 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("Amulet of the Ancients"));
+    }
+
+    fn firebolt_raw() -> RawSpell {
+        RawSpell {
+            title: "Firebolt".to_string(),
+            description: "A small flick of flame.".to_string(),
+            mana_cost: RawManaCost {
+                orange: 1,
+                purple: 0,
+            },
+            targeting: RawTargetSpec {
+                range: Some(6),
+                selection: "entity".to_string(),
+            },
+            effects: vec![RawSpellEffect {
+                effect_type: "DealDamage".to_string(),
+                shape: "point".to_string(),
+                radius: None,
+                application_save: Some("DEX".to_string()),
+                damage_type: Some("Fire".to_string()),
+                status: None,
+                magnitude: Some("1d10".to_string()),
+                status_type: None,
+                x_component: None,
+                y_component: None,
+                entity_type: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn test_parse_dice_string_full() {
+        let d = parse_dice_string("2d6+3").unwrap();
+        assert_eq!(d.count, 2);
+        assert_eq!(d.sides, 6);
+        assert_eq!(d.bonus, 3);
+    }
+
+    #[test]
+    fn test_parse_dice_string_no_bonus() {
+        let d = parse_dice_string("1d10").unwrap();
+        assert_eq!(d.count, 1);
+        assert_eq!(d.sides, 10);
+        assert_eq!(d.bonus, 0);
+    }
+
+    #[test]
+    fn test_parse_dice_string_negative_bonus() {
+        let d = parse_dice_string("3d4-2").unwrap();
+        assert_eq!(d.count, 3);
+        assert_eq!(d.sides, 4);
+        assert_eq!(d.bonus, -2);
+    }
+
+    #[test]
+    fn test_parse_dice_string_flat() {
+        let d = parse_dice_string("50").unwrap();
+        assert_eq!(d.count, 0);
+        assert_eq!(d.sides, 0);
+        assert_eq!(d.bonus, 50);
+    }
+
+    #[test]
+    fn test_parse_dice_string_invalid() {
+        assert!(parse_dice_string("hello").is_err());
+    }
+
+    #[test]
+    fn test_bake_firebolt() {
+        let baked = firebolt_raw().bake().unwrap();
+        assert_eq!(baked.title, "Firebolt");
+        assert_eq!(baked.mana_cost.orange, 1);
+        assert_eq!(baked.level, 1);
+        assert_eq!(baked.targeting.selection, TargetSelection::Entity);
+        assert_eq!(baked.instructions.len(), 1);
+        assert_eq!(baked.instructions[0].opcode, EffectOpCode::DealDamage);
+        if let EffectMetadata::Damage(t) = &baked.instructions[0].metadata {
+            assert_eq!(*t, DamageType::Fire);
+        } else {
+            panic!("expected Damage metadata");
+        }
+    }
+
+    #[test]
+    fn test_bake_rejects_mixed_color() {
+        let mut raw = firebolt_raw();
+        raw.mana_cost.orange = 1;
+        raw.mana_cost.purple = 1;
+        assert!(raw.bake().is_err());
+    }
+
+    #[test]
+    fn test_bake_rejects_level_zero() {
+        let mut raw = firebolt_raw();
+        raw.mana_cost.orange = 0;
+        raw.mana_cost.purple = 0;
+        assert!(raw.bake().is_err());
     }
 }

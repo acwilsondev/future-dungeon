@@ -45,6 +45,9 @@ impl App {
                 _ => {}
             },
             RunState::ShowInventory => self.handle_inventory_input(action),
+            RunState::ShowSpells => self.handle_spells_input(action),
+            RunState::ShowShrine => self.handle_shrine_input(action),
+            RunState::ShowStudyTome => self.handle_study_tome_input(action),
             RunState::ShowTargeting => self.handle_targeting_input(action),
             RunState::ShowHelp => {
                 if let Action::CloseMenu | Action::OpenHelp = action {
@@ -182,6 +185,10 @@ impl App {
             Action::MovePlayer(dx, dy) => self.move_player(dx, dy),
             Action::PickUpItem => self.pick_up_item(),
             Action::OpenInventory => self.state = RunState::ShowInventory,
+            Action::OpenSpells => {
+                self.spell_cursor = 0;
+                self.state = RunState::ShowSpells;
+            }
             Action::OpenHelp => self.state = RunState::ShowHelp,
             Action::OpenLogHistory => {
                 self.state = RunState::ShowLogHistory;
