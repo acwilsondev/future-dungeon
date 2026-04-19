@@ -4,10 +4,13 @@ pub enum Action {
     MovePlayer(i16, i16),
     PickUpItem,
     OpenInventory,
+    OpenSpells,
     OpenHelp,
     OpenLogHistory,
     OpenBestiary,
     TryLevelTransition,
+    Confirm,
+    Decline,
 
     // UI Actions
     CloseMenu,

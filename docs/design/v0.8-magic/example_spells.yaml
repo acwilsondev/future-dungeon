@@ -1,0 +1,69 @@
+- spell:
+    title: "Firebolt"
+    description: "A small flick of flame thrown at a single foe."
+    # Level 1 spell: derived from mana_cost.orange + mana_cost.purple
+    mana_cost:
+      orange: 1
+      purple: 0
+    targeting:
+      range: 6           # Standard line of sight range
+      selection: entity  # Forces the cursor to snap to visible mobs
+    effects:
+      - type: DealDamage
+        damageType: Fire
+        magnitude: "1d10" # Standard level 1 impact
+        save: DEX         # Save DC = 10 + 1 (Level) + CHA mod
+        shape: point      # Targets only the selected entity
+- spell:
+    title: "Fireball"
+    description: "A roaring explosion that is deadliest at the epicenter."
+    mana_cost:
+      orange: 3
+      purple: 0
+    targeting:
+      range: 8
+      selection: location # The player picks the 'epicenter' origin
+    effects:
+      # Effect 1: High damage at the point of impact
+      - type: DealDamage
+        damageType: Fire
+        magnitude: "8d6"
+        save: DEX
+        shape: point # Only targets the exact origin tile
+
+      # Effect 2: Lower damage in the surrounding area
+      # Note: entities at the origin tile are hit by both Effect 1 and Effect 2. This is intentional —
+      # the epicenter is the most dangerous tile.
+      - type: DealDamage
+        damageType: Fire
+        magnitude: "4d6"
+        save: DEX
+        shape: circle # Targets a radius around the origin
+        radius: 3
+
+      # Effect 3: Lingering status effect for the whole area
+      - type: GrantStatus
+        status: 
+          type: "Mired" # Example hazard status
+          duration: 2
+          magnitude: "1"
+        shape: circle
+        radius: 3
+- spell:
+    title: "Mass Confusion"
+    description: "Assault the minds of those in an area, causing them to lose their grip on reality."
+    mana_cost:
+      orange: 0
+      purple: 3 # High Nihil/Purple cost for mental manipulation
+    targeting:
+      range: 6
+      selection: location # Caster picks the center of the zone
+    effects:
+      - type: GrantStatus
+        shape: circle
+        radius: 4 # Large area of effect
+        save: WIS # WIS save as per the status registry
+        status:
+          type: "Confusion"
+          duration: 5
+          magnitude: "50" # 50% chance to act randomly

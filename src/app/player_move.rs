@@ -29,6 +29,11 @@ impl App {
                 return Some(id);
             }
         }
+        for (id, (pos, _)) in self.world.query::<(&Position, &Shrine)>().iter() {
+            if pos.x == x && pos.y == y {
+                return Some(id);
+            }
+        }
         None
     }
 
@@ -262,6 +267,12 @@ impl App {
                 self.log.push(
                     "You approach the Reset Shrine. It vibrates with ancient power...".to_string(),
                 );
+                return;
+            }
+
+            // Check if it's a Mana Shrine (Solari/Nihil)
+            if self.world.get::<&Shrine>(target_id).is_ok() {
+                self.begin_shrine_interaction(target_id);
                 return;
             }
 
@@ -608,6 +619,45 @@ mod tests {
         let stats = app.world.get::<&CombatStats>(player).unwrap();
         assert_eq!(stats.hp, 10);
         assert!(app.world.get::<&HolyAltar>(altar).is_err()); // Altar should be gone
+    }
+
+    #[test]
+    fn test_mana_shrine_interaction() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Position { x: 10, y: 10 },
+            Player,
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            ManaPool {
+                current_orange: 1,
+                max_orange: 1,
+                current_purple: 1,
+                max_purple: 1,
+            },
+        ));
+        let shrine = app.world.spawn((
+            Position { x: 11, y: 10 },
+            Shrine {
+                color: ManaColor::Orange,
+                tried: false,
+            },
+        ));
+        app.update_blocked_and_opaque();
+        app.state = RunState::AwaitingInput;
+
+        app.move_player(1, 0);
+
+        assert_eq!(app.state, RunState::ShowShrine);
+        assert_eq!(app.shrine_entity, Some(shrine));
+        let pos = app.world.get::<&Position>(_player).unwrap();
+        assert_eq!(pos.x, 10);
     }
 
     #[test]

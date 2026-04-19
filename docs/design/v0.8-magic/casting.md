@@ -10,18 +10,15 @@ This result is purely functional and binary. If the player does not have the req
 
 ## Step 2. Choose Targets
 
-A spell defines its legal targets in its spell definition. For example,
+A spell defines its legal targets via its `TargetSpec`. The three target modes are:
 
-- any one object in the dungeon
-- two mobs
-- a spot on the floor or wall
-- an item in the character's inventory
+- `self` — automatically targets the caster, no player input needed
+- `entity` — player cycles through visible entities within range and confirms one
+- `location` — player moves a free cursor to any tile within range and confirms
 
-Targets may define additional qualifiers as needed (and targetting logic may be highly procedural rather than enumerated).
+The player may always abort targeting. If they do so, the cast is aborted.
 
-The player may always abort targetting. If they do so, the cast is aborted.
-
-Targetting does not reveal any information about the world. All targets must be visible (or in the player's inventory).
+Targeting does not reveal any information about the world. All targets must be within the player's field of view.
 
 ## Step 3. Pay Mana
 
@@ -41,6 +38,32 @@ Internal spell logic is *always* instantaneous. If there is ongoing mantainance,
 
 ## Step 5. Cleanup
 
-Since the player spent Mana, their Mana Restoration Clock is reset.
-
 Casting a Spell consumes a full turn.
+
+```mermaid
+graph TD
+    Start([Start Cast]) --> Step1{Step 1: Mana Check}
+    
+    Step1 -- Fail --> Abort1[Cast Aborted]
+    Step1 -- Pass --> Step2[Step 2: Choose Targets]
+    
+    Step2 --> TargetValidation{Targeting Active?}
+    TargetValidation -- Aborted --> Abort2[Cast Aborted]
+    TargetValidation -- Confirmed --> Step3[Step 3: Pay Mana]
+    
+    Step3 --> DroughtCheck{Last Mana?\n(total across all colors = 0)}
+    DroughtCheck -- Yes --> ApplyDrought["Apply ManaDrought(5) Status"]
+    DroughtCheck -- No --> Step4[Step 4: Apply Effects]
+    ApplyDrought --> Step4
+    
+    subgraph "Effect Loop"
+    Step4 --> EffectLoop[Process Shape/Radius]
+    EffectLoop --> SaveCheck{Target Saves?}
+    SaveCheck -- No --> Resolution[Apply Effect]
+    SaveCheck -- Yes --> NextEffect[Next Effect in List]
+    Resolution --> NextEffect
+    end
+    
+    NextEffect --> Step5[Step 5: Cleanup]
+    Step5 --> End([End Turn])
+```

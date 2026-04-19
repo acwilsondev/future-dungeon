@@ -7,14 +7,21 @@ This document outlines planned initiatives.
 e = enhancement
 t = tech debt
 
-- (e) Magic
-  - Special Abilities and Learnable Scrolls
+- (e) Magic **In Progress**
 - (e) 12 Point Energy Turn
 - (e) Content Pass
 - (t) Improved Abstractions
-- (e) Followers
 - (e) Advanced AI/Goal-Action-Planning
-- (e) LORE
+- (e) Lore
+  - Solari/Nihil lore is dropped when the player gains a mana pip for the
+    respective faction. It takes the form of a narrative, biased story.
+  - Aetheric lore is also provided when gaining aetheric mana, which are not
+    available until the player achieves Aetheric Balance. Lore is given as
+    abstract visions. There will only be 2 stages.
+  - Iron lore is scattered randomly through the dungeon via documents,
+    conversations, and people.
+  - Biomass lore is given as the player merges with the mass. It takes the form
+    of animalistic memories, primal feelings.
 - (e) Faction Improvements
 - (t) Save File Improvements
 - (e) Dungeon Features
@@ -23,15 +30,23 @@ t = tech debt
 - (e) Hidden Dungeon Features
 - (e) Locks & Keys
 - (e) Generated Puzzles
+- (e) Followers
 - (e) Game Options
 - (e) Metaloop (Tombstones)
 
 ## Unplanned Features
 
+These features are good ideas but not on the roadmap yet.
+
+- Corpses
 - Inspect items/creatures with a Look action.
 - Game should log when you step on an item or dungeon feature.
 - Combat log should be state when an offhand attack is made.
 - Healing potion effect should be randomized (1d8 vs 8)
+
+## To Be Removed
+
+- Noise
 
 ## Completed
 

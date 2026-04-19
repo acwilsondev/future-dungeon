@@ -102,7 +102,10 @@ impl App {
 
     pub fn handle_targeting_input(&mut self, action: Action) {
         match action {
-            Action::CloseMenu => self.state = RunState::AwaitingInput,
+            Action::CloseMenu => {
+                self.casting_spell = None;
+                self.state = RunState::AwaitingInput;
+            }
             Action::MovePlayer(dx, dy) => {
                 let new_x = (self.targeting_cursor.0 as i16 + dx)
                     .clamp(0, self.map.width as i16 - 1) as u16;
@@ -110,7 +113,13 @@ impl App {
                     .clamp(0, self.map.height as i16 - 1) as u16;
                 self.targeting_cursor = (new_x, new_y);
             }
-            Action::MenuSelect => self.fire_targeting_item(),
+            Action::MenuSelect => {
+                if self.casting_spell.is_some() {
+                    self.confirm_cast_target();
+                } else {
+                    self.fire_targeting_item();
+                }
+            }
             _ => {}
         }
     }
@@ -209,7 +218,7 @@ mod tests {
         }
         app.map.populate_blocked_and_opaque();
 
-        let player = app.world.spawn((
+        let _player = app.world.spawn((
             Player,
             Position { x: 10, y: 10 },
             Attributes {

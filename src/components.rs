@@ -111,6 +111,8 @@ pub enum FloorModifier {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CharacterClass {
     Fighter,
+    Nihil,
+    Solari,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -356,6 +358,249 @@ pub struct Merchant;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ItemValue {
     pub price: i32,
+}
+
+// ======== Magic / Spells ========
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum ManaColor {
+    Orange,
+    Purple,
+}
+
+impl ManaColor {
+    #[allow(dead_code)]
+    pub fn display_color(&self) -> Color {
+        match self {
+            ManaColor::Orange => Color::Rgb(255, 165, 0),
+            ManaColor::Purple => Color::Rgb(160, 90, 200),
+        }
+    }
+
+    pub fn order_name(&self) -> &'static str {
+        match self {
+            ManaColor::Orange => "Solari",
+            ManaColor::Purple => "Nihil",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ManaCost {
+    pub orange: u32,
+    pub purple: u32,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ManaPool {
+    pub current_orange: u32,
+    pub max_orange: u32,
+    pub current_purple: u32,
+    pub max_purple: u32,
+}
+
+impl ManaPool {
+    pub const CAP: u32 = 5;
+
+    pub fn total_max(&self) -> u32 {
+        self.max_orange + self.max_purple
+    }
+    pub fn total_current(&self) -> u32 {
+        self.current_orange + self.current_purple
+    }
+    pub fn has_mana_for(&self, cost: &ManaCost) -> bool {
+        self.current_orange >= cost.orange && self.current_purple >= cost.purple
+    }
+    pub fn pay(&mut self, cost: &ManaCost) {
+        self.current_orange = self.current_orange.saturating_sub(cost.orange);
+        self.current_purple = self.current_purple.saturating_sub(cost.purple);
+    }
+    /// Returns true if max could be increased.
+    pub fn increase_max(&mut self, color: ManaColor) -> bool {
+        if self.total_max() >= Self::CAP {
+            return false;
+        }
+        match color {
+            ManaColor::Orange => {
+                self.max_orange += 1;
+                self.current_orange += 1;
+            }
+            ManaColor::Purple => {
+                self.max_purple += 1;
+                self.current_purple += 1;
+            }
+        }
+        true
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Attribute {
+    Strength,
+    Dexterity,
+    Constitution,
+    Intelligence,
+    Wisdom,
+    Charisma,
+}
+
+impl Attribute {
+    pub fn to_saving_throw_kind(self) -> SavingThrowKind {
+        match self {
+            Attribute::Strength => SavingThrowKind::Strength,
+            Attribute::Dexterity => SavingThrowKind::Dexterity,
+            Attribute::Constitution => SavingThrowKind::Constitution,
+            Attribute::Intelligence => SavingThrowKind::Intelligence,
+            Attribute::Wisdom => SavingThrowKind::Wisdom,
+            Attribute::Charisma => SavingThrowKind::Charisma,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TargetSelection {
+    Entity,
+    SelfCast,
+    Location,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TargetSpec {
+    pub range: Option<u32>,
+    pub selection: TargetSelection,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DamageType {
+    Fire,
+    Poison,
+    Bludgeoning,
+    Slashing,
+    Piercing,
+    Necrotic,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Dice {
+    pub count: u32,
+    pub sides: u32,
+    pub bonus: i32,
+}
+
+impl Dice {
+    pub fn flat(v: i32) -> Self {
+        Self {
+            count: 0,
+            sides: 0,
+            bonus: v,
+        }
+    }
+
+    pub fn roll<R: rand::Rng>(&self, rng: &mut R) -> i32 {
+        let mut total = self.bonus;
+        if self.sides > 0 {
+            for _ in 0..self.count {
+                total += rng.random_range(1..=self.sides as i32);
+            }
+        }
+        total
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BakedStatusEffect {
+    pub status_type: String,
+    pub duration: Option<u32>,
+    pub magnitude: Option<Dice>,
+    pub recovery_save: Option<Attribute>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EffectMetadata {
+    None,
+    Damage(DamageType),
+    Status(BakedStatusEffect),
+    RemoveStatus(String),
+    Vector { x: i32, y: i32 },
+    CreateEntity(String),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EffectOpCode {
+    DealDamage,
+    GrantStatus,
+    RemoveStatus,
+    Heal,
+    Push,
+    Teleport,
+    CreateEntity,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EffectShape {
+    Point,
+    Circle,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EffectInstruction {
+    pub opcode: EffectOpCode,
+    pub shape: EffectShape,
+    pub radius: Option<u32>,
+    pub application_save: Option<Attribute>,
+    pub magnitude: Option<Dice>,
+    pub metadata: EffectMetadata,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Spell {
+    pub title: String,
+    pub description: String,
+    pub mana_cost: ManaCost,
+    pub level: u32,
+    pub targeting: TargetSpec,
+    pub instructions: Vec<EffectInstruction>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Spellbook {
+    pub spells: Vec<Spell>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ManaDrought {
+    pub duration: u32,
+}
+
+/// Generic "slowed by terrain" status. Used by spell effects (e.g., Mired).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Mired {
+    pub magnitude: i32,
+    pub duration: u32,
+    pub recovery_save: Option<Attribute>,
+}
+
+/// Generic armor buff from magic (e.g., Armored status).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Armored {
+    pub magnitude: i32,
+    pub duration: u32,
+    pub recovery_save: Option<Attribute>,
+}
+
+/// Shrine entity. `tried` is true once this shrine has been attempted.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Shrine {
+    pub color: ManaColor,
+    pub tried: bool,
+}
+
+/// Item component indicating this item is a Tome teaching a specific spell.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Tome {
+    pub spell_name: String,
+    pub color: ManaColor,
+    pub level: u32,
 }
 
 #[cfg(test)]

@@ -2,10 +2,6 @@
 
 **Status:** Active Development
 
-## Changelog
-
-- 2026-18-04: Document created
-
 ## Introduction
 
 We will add *Spells* to the game.
@@ -19,26 +15,16 @@ A spell is defined by the following:
 ```yaml
 Spell:
     title: string
+    description: string
     mana_cost:
         orange: int in [0, 5]
         purple: int in [0, 5]
-    targeting: string - reference to a targetting strategy
+    targeting: TargetSpec
     effects: SpellEffect[]
 ```
 
 A spell's `level` is a derived value `mana_cost.orange + mana_cost.purple`.
 
-*Note*: For now, spells either have orange or purple mana, not both.
-
-## Content File Spec
-
-```yaml
-Spell:
-    title: string
-    description: string
-    mana_cost:
-        orange: int in [0, 5]
-        purple: int in [0, 5]
-    targeting: string - reference to a targetting strategy
-    effects: SpellEffect[]
-```
+*Note*: The following spells are invalid and must be rejected at load time:
+- Both orange and purple costs are non-zero (mixed-color spells are not supported yet).
+- Both costs are zero (level-0 free spells are not valid).

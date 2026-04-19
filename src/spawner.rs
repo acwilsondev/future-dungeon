@@ -419,6 +419,59 @@ pub fn spawn_reset_shrine(world: &mut World, x: u16, y: u16) -> hecs::Entity {
     ))
 }
 
+pub fn spawn_mana_shrine(world: &mut World, x: u16, y: u16, color: ManaColor) -> hecs::Entity {
+    let (r, g, b) = match color {
+        ManaColor::Orange => (255, 165, 0),
+        ManaColor::Purple => (160, 90, 200),
+    };
+    let name = format!("{} Shrine", color.order_name());
+    world.spawn((
+        Position { x, y },
+        Renderable {
+            glyph: '&',
+            fg: Color::Rgb(r, g, b),
+        },
+        RenderOrder::Map,
+        Shrine {
+            color,
+            tried: false,
+        },
+        Name(name),
+    ))
+}
+
+pub fn spawn_tome(
+    world: &mut World,
+    x: u16,
+    y: u16,
+    spell_name: &str,
+    color: ManaColor,
+    level: u32,
+) -> hecs::Entity {
+    let (r, g, b) = match color {
+        ManaColor::Orange => (255, 165, 0),
+        ManaColor::Purple => (160, 90, 200),
+    };
+    let real_name = format!("Tome of {}", spell_name);
+    let obfuscated = format!("Strange {} Tome", color.order_name());
+    world.spawn((
+        Position { x, y },
+        Renderable {
+            glyph: '=',
+            fg: Color::Rgb(r, g, b),
+        },
+        RenderOrder::Item,
+        Item,
+        Tome {
+            spell_name: spell_name.to_string(),
+            color,
+            level,
+        },
+        Name(real_name),
+        ObfuscatedName(obfuscated),
+    ))
+}
+
 pub fn spawn_item_in_backpack(
     world: &mut World,
     owner: hecs::Entity,

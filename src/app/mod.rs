@@ -14,6 +14,8 @@ mod actions_item;
 mod actions_levelup;
 mod actions_respec;
 mod actions_shop;
+mod actions_spells;
+mod casting;
 mod combat;
 mod helpers;
 mod items_equip;
@@ -23,6 +25,7 @@ mod items_use_ranged;
 mod level_gen;
 mod level_gen_helpers;
 mod level_transition;
+mod mana_regen;
 mod monster;
 mod monster_ai_calc;
 mod monster_ai_execute;
@@ -30,8 +33,10 @@ mod monster_boss;
 mod monster_perception;
 mod player_move;
 mod serialization;
+mod shrine;
 mod snapshot;
 mod state;
+mod tome;
 mod turn_tick;
 mod visual_effects;
 mod world_update;
@@ -93,6 +98,16 @@ pub struct App {
     pub log_cursor: usize,
     #[serde(skip)]
     pub alchemy_selection: Vec<hecs::Entity>,
+    #[serde(skip)]
+    pub spell_cursor: usize,
+    #[serde(skip)]
+    pub casting_spell: Option<crate::components::Spell>,
+    #[serde(skip)]
+    pub shrine_entity: Option<hecs::Entity>,
+    #[serde(skip)]
+    pub study_tome_entity: Option<hecs::Entity>,
+    #[serde(skip)]
+    pub yes_no_cursor: usize,
     #[serde(skip)]
     pub fps: f64,
     #[serde(skip)]
@@ -159,6 +174,11 @@ impl App {
             effects: Vec::new(),
             log_cursor: 0,
             alchemy_selection: Vec::new(),
+            spell_cursor: 0,
+            casting_spell: None,
+            shrine_entity: None,
+            study_tome_entity: None,
+            yes_no_cursor: 0,
             fps: 0.0,
             debug_console_buffer: String::new(),
             god_mode: false,
