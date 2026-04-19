@@ -21,7 +21,6 @@ impl App {
             .map(|c| c.class)
             .unwrap_or(CharacterClass::Fighter);
 
-        // Base attributes for Fighter (currently only class)
         let base_attrs = match class {
             CharacterClass::Fighter => Attributes {
                 strength: 15,
@@ -30,6 +29,14 @@ impl App {
                 intelligence: 8,
                 wisdom: 12,
                 charisma: 10,
+            },
+            CharacterClass::Nihil | CharacterClass::Solari => Attributes {
+                strength: 8,
+                dexterity: 12,
+                constitution: 13,
+                intelligence: 10,
+                wisdom: 12,
+                charisma: 15,
             },
         };
 

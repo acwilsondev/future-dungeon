@@ -111,6 +111,8 @@ pub enum FloorModifier {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CharacterClass {
     Fighter,
+    Nihil,
+    Solari,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

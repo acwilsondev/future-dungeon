@@ -36,10 +36,17 @@ t = tech debt
 
 ## Unplanned Features
 
+These features are good ideas but not on the roadmap yet.
+
+- Corpses
 - Inspect items/creatures with a Look action.
 - Game should log when you step on an item or dungeon feature.
 - Combat log should be state when an offhand attack is made.
 - Healing potion effect should be randomized (1d8 vs 8)
+
+## To Be Removed
+
+- Noise
 
 ## Completed
 

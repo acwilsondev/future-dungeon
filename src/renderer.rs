@@ -553,7 +553,7 @@ fn draw_sidebar(
     if !status_lines.is_empty() {
         frame.render_widget(
             Paragraph::new(status_lines).block(Block::default().title(" Status/Perks ")),
-            sidebar_layout[4],
+            sidebar_layout[5],
         );
     }
 }
@@ -1411,12 +1411,7 @@ fn render_spells(app: &App, frame: &mut Frame) {
     }
 }
 
-fn render_yes_no_prompt(
-    frame: &mut Frame,
-    title: String,
-    body: Vec<Line<'_>>,
-    cursor: usize,
-) {
+fn render_yes_no_prompt(frame: &mut Frame, title: String, body: Vec<Line<'_>>, cursor: usize) {
     let area = centered_rect(50, 40, frame.size());
     frame.render_widget(Clear, area);
     let block = Block::default().borders(Borders::ALL).title(title);
@@ -1445,10 +1440,7 @@ fn render_yes_no_prompt(
             ListItem::new(Span::styled(format!("  [ {} ]  ", opt), style))
         })
         .collect();
-    frame.render_widget(
-        List::new(list_items),
-        centered_rect(50, 100, layout[1]),
-    );
+    frame.render_widget(List::new(list_items), centered_rect(50, 100, layout[1]));
 }
 
 fn render_shrine_prompt(app: &App, frame: &mut Frame) {
@@ -1669,7 +1661,7 @@ fn render_class_selection(app: &App, frame: &mut Frame) {
         .borders(Borders::ALL)
         .title(" Choose Your Class ");
 
-    let classes = ["Fighter"];
+    let classes = ["Fighter", "Nihil Initiate", "Solari Initiate"];
 
     let list_items: Vec<ListItem> = classes
         .iter()
