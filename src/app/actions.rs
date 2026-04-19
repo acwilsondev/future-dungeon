@@ -7,15 +7,11 @@ impl App {
         match self.state {
             RunState::MainMenu => self.handle_main_menu_input(action),
             RunState::ShowClassSelection => match action {
-                Action::MenuUp => {
-                    if self.class_selection > 0 {
-                        self.class_selection -= 1;
-                    }
+                Action::MenuUp if self.class_selection > 0 => {
+                    self.class_selection -= 1;
                 }
-                Action::MenuDown => {
-                    if self.class_selection < 2 {
-                        self.class_selection += 1;
-                    }
+                Action::MenuDown if self.class_selection < 2 => {
+                    self.class_selection += 1;
                 }
                 Action::MenuSelect => {
                     self.apply_class_selection();
