@@ -36,6 +36,7 @@ impl App {
         }
 
         self.shrine_entity = Some(shrine_id);
+        self.yes_no_cursor = 0;
         self.state = RunState::ShowShrine;
     }
 
@@ -45,6 +46,16 @@ impl App {
             Action::Decline => {
                 self.shrine_entity = None;
                 self.state = RunState::AwaitingInput;
+            }
+            Action::MenuUp => self.yes_no_cursor = 0,
+            Action::MenuDown => self.yes_no_cursor = 1,
+            Action::MenuSelect => {
+                if self.yes_no_cursor == 0 {
+                    self.attempt_shrine();
+                } else {
+                    self.shrine_entity = None;
+                    self.state = RunState::AwaitingInput;
+                }
             }
             _ => {}
         }

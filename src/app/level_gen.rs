@@ -89,6 +89,48 @@ impl App {
                 center.1 as u16,
             );
         }
+
+        // Spawn Mana Shrine on every level while the magic system is being tuned.
+        // Alternate color by floor parity so both Solari and Nihil appear.
+        if mb.rooms.len() > 1 {
+            let room_idx = self.rng.random_range(1..mb.rooms.len());
+            let center = mb.rooms[room_idx].center();
+            let color = if self.dungeon_level.is_multiple_of(2) {
+                ManaColor::Orange
+            } else {
+                ManaColor::Purple
+            };
+            crate::spawner::spawn_mana_shrine(
+                &mut self.world,
+                center.0 as u16,
+                center.1 as u16,
+                color,
+            );
+        }
+
+        // Spawn a Tome (rare). Pick a random spell from content at a level
+        // appropriate for this floor.
+        if mb.rooms.len() > 2 && !self.content.spells.is_empty() && self.rng.random_bool(0.05) {
+            let idx = self.rng.random_range(0..self.content.spells.len());
+            let raw = self.content.spells[idx].clone();
+            if let Ok(baked) = raw.bake() {
+                let room_idx = self.rng.random_range(1..mb.rooms.len());
+                let center = mb.rooms[room_idx].center();
+                let (color, level) = if baked.mana_cost.orange >= baked.mana_cost.purple {
+                    (ManaColor::Orange, baked.mana_cost.orange.max(1))
+                } else {
+                    (ManaColor::Purple, baked.mana_cost.purple.max(1))
+                };
+                crate::spawner::spawn_tome(
+                    &mut self.world,
+                    center.0 as u16,
+                    center.1 as u16,
+                    &baked.title,
+                    color,
+                    level,
+                );
+            }
+        }
     }
 
     fn spawn_environmental_features(&mut self, mb: &MapBuilder) {

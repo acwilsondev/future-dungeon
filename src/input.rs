@@ -106,8 +106,11 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
             _ => None,
         },
         RunState::ShowShrine | RunState::ShowStudyTome => match key.code {
-            KeyCode::Char('y') | KeyCode::Enter => Some(Action::Confirm),
-            KeyCode::Char('n') | KeyCode::Esc => Some(Action::Decline),
+            KeyCode::Up | KeyCode::Char('k') => Some(Action::MenuUp),
+            KeyCode::Down | KeyCode::Char('j') => Some(Action::MenuDown),
+            KeyCode::Enter => Some(Action::MenuSelect),
+            KeyCode::Esc | KeyCode::Char('n') => Some(Action::Decline),
+            KeyCode::Char('y') => Some(Action::Confirm),
             _ => None,
         },
         RunState::Dead | RunState::Victory => match key.code {

@@ -12,6 +12,7 @@ impl App {
             return;
         }
         self.study_tome_entity = Some(tome_id);
+        self.yes_no_cursor = 0;
         self.state = RunState::ShowStudyTome;
     }
 
@@ -21,6 +22,16 @@ impl App {
             Action::Decline => {
                 self.study_tome_entity = None;
                 self.state = RunState::AwaitingInput;
+            }
+            Action::MenuUp => self.yes_no_cursor = 0,
+            Action::MenuDown => self.yes_no_cursor = 1,
+            Action::MenuSelect => {
+                if self.yes_no_cursor == 0 {
+                    self.attempt_study_tome();
+                } else {
+                    self.study_tome_entity = None;
+                    self.state = RunState::AwaitingInput;
+                }
             }
             _ => {}
         }

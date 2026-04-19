@@ -295,6 +295,52 @@ fn draw_map(
 
     if app.state == RunState::ShowTargeting {
         draw_targeting_line(app, buffer, area, camera, player_pos);
+        if let Some(spell) = app.casting_spell.as_ref() {
+            let aoe_radius = spell
+                .instructions
+                .iter()
+                .filter_map(|ins| {
+                    if ins.shape == EffectShape::Circle {
+                        ins.radius
+                    } else {
+                        None
+                    }
+                })
+                .max();
+            if let Some(r) = aoe_radius {
+                draw_aoe_preview(buffer, area, camera, app.targeting_cursor, r);
+            }
+        }
+    }
+}
+
+fn draw_aoe_preview(
+    buffer: &mut ratatui::buffer::Buffer,
+    area: RatatuiRect,
+    camera: (i32, i32),
+    center: (u16, u16),
+    radius: u32,
+) {
+    let (camera_x, camera_y) = camera;
+    let view_w = area.width as i32;
+    let view_h = area.height as i32;
+    let r = radius as i32;
+    for dy in -r..=r {
+        for dx in -r..=r {
+            if dx * dx + dy * dy > r * r {
+                continue;
+            }
+            let wx = center.0 as i32 + dx;
+            let wy = center.1 as i32 + dy;
+            let sx = wx - camera_x;
+            let sy = wy - camera_y;
+            if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
+                let cell = buffer.get_mut(area.x + sx as u16, area.y + sy as u16);
+                if (dx, dy) != (0, 0) {
+                    cell.set_bg(Color::Rgb(80, 30, 60));
+                }
+            }
+        }
     }
 }
 
@@ -418,6 +464,51 @@ fn draw_sidebar(
         format!("Gold: {}", gold_amount),
         Style::default().fg(Color::Yellow),
     )));
+
+    if let Ok(pool) = app.world.get::<&ManaPool>(player_id) {
+        if pool.max_orange > 0 || pool.max_purple > 0 {
+            let mut spans: Vec<Span<'_>> = vec![Span::raw("Mana: ")];
+            let orange = Color::Rgb(255, 165, 0);
+            for _ in 0..pool.current_orange {
+                spans.push(Span::styled("*", Style::default().fg(orange)));
+            }
+            for _ in pool.current_orange..pool.max_orange {
+                spans.push(Span::styled("o", Style::default().fg(orange)));
+            }
+            if pool.max_orange > 0 && pool.max_purple > 0 {
+                spans.push(Span::raw(" "));
+            }
+            let purple = Color::Rgb(160, 90, 200);
+            for _ in 0..pool.current_purple {
+                spans.push(Span::styled("*", Style::default().fg(purple)));
+            }
+            for _ in pool.current_purple..pool.max_purple {
+                spans.push(Span::styled("o", Style::default().fg(purple)));
+            }
+            status_lines.push(Line::from(spans));
+        }
+    }
+
+    if let Ok(drought) = app.world.get::<&ManaDrought>(player_id) {
+        status_lines.push(Line::from(Span::styled(
+            format!("Mana Drought ({})", drought.duration),
+            Style::default().fg(Color::DarkGray),
+        )));
+    }
+
+    if let Ok(mired) = app.world.get::<&Mired>(player_id) {
+        status_lines.push(Line::from(Span::styled(
+            format!("Mired ({})", mired.duration),
+            Style::default().fg(Color::Rgb(140, 100, 60)),
+        )));
+    }
+
+    if let Ok(armored) = app.world.get::<&Armored>(player_id) {
+        status_lines.push(Line::from(Span::styled(
+            format!("Armored +{} ({})", armored.magnitude, armored.duration),
+            Style::default().fg(Color::Rgb(200, 200, 80)),
+        )));
+    }
 
     if let Ok(poison) = app.world.get::<&Poison>(player_id) {
         status_lines.push(Line::from(Span::styled(
@@ -569,6 +660,12 @@ pub fn render(app: &App, frame: &mut Frame) {
         || app.state == RunState::ShowAlchemy
     {
         render_inventory(app, frame);
+    } else if app.state == RunState::ShowSpells {
+        render_spells(app, frame);
+    } else if app.state == RunState::ShowShrine {
+        render_shrine_prompt(app, frame);
+    } else if app.state == RunState::ShowStudyTome {
+        render_study_tome_prompt(app, frame);
     } else if app.state == RunState::ShowHelp {
         render_help(app, frame);
     } else if app.state == RunState::ShowResetShrine {
@@ -1238,6 +1335,152 @@ fn render_inventory(app: &App, frame: &mut Frame) {
 
         frame.render_widget(block, area);
     }
+}
+
+fn render_spells(app: &App, frame: &mut Frame) {
+    let area = centered_rect(70, 70, frame.size());
+    frame.render_widget(Clear, area);
+    let block = Block::default().borders(Borders::ALL).title(" Spells ");
+
+    let Some(player_id) = app.get_player_id() else {
+        frame.render_widget(block, area);
+        return;
+    };
+
+    let spells: Vec<Spell> = app
+        .world
+        .get::<&Spellbook>(player_id)
+        .map(|b| b.spells.clone())
+        .unwrap_or_default();
+
+    if spells.is_empty() {
+        frame.render_widget(Paragraph::new("You know no spells.").block(block), area);
+        return;
+    }
+
+    let list_items: Vec<ListItem> = spells
+        .iter()
+        .map(|s| {
+            let cost = if s.mana_cost.orange > 0 && s.mana_cost.purple > 0 {
+                format!("{}O/{}P", s.mana_cost.orange, s.mana_cost.purple)
+            } else if s.mana_cost.orange > 0 {
+                format!("{}O", s.mana_cost.orange)
+            } else if s.mana_cost.purple > 0 {
+                format!("{}P", s.mana_cost.purple)
+            } else {
+                "--".to_string()
+            };
+            ListItem::new(format!("{:<20} [{}]  L{}", s.title, cost, s.level))
+        })
+        .collect();
+    let mut state = ListState::default();
+    state.select(Some(app.spell_cursor));
+
+    let layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
+        .split(area.inner(&Margin {
+            vertical: 1,
+            horizontal: 1,
+        }));
+
+    frame.render_widget(block, area);
+    frame.render_stateful_widget(
+        List::new(list_items)
+            .block(Block::default().borders(Borders::RIGHT))
+            .highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black)),
+        layout[0],
+        &mut state,
+    );
+
+    if let Some(selected) = spells.get(app.spell_cursor) {
+        let detail_lines = vec![
+            Line::from(Span::styled(
+                selected.title.clone(),
+                Style::default().add_modifier(Modifier::BOLD),
+            )),
+            Line::from(""),
+            Line::from(selected.description.clone()),
+        ];
+        frame.render_widget(
+            Paragraph::new(detail_lines)
+                .wrap(Wrap { trim: true })
+                .block(Block::default()),
+            layout[1],
+        );
+    }
+}
+
+fn render_yes_no_prompt(
+    frame: &mut Frame,
+    title: String,
+    body: Vec<Line<'_>>,
+    cursor: usize,
+) {
+    let area = centered_rect(50, 40, frame.size());
+    frame.render_widget(Clear, area);
+    let block = Block::default().borders(Borders::ALL).title(title);
+    frame.render_widget(block, area);
+
+    let inner = area.inner(&Margin {
+        vertical: 1,
+        horizontal: 2,
+    });
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(4)])
+        .split(inner);
+
+    frame.render_widget(Paragraph::new(body).wrap(Wrap { trim: true }), layout[0]);
+
+    let options = ["Yes", "No"];
+    let list_items: Vec<ListItem> = options
+        .iter()
+        .enumerate()
+        .map(|(i, opt)| {
+            let mut style = Style::default().fg(Color::White);
+            if i == cursor {
+                style = style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
+            }
+            ListItem::new(Span::styled(format!("  [ {} ]  ", opt), style))
+        })
+        .collect();
+    frame.render_widget(
+        List::new(list_items),
+        centered_rect(50, 100, layout[1]),
+    );
+}
+
+fn render_shrine_prompt(app: &App, frame: &mut Frame) {
+    let title = if let Some(id) = app.shrine_entity {
+        if let Ok(shrine) = app.world.get::<&Shrine>(id) {
+            format!(" {} Shrine ", shrine.color.order_name())
+        } else {
+            " Shrine ".to_string()
+        }
+    } else {
+        " Shrine ".to_string()
+    };
+    let body = vec![
+        Line::from("You stand before a humming shrine."),
+        Line::from(""),
+        Line::from("Commune with it to expand your mana?"),
+    ];
+    render_yes_no_prompt(frame, title, body, app.yes_no_cursor);
+}
+
+fn render_study_tome_prompt(app: &App, frame: &mut Frame) {
+    let name = app
+        .study_tome_entity
+        .and_then(|id| app.world.get::<&Name>(id).ok().map(|n| n.0.clone()))
+        .unwrap_or_else(|| "Tome".to_string());
+    let body = vec![
+        Line::from(format!("Study the {}?", name)),
+        Line::from(""),
+        Line::from("On success, you learn the spell within."),
+        Line::from("On failure, the Tome crumbles."),
+    ];
+    render_yes_no_prompt(frame, " Study Tome ".to_string(), body, app.yes_no_cursor);
 }
 
 fn render_help(_app: &App, frame: &mut Frame) {

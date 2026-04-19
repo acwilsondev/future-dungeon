@@ -522,6 +522,22 @@ mod tests {
     }
 
     #[test]
+    fn test_live_content_spells_bake() {
+        let content =
+            Content::load_from_path("content.json").expect("content.json must load cleanly");
+        for raw in &content.spells {
+            raw.bake()
+                .unwrap_or_else(|e| panic!("spell '{}' failed to bake: {}", raw.title, e));
+        }
+        for name in &["Magic Missile", "Fireball", "Venom Dart"] {
+            assert!(
+                content.spells.iter().any(|s| s.title == *name),
+                "missing spell: {name}"
+            );
+        }
+    }
+
+    #[test]
     fn test_bake_rejects_level_zero() {
         let mut raw = firebolt_raw();
         raw.mana_cost.orange = 0;

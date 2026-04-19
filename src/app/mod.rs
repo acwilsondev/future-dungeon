@@ -107,6 +107,8 @@ pub struct App {
     #[serde(skip)]
     pub study_tome_entity: Option<hecs::Entity>,
     #[serde(skip)]
+    pub yes_no_cursor: usize,
+    #[serde(skip)]
     pub fps: f64,
     #[serde(skip)]
     pub debug_console_buffer: String,
@@ -176,6 +178,7 @@ impl App {
             casting_spell: None,
             shrine_entity: None,
             study_tome_entity: None,
+            yes_no_cursor: 0,
             fps: 0.0,
             debug_console_buffer: String::new(),
             god_mode: false,
