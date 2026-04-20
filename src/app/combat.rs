@@ -1,5 +1,6 @@
 use crate::app::{App, DamageRoute, VisualEffect};
 use crate::components::*;
+use bracket_pathfinding::prelude::*;
 use rand::Rng;
 use ratatui::prelude::Color;
 
@@ -111,9 +112,12 @@ impl App {
         let mut hit = false;
         let mut critical = false;
 
-        // Target Dodge DC (10 + capped DEX mod)
+        // Target Dodge DC (10 + capped DEX mod, +2 if ranged and partial cover intervenes)
         let target_dex_mod = self.get_dex_modifier(target);
-        let dodge_dc = 10 + target_dex_mod;
+        let mut dodge_dc = 10 + target_dex_mod;
+        if is_ranged && self.has_partial_cover_between(attacker, target) {
+            dodge_dc += 2;
+        }
 
         if roll == 20 {
             hit = true;
@@ -260,6 +264,47 @@ impl App {
         } else {
             0
         }
+    }
+
+    /// Returns true if partial cover intervenes between attacker and target:
+    /// either on the target's own tile or on the tile immediately before it
+    /// along the Bresenham line from attacker to target.
+    pub fn has_partial_cover_between(&self, attacker: hecs::Entity, target: hecs::Entity) -> bool {
+        let Ok(a_pos) = self.world.get::<&Position>(attacker) else {
+            return false;
+        };
+        let Ok(t_pos) = self.world.get::<&Position>(target) else {
+            return false;
+        };
+        let (ax, ay) = (a_pos.x, a_pos.y);
+        let (tx, ty) = (t_pos.x, t_pos.y);
+        drop(a_pos);
+        drop(t_pos);
+
+        if ax == tx && ay == ty {
+            return self.tile_has_partial_cover(tx, ty);
+        }
+
+        let points = line2d(LineAlg::Bresenham, Point::new(ax, ay), Point::new(tx, ty));
+        if points.len() < 2 {
+            return self.tile_has_partial_cover(tx, ty);
+        }
+
+        // Target tile always qualifies; penultimate tile on the line also qualifies.
+        if self.tile_has_partial_cover(tx, ty) {
+            return true;
+        }
+        let penult = points[points.len() - 2];
+        self.tile_has_partial_cover(penult.x as u16, penult.y as u16)
+    }
+
+    fn tile_has_partial_cover(&self, x: u16, y: u16) -> bool {
+        for (_id, (pos, _cover)) in self.world.query::<(&Position, &PartialCover)>().iter() {
+            if pos.x == x && pos.y == y {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn get_target_av(&self, entity: hecs::Entity) -> i32 {
@@ -481,6 +526,79 @@ mod tests {
                 assert!(res.damage >= 1, "damage must be at least 1 on a hit");
             }
         }
+    }
+
+    fn spawn_cover(app: &mut App, x: u16, y: u16) {
+        app.world
+            .spawn((Position { x, y }, PartialCover, Name("Debris".to_string())));
+    }
+
+    fn spawn_plain_fighter(app: &mut App, name: &str, x: u16, y: u16) -> hecs::Entity {
+        app.world.spawn((
+            Name(name.to_string()),
+            Position { x, y },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
+        ))
+    }
+
+    #[test]
+    fn test_partial_cover_raises_ranged_dodge_dc() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 1, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        // Cover on the penultimate tile between attacker and target
+        spawn_cover(&mut app, 4, 5);
+
+        let res = app.resolve_attack(attacker, target, None, 0, true);
+        assert_eq!(res.dodge_dc, 12, "partial cover should add +2 to dodge DC");
+    }
+
+    #[test]
+    fn test_partial_cover_on_target_tile_raises_dodge_dc() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 1, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        // Cover on target's own tile also qualifies
+        spawn_cover(&mut app, 5, 5);
+
+        let res = app.resolve_attack(attacker, target, None, 0, true);
+        assert_eq!(res.dodge_dc, 12);
+    }
+
+    #[test]
+    fn test_partial_cover_on_far_side_gives_no_bonus() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 1, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        // Cover on the far side of target — not between attacker and target
+        spawn_cover(&mut app, 6, 5);
+
+        let res = app.resolve_attack(attacker, target, None, 0, true);
+        assert_eq!(res.dodge_dc, 10, "cover beyond target should not add DC");
+    }
+
+    #[test]
+    fn test_partial_cover_ignored_for_melee() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Bumper", 4, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        spawn_cover(&mut app, 4, 5);
+
+        let res = app.resolve_attack(attacker, target, None, 0, false);
+        assert_eq!(res.dodge_dc, 10, "melee attacks ignore partial cover");
     }
 
     #[test]

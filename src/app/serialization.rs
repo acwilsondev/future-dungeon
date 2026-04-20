@@ -92,6 +92,7 @@ impl App {
                 is_player: self.world.get::<&Player>(id).is_ok(),
                 is_monster: self.world.get::<&Monster>(id).is_ok(),
                 is_wisp: self.world.get::<&Wisp>(id).is_ok(),
+                is_partial_cover: self.world.get::<&PartialCover>(id).is_ok(),
                 is_item: self.world.get::<&Item>(id).is_ok(),
                 is_down_stairs: self.world.get::<&DownStairs>(id).is_ok(),
                 is_up_stairs: self.world.get::<&UpStairs>(id).is_ok(),
@@ -242,6 +243,9 @@ impl App {
         }
         if e.is_wisp {
             cb.add(Wisp);
+        }
+        if e.is_partial_cover {
+            cb.add(PartialCover);
         }
         if e.is_item {
             cb.add(Item);
@@ -521,5 +525,33 @@ mod tests {
         assert_eq!(trap.damage, 10);
         assert!(trap.revealed);
         assert_eq!(stairs.destination, (2, Branch::Main));
+    }
+
+    #[test]
+    fn test_partial_cover_round_trip() {
+        let mut app = setup_test_app();
+        app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            Renderable {
+                glyph: '@',
+                fg: Color::White,
+            },
+            RenderOrder::Player,
+            Name("Hero".to_string()),
+        ));
+        crate::spawner::spawn_partial_cover(&mut app.world, 7, 3);
+
+        app.pack_entities();
+        let mut app2 = App::new_test(42);
+        app2.entities = app.entities.clone();
+        app2.unpack_entities().unwrap();
+
+        let mut cover_query = app2.world.query::<(&Position, &PartialCover)>();
+        let (_, (pos, _)) = cover_query
+            .iter()
+            .next()
+            .expect("PartialCover should survive round-trip");
+        assert_eq!((pos.x, pos.y), (7, 3));
     }
 }

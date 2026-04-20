@@ -298,6 +298,19 @@ pub fn spawn_spore(world: &mut World, x: u16, y: u16) -> hecs::Entity {
     ))
 }
 
+pub fn spawn_partial_cover(world: &mut World, x: u16, y: u16) -> hecs::Entity {
+    world.spawn((
+        Position { x, y },
+        Renderable {
+            glyph: '.',
+            fg: Color::Rgb(150, 120, 80),
+        },
+        RenderOrder::Map,
+        PartialCover,
+        Name("Debris".to_string()),
+    ))
+}
+
 pub fn spawn_trap(world: &mut World, x: u16, y: u16) -> hecs::Entity {
     world.spawn((
         Position { x, y },

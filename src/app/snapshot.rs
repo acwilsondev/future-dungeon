@@ -88,6 +88,8 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub is_wisp: bool,
     #[serde(default)]
+    pub is_partial_cover: bool,
+    #[serde(default)]
     pub is_item: bool,
     #[serde(default)]
     pub is_down_stairs: bool,
