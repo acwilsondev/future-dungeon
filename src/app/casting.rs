@@ -1,4 +1,4 @@
-use crate::app::{App, RunState};
+use crate::app::{App, DamageRoute, RunState};
 use crate::components::*;
 use rand::Rng;
 
@@ -219,21 +219,21 @@ impl App {
 
     fn apply_spell_damage(&mut self, caster: hecs::Entity, target: hecs::Entity, damage: i32) {
         let is_player = self.world.get::<&Player>(target).is_ok();
-        if is_player && self.god_mode {
-            return;
-        }
-        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target) {
-            stats.hp -= damage;
+        let outcome = self.apply_damage(target, damage, DamageRoute::Projectile);
+        let applied = outcome.hp_damage + outcome.aegis_damage;
+        if applied > 0 || is_player {
             let name = if is_player {
                 "You".to_string()
             } else {
                 self.get_entity_name(target)
             };
-            self.log.push(format!("{} takes {} damage.", name, damage));
-            if stats.hp <= 0 && is_player {
-                self.death = true;
-                self.state = RunState::Dead;
-            }
+            let aegis_tag = if outcome.aegis_damage > 0 {
+                format!(" [{} to Aegis]", outcome.aegis_damage)
+            } else {
+                String::new()
+            };
+            self.log
+                .push(format!("{} takes {} damage.{}", name, applied, aegis_tag));
         }
         // Mark hostile if caster is player
         if self.world.get::<&Player>(caster).is_ok() && self.world.get::<&Monster>(target).is_ok() {

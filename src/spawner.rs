@@ -45,6 +45,7 @@ pub fn spawn_player(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         },
         Perks { traits: Vec::new() },
         Gold { amount: 0 },
+        Aegis { current: 5, max: 5 },
     ))
 }
 

@@ -259,6 +259,23 @@ pub struct CombatStats {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Aegis {
+    pub current: i32,
+    pub max: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AegisDrought {
+    pub duration: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AegisBoost {
+    pub magnitude: i32,
+    pub duration: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FactionKind {
     Player,
     Orcs,

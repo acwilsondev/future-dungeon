@@ -42,6 +42,9 @@ impl App {
             let cursed = self.world.get::<&Cursed>(id).ok().map(|c| *c);
             let equippable = self.world.get::<&Equippable>(id).ok().map(|e| *e);
             let equipped = self.world.get::<&Equipped>(id).ok().map(|e| *e);
+            let aegis = self.world.get::<&Aegis>(id).ok().map(|a| *a);
+            let aegis_drought = self.world.get::<&AegisDrought>(id).ok().map(|a| *a);
+            let aegis_boost = self.world.get::<&AegisBoost>(id).ok().map(|a| *a);
 
             self.entities.push(EntitySnapshot {
                 pos,
@@ -77,6 +80,9 @@ impl App {
                 cursed,
                 equippable,
                 equipped,
+                aegis,
+                aegis_drought,
+                aegis_boost,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_levitation: self.world.get::<&Levitation>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
@@ -143,6 +149,15 @@ impl App {
         }
         if let Some(light_source) = e.light_source {
             cb.add(light_source);
+        }
+        if let Some(aegis) = e.aegis {
+            cb.add(aegis);
+        }
+        if let Some(aegis_drought) = e.aegis_drought {
+            cb.add(aegis_drought);
+        }
+        if let Some(aegis_boost) = e.aegis_boost {
+            cb.add(aegis_boost);
         }
     }
 
@@ -340,6 +355,19 @@ mod tests {
                 flicker: true,
             },
         ));
+        app.world
+            .insert(
+                player,
+                (
+                    Aegis { current: 3, max: 8 },
+                    AegisDrought { duration: 4 },
+                    AegisBoost {
+                        magnitude: 3,
+                        duration: 6,
+                    },
+                ),
+            )
+            .unwrap();
 
         // 2. Item 1: Potion
         app.world.spawn((
@@ -448,6 +476,14 @@ mod tests {
         assert_eq!(gold.amount, 50);
         assert_eq!(viewshed.visible_tiles, 10);
         assert_eq!(light.remaining_turns, Some(10));
+
+        let mut aegis_query = app2.world.query::<(&Aegis, &AegisDrought, &AegisBoost)>();
+        let (_, (aegis, drought, boost)) = aegis_query.iter().next().unwrap();
+        assert_eq!(aegis.current, 3);
+        assert_eq!(aegis.max, 8);
+        assert_eq!(drought.duration, 4);
+        assert_eq!(boost.magnitude, 3);
+        assert_eq!(boost.duration, 6);
 
         // 8. Verify Potion
         let mut potion_query = app2.world.query::<(

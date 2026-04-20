@@ -66,6 +66,12 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub equipped: Option<Equipped>,
     #[serde(default)]
+    pub aegis: Option<Aegis>,
+    #[serde(default)]
+    pub aegis_drought: Option<AegisDrought>,
+    #[serde(default)]
+    pub aegis_boost: Option<AegisBoost>,
+    #[serde(default)]
     pub last_hit_by_player: bool,
     #[serde(default)]
     pub is_levitation: bool,

@@ -17,6 +17,7 @@ mod actions_shop;
 mod actions_spells;
 mod casting;
 mod combat;
+mod damage;
 mod helpers;
 mod items_equip;
 mod items_shop;
@@ -41,6 +42,7 @@ mod turn_tick;
 mod visual_effects;
 mod world_update;
 
+pub use damage::DamageRoute;
 pub use snapshot::EntitySnapshot;
 pub use state::{default_runstate, MonsterAction, RunState, ShopMode, VisualEffect};
 

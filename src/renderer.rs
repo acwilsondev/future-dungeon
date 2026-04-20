@@ -358,6 +358,7 @@ fn draw_sidebar(
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3), // HP
+            Constraint::Length(2), // Aegis
             Constraint::Length(1), // Stats
             Constraint::Length(7), // Attributes
             Constraint::Length(1), // XP
@@ -385,6 +386,36 @@ fn draw_sidebar(
             .label(format!("{}/{}", player_stats.hp, player_stats.max_hp)),
         sidebar_layout[0],
     );
+
+    let Some(player_id) = app.get_player_id() else {
+        return;
+    };
+
+    if let Ok(aegis) = app.world.get::<&Aegis>(player_id) {
+        if aegis.max > 0 {
+            let aegis_percent = (aegis.current as f32 / aegis.max as f32 * 100.0) as u16;
+            let has_drought = app.world.get::<&AegisDrought>(player_id).is_ok();
+            let aegis_color = if has_drought {
+                Color::DarkGray
+            } else {
+                Color::Cyan
+            };
+            let aegis_label = if has_drought {
+                format!("{}/{} (drought)", aegis.current, aegis.max)
+            } else {
+                format!("{}/{}", aegis.current, aegis.max)
+            };
+            frame.render_widget(
+                Gauge::default()
+                    .block(Block::default().title("Aegis"))
+                    .gauge_style(Style::default().fg(aegis_color).bg(Color::Indexed(233)))
+                    .percent(aegis_percent)
+                    .label(aegis_label),
+                sidebar_layout[1],
+            );
+        }
+    }
+
     let (player_power, player_av, dodge_dc) = app.get_player_stats();
 
     frame.render_widget(
@@ -392,12 +423,8 @@ fn draw_sidebar(
             "POW: {} AV: {} DC: {}",
             player_power, player_av, dodge_dc
         )),
-        sidebar_layout[1],
+        sidebar_layout[2],
     );
-
-    let Some(player_id) = app.get_player_id() else {
-        return;
-    };
 
     let attr_text = if let Ok(attr) = app.world.get::<&Attributes>(player_id) {
         format!(
@@ -414,7 +441,7 @@ fn draw_sidebar(
     };
     frame.render_widget(
         Paragraph::new(attr_text).block(Block::default().title("Attributes")),
-        sidebar_layout[2],
+        sidebar_layout[3],
     );
     let (level, xp, next_xp) = if let Ok(exp) = app.world.get::<&Experience>(player_id) {
         (exp.level, exp.xp, exp.next_level_xp)
@@ -424,7 +451,7 @@ fn draw_sidebar(
 
     frame.render_widget(
         Paragraph::new(format!("Level: {}  XP: {}/{}", level, xp, next_xp)),
-        sidebar_layout[3],
+        sidebar_layout[4],
     );
 
     let player_idx = (player_pos.y * app.map.width + player_pos.x) as usize;
@@ -451,7 +478,7 @@ fn draw_sidebar(
             .gauge_style(Style::default().fg(noise_color).bg(Color::Indexed(233)))
             .percent(noise_percent)
             .label(noise_label),
-        sidebar_layout[4],
+        sidebar_layout[5],
     );
 
     let mut status_lines = Vec::new();
@@ -553,7 +580,7 @@ fn draw_sidebar(
     if !status_lines.is_empty() {
         frame.render_widget(
             Paragraph::new(status_lines).block(Block::default().title(" Status/Perks ")),
-            sidebar_layout[5],
+            sidebar_layout[6],
         );
     }
 }

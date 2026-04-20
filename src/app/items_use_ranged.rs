@@ -1,4 +1,4 @@
-use crate::app::{App, RunState, VisualEffect};
+use crate::app::{App, DamageRoute, RunState, VisualEffect};
 use crate::components::*;
 use bracket_pathfinding::prelude::*;
 use rand::Rng;
@@ -65,19 +65,14 @@ impl App {
                 ));
             }
 
-            let mut flash_pos = None;
-            if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target_id) {
-                let is_player = self.world.get::<&Player>(target_id).is_ok();
-                if !is_player || !self.god_mode {
-                    stats.hp -= damage;
-                } else {
-                    self.log
-                        .push("Debug: Player is in God Mode! No AOE damage taken.".to_string());
-                }
-                if let Ok(t_pos) = self.world.get::<&Position>(target_id) {
-                    flash_pos = Some(*t_pos);
-                }
+            let flash_pos = self.world.get::<&Position>(target_id).ok().map(|p| *p);
+            let is_player = self.world.get::<&Player>(target_id).is_ok();
+            if is_player && self.god_mode {
+                self.log
+                    .push("Debug: Player is in God Mode! No AOE damage taken.".to_string());
             }
+            self.apply_damage(target_id, damage, DamageRoute::Projectile);
+
             if let Some(pos) = flash_pos {
                 self.effects.push(VisualEffect::Flash {
                     x: pos.x,
@@ -91,12 +86,6 @@ impl App {
             if self.world.get::<&Monster>(target_id).is_ok() {
                 let _ = self.world.insert_one(target_id, LastHitByPlayer);
                 let _ = self.world.insert_one(target_id, AlertState::Aggressive);
-            } else if self.world.get::<&Player>(target_id).is_ok() {
-                let stats = self.world.get::<&CombatStats>(target_id).unwrap();
-                if stats.hp <= 0 {
-                    self.death = true;
-                    self.state = RunState::Dead;
-                }
             }
         }
     }

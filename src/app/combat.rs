@@ -1,4 +1,4 @@
-use crate::app::{App, VisualEffect};
+use crate::app::{App, DamageRoute, VisualEffect};
 use crate::components::*;
 use rand::Rng;
 use ratatui::prelude::Color;
@@ -6,6 +6,7 @@ use ratatui::prelude::Color;
 pub struct AttackResult {
     pub hit: bool,
     pub critical: bool,
+    /// Raw pre-mitigation damage. Mitigation (Aegis, AV) is applied in `apply_damage`.
     pub damage: i32,
     pub attacker_name: String,
     pub target_name: String,
@@ -15,6 +16,7 @@ pub struct AttackResult {
     pub damage_dice_roll: i32,
     pub damage_mod: i32,
     pub target_av: i32,
+    pub route: DamageRoute,
     pub poison: Option<Poison>,
     pub confusion: Option<Confusion>,
 }
@@ -122,7 +124,7 @@ impl App {
             hit = true;
         }
 
-        // 3. Damage Calculation
+        // 3. Damage Calculation (raw — mitigation happens in apply_damage)
         let mut damage = 0;
         let mut weapon_roll = 0;
         let mut target_av = 0;
@@ -139,9 +141,8 @@ impl App {
             }
 
             target_av = self.get_target_av(target);
-            damage = (weapon_roll + attr_mod + power_bonus - target_av).max(1);
+            damage = (weapon_roll + attr_mod + power_bonus).max(0);
 
-            // Check for status effects
             let effect_source = weapon_entity.unwrap_or(attacker);
             poison = self.world.get::<&Poison>(effect_source).ok().map(|p| *p);
             confusion = self.world.get::<&Confusion>(effect_source).ok().map(|c| *c);
@@ -159,6 +160,11 @@ impl App {
             damage_dice_roll: weapon_roll,
             damage_mod: attr_mod + power_bonus,
             target_av,
+            route: if is_ranged {
+                DamageRoute::Projectile
+            } else {
+                DamageRoute::Contact
+            },
             poison,
             confusion,
         }
@@ -300,13 +306,22 @@ impl App {
             return;
         }
 
+        let outcome = self.apply_damage(target, res.damage, res.route);
+
         let crit_str = if res.critical { "CRITICAL HIT! " } else { "" };
+        let applied = outcome.hp_damage + outcome.aegis_damage;
+        let aegis_tag = if outcome.aegis_damage > 0 {
+            format!(" [{} to Aegis]", outcome.aegis_damage)
+        } else {
+            String::new()
+        };
         self.log.push(format!(
-            "{}{} hits {} for {} damage! (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
+            "{}{} hits {} for {} damage!{} (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
             crit_str,
             res.attacker_name,
             res.target_name,
-            res.damage,
+            applied,
+            aegis_tag,
             res.attack_roll,
             res.attack_mod,
             res.dodge_dc,
@@ -328,14 +343,10 @@ impl App {
             duration: if res.critical { 10 } else { 5 },
         });
 
-        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target) {
-            let is_player = self.world.get::<&Player>(target).is_ok();
-            if !is_player || !self.god_mode {
-                stats.hp -= res.damage;
-            } else {
-                self.log
-                    .push("Debug: Player is in God Mode! No damage taken.".to_string());
-            }
+        let is_player_god = self.world.get::<&Player>(target).is_ok() && self.god_mode;
+        if is_player_god && res.damage > 0 {
+            self.log
+                .push("Debug: Player is in God Mode! No damage taken.".to_string());
         }
 
         // Apply status effects
