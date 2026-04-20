@@ -9,7 +9,6 @@ t = tech debt
 
 - (e) Gunplay **In Progress**
 - (e) Content Pass & Content Manifests
-  - "Gold" -> "Glint"
 - (t) Improved Abstractions
 - (e) Advanced AI/Goal-Action-Planning
 - (t) Systems unification
@@ -28,6 +27,7 @@ t = tech debt
 - (e) Faction Improvements
 - (t) Save File Improvements
 - (e) Dungeon Features
+- (e) Summonables
 - (e) Portals & Shafts (Chutes & Ladders)
 - (e) Hidden Side Levels
 - (e) Hidden Dungeon Features
@@ -42,7 +42,10 @@ t = tech debt
 These features are good ideas but not on the roadmap yet.
 
 - Corpses
-- Money should be called Glint
+- Money changes
+  - "Gold" -> "Glint"
+  - Money should just be a thing in the inventory, not a stat
+  - Money should not be picked up automatically
 - Inspect items/creatures with a Look action.
 - Game should log when you step on an item or dungeon feature.
 - Combat log should be state when an offhand attack is made.
