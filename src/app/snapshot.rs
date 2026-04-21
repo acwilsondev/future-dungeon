@@ -72,6 +72,8 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub aegis_boost: Option<AegisBoost>,
     #[serde(default)]
+    pub heat: Option<HeatMeter>,
+    #[serde(default)]
     pub last_hit_by_player: bool,
     #[serde(default)]
     pub is_levitation: bool,

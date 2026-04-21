@@ -59,6 +59,93 @@ pub struct RawArmor {
     pub max_dex_bonus: Option<i32>,
 }
 
+/// Struct form of a ranged weapon in `content.json`. Accepts either the
+/// legacy 3-tuple `[range, increment, damage_bonus]` via a custom
+/// deserializer, or the struct form with optional power-source / heat
+/// fields introduced in v0.9-gunplay.
+#[derive(Serialize, Clone, Debug)]
+pub struct RawRangedWeapon {
+    pub range: i32,
+    pub range_increment: i32,
+    pub damage_bonus: i32,
+    #[serde(default)]
+    pub power_source: Option<String>,
+    #[serde(default)]
+    pub heat_capacity: Option<u32>,
+    #[serde(default)]
+    pub heat_per_shot: Option<u32>,
+    #[serde(default)]
+    pub efficient_cooldown: bool,
+}
+
+impl<'de> Deserialize<'de> for RawRangedWeapon {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Form {
+            Tuple(i32, i32, i32),
+            Full {
+                range: i32,
+                range_increment: i32,
+                damage_bonus: i32,
+                #[serde(default)]
+                power_source: Option<String>,
+                #[serde(default)]
+                heat_capacity: Option<u32>,
+                #[serde(default)]
+                heat_per_shot: Option<u32>,
+                #[serde(default)]
+                efficient_cooldown: bool,
+            },
+        }
+
+        let form = Form::deserialize(deserializer)?;
+        Ok(match form {
+            Form::Tuple(range, range_increment, damage_bonus) => RawRangedWeapon {
+                range,
+                range_increment,
+                damage_bonus,
+                power_source: None,
+                heat_capacity: None,
+                heat_per_shot: None,
+                efficient_cooldown: false,
+            },
+            Form::Full {
+                range,
+                range_increment,
+                damage_bonus,
+                power_source,
+                heat_capacity,
+                heat_per_shot,
+                efficient_cooldown,
+            } => RawRangedWeapon {
+                range,
+                range_increment,
+                damage_bonus,
+                power_source,
+                heat_capacity,
+                heat_per_shot,
+                efficient_cooldown,
+            },
+        })
+    }
+}
+
+impl RawRangedWeapon {
+    pub fn power_source(&self) -> anyhow::Result<crate::components::WeaponPowerSource> {
+        use crate::components::WeaponPowerSource;
+        match self.power_source.as_deref() {
+            None | Some("ammo") => Ok(WeaponPowerSource::Ammo),
+            Some("heavy") => Ok(WeaponPowerSource::HeavyAmmo),
+            Some("heat") => Ok(WeaponPowerSource::Heat),
+            Some(other) => anyhow::bail!("unknown weapon power source: {}", other),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct RawItem {
     pub name: String,
@@ -72,7 +159,7 @@ pub struct RawItem {
     pub weapon: Option<RawWeapon>,
     pub armor: Option<RawArmor>,
     pub ranged: Option<i32>,
-    pub ranged_weapon: Option<(i32, i32, i32)>,
+    pub ranged_weapon: Option<RawRangedWeapon>,
     pub aoe: Option<i32>,
     pub confusion: Option<i32>,
     pub poison: Option<(i32, i32)>,

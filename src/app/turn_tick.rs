@@ -17,9 +17,20 @@ impl App {
         self.cleanup_noise();
         self.apply_status_effects(player_id);
         self.tick_aegis(player_id);
+        self.tick_heat();
         self.tick_mana_regen();
         self.handle_dead_monsters_from_poison();
         self.trim_log();
+    }
+
+    fn tick_heat(&mut self) {
+        for (_id, meter) in self.world.query::<&mut HeatMeter>().iter() {
+            if meter.venting > 0 {
+                meter.venting -= 1;
+            } else {
+                meter.current = meter.current.saturating_sub(1);
+            }
+        }
     }
 
     fn tick_aegis(&mut self, player_id: hecs::Entity) {
@@ -690,5 +701,79 @@ mod tests {
         let a = app.world.get::<&Aegis>(player).unwrap();
         assert_eq!(a.max, 4);
         assert_eq!(a.current, 4);
+    }
+
+    #[test]
+    fn test_heat_passive_cooldown_decrements_when_not_venting() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let weapon = app.world.spawn((HeatMeter {
+            current: 3,
+            capacity: 6,
+            venting: 0,
+        },));
+        app.on_turn_tick();
+        let m = app.world.get::<&HeatMeter>(weapon).unwrap();
+        assert_eq!(m.current, 2);
+        assert_eq!(m.venting, 0);
+    }
+
+    #[test]
+    fn test_heat_venting_decrements_and_skips_cooldown() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let weapon = app.world.spawn((HeatMeter {
+            current: 0,
+            capacity: 6,
+            venting: 3,
+        },));
+        app.on_turn_tick();
+        let m = app.world.get::<&HeatMeter>(weapon).unwrap();
+        assert_eq!(m.venting, 2);
+        assert_eq!(m.current, 0);
+        drop(m);
+        app.on_turn_tick();
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&HeatMeter>(weapon).unwrap().venting, 0);
+    }
+
+    #[test]
+    fn test_heat_current_floors_at_zero() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let weapon = app.world.spawn((HeatMeter {
+            current: 0,
+            capacity: 6,
+            venting: 0,
+        },));
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&HeatMeter>(weapon).unwrap().current, 0);
     }
 }

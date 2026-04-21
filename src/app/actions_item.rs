@@ -256,6 +256,7 @@ mod tests {
                 range: 10,
                 range_increment: 10,
                 damage_bonus: 5,
+                ..Default::default()
             },
             Weapon {
                 power_bonus: 0,

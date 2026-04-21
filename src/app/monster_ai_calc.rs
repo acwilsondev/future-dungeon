@@ -422,6 +422,7 @@ mod tests {
                 range: 8,
                 range_increment: 12,
                 damage_bonus: 2,
+                ..Default::default()
             },
         ));
 

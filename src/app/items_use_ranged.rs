@@ -21,19 +21,67 @@ impl App {
         });
     }
 
-    fn consume_ammo(&mut self, player_id: hecs::Entity) {
-        let ammo_id = self
-            .world
-            .query::<(&Ammunition, &InBackpack)>()
-            .iter()
-            .filter(|(_, (_, backpack))| backpack.owner == player_id)
-            .map(|(id, _)| id)
-            .next();
-        if let Some(aid) = ammo_id {
-            if let Err(e) = self.world.despawn(aid) {
-                log::error!("Failed to despawn ammunition: {}", e);
+    /// Consume power for a fired ranged weapon. Returns `true` if the weapon
+    /// was able to fire. For `Ammo` and `HeavyAmmo`, this despawns one unit
+    /// of the appropriate fungible consumable; `Heat` weapons use the
+    /// `HeatMeter` component and consume no inventory.
+    fn consume_power(&mut self, player_id: hecs::Entity, item_id: hecs::Entity) -> bool {
+        let Ok(rw) = self.world.get::<&RangedWeapon>(item_id).map(|rw| *rw) else {
+            return true;
+        };
+        match rw.power_source {
+            WeaponPowerSource::Ammo => {
+                let ammo_id = self
+                    .world
+                    .query::<(&Ammunition, &InBackpack)>()
+                    .iter()
+                    .find(|(_, (_, backpack))| backpack.owner == player_id)
+                    .map(|(id, _)| id);
+                if let Some(aid) = ammo_id {
+                    if let Err(e) = self.world.despawn(aid) {
+                        log::error!("Failed to despawn ammunition: {}", e);
+                    }
+                }
+                true
             }
+            WeaponPowerSource::HeavyAmmo => {
+                // Fungible Heavy Ammo items are not yet in content; for now treat
+                // absence as "out of ammo" and refuse to fire.
+                self.log.push("Out of heavy ammo.".to_string());
+                false
+            }
+            WeaponPowerSource::Heat => true,
         }
+    }
+
+    /// After a Heat weapon fires, accumulate heat and trigger a vent at
+    /// capacity. `shots` > 1 for Burst (slice 4). Returns true if the
+    /// weapon just entered a vent cycle.
+    fn apply_heat_after_fire(&mut self, item_id: hecs::Entity, shots: u32) -> bool {
+        let rw = match self.world.get::<&RangedWeapon>(item_id).map(|rw| *rw) {
+            Ok(rw) if rw.power_source == WeaponPowerSource::Heat => rw,
+            _ => return false,
+        };
+        let mut meter = match self.world.get::<&mut HeatMeter>(item_id) {
+            Ok(m) => m,
+            Err(_) => return false,
+        };
+        meter.current = meter.current.saturating_add(rw.heat_per_shot * shots);
+        if meter.current >= meter.capacity {
+            meter.current = 0;
+            meter.venting = if rw.efficient_cooldown { 1 } else { 3 };
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if the weapon is currently venting and cannot fire.
+    fn is_venting(&self, item_id: hecs::Entity) -> bool {
+        self.world
+            .get::<&HeatMeter>(item_id)
+            .map(|m| m.venting > 0)
+            .unwrap_or(false)
     }
 
     fn handle_aoe_effect(
@@ -212,6 +260,15 @@ impl App {
                 (*pos, id)
             };
 
+            // Heat-weapon vent lockout: attempting to fire still costs a turn.
+            if self.is_venting(item_id) {
+                self.log.push(format!("The {} is venting heat.", item_name));
+                if self.state != RunState::LevelUp {
+                    self.state = RunState::MonsterTurn;
+                }
+                return;
+            }
+
             let points = line2d(
                 LineAlg::Bresenham,
                 Point::new(player_pos.x, player_pos.y),
@@ -254,7 +311,12 @@ impl App {
                     disadvantage = ((dist - rw.range) / rw.range_increment) as u32 + 1;
                 }
                 power = rw.damage_bonus;
-                self.consume_ammo(player_id);
+                if !self.consume_power(player_id, item_id) {
+                    if self.state != RunState::LevelUp {
+                        self.state = RunState::MonsterTurn;
+                    }
+                    return;
+                }
             }
 
             if let Some(radius) = aoe_radius {
@@ -304,6 +366,11 @@ impl App {
             let total_xp = self.cleanup_dead_monsters();
             if total_xp > 0 {
                 self.add_player_xp(total_xp);
+            }
+
+            if self.apply_heat_after_fire(item_id, 1) {
+                self.log
+                    .push(format!("The {} vents superheated gas!", item_name));
             }
 
             self.update_blocked_and_opaque();
@@ -490,6 +557,7 @@ mod tests {
                 range: 8,
                 range_increment: 12,
                 damage_bonus: 4,
+                ..Default::default()
             },
             InBackpack { owner: player },
         ));
@@ -596,5 +664,98 @@ mod tests {
         app.targeting_cursor = (10, 12);
         app.fire_targeting_item();
         assert!(app.world.get::<&Poison>(monster2).is_ok());
+    }
+
+    #[test]
+    fn test_apply_heat_after_fire_increments_current() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let weapon = app.world.spawn((
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 1,
+                power_source: WeaponPowerSource::Heat,
+                heat_per_shot: 2,
+                efficient_cooldown: false,
+            },
+            HeatMeter {
+                current: 0,
+                capacity: 6,
+                venting: 0,
+            },
+        ));
+        let vented = app.apply_heat_after_fire(weapon, 1);
+        assert!(!vented);
+        let m = app.world.get::<&HeatMeter>(weapon).unwrap();
+        assert_eq!(m.current, 2);
+        assert_eq!(m.venting, 0);
+    }
+
+    #[test]
+    fn test_apply_heat_after_fire_triggers_vent_at_capacity() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let weapon = app.world.spawn((
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 1,
+                power_source: WeaponPowerSource::Heat,
+                heat_per_shot: 3,
+                efficient_cooldown: false,
+            },
+            HeatMeter {
+                current: 4,
+                capacity: 6,
+                venting: 0,
+            },
+        ));
+        let vented = app.apply_heat_after_fire(weapon, 1);
+        assert!(vented);
+        let m = app.world.get::<&HeatMeter>(weapon).unwrap();
+        assert_eq!(m.current, 0);
+        assert_eq!(m.venting, 3);
+    }
+
+    #[test]
+    fn test_efficient_cooldown_shortens_vent() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+        let weapon = app.world.spawn((
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 1,
+                power_source: WeaponPowerSource::Heat,
+                heat_per_shot: 6,
+                efficient_cooldown: true,
+            },
+            HeatMeter {
+                current: 0,
+                capacity: 6,
+                venting: 0,
+            },
+        ));
+        let vented = app.apply_heat_after_fire(weapon, 1);
+        assert!(vented);
+        assert_eq!(app.world.get::<&HeatMeter>(weapon).unwrap().venting, 1);
+    }
+
+    #[test]
+    fn test_is_venting_detection() {
+        let mut app = setup_test_app();
+        let cooled = app.world.spawn((HeatMeter {
+            current: 2,
+            capacity: 6,
+            venting: 0,
+        },));
+        let hot = app.world.spawn((HeatMeter {
+            current: 0,
+            capacity: 6,
+            venting: 2,
+        },));
+        assert!(!app.is_venting(cooled));
+        assert!(app.is_venting(hot));
     }
 }

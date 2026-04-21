@@ -45,6 +45,7 @@ impl App {
             let aegis = self.world.get::<&Aegis>(id).ok().map(|a| *a);
             let aegis_drought = self.world.get::<&AegisDrought>(id).ok().map(|a| *a);
             let aegis_boost = self.world.get::<&AegisBoost>(id).ok().map(|a| *a);
+            let heat = self.world.get::<&HeatMeter>(id).ok().map(|h| *h);
 
             self.entities.push(EntitySnapshot {
                 pos,
@@ -83,6 +84,7 @@ impl App {
                 aegis,
                 aegis_drought,
                 aegis_boost,
+                heat,
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_levitation: self.world.get::<&Levitation>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
@@ -159,6 +161,9 @@ impl App {
         }
         if let Some(aegis_boost) = e.aegis_boost {
             cb.add(aegis_boost);
+        }
+        if let Some(heat) = e.heat {
+            cb.add(heat);
         }
     }
 
@@ -422,6 +427,7 @@ mod tests {
                 range: 8,
                 range_increment: 12,
                 damage_bonus: 10,
+                ..Default::default()
             },
             Cursed,
             Equippable {

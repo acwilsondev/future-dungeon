@@ -101,6 +101,9 @@ pub fn spawn_monster(
             range: r as i32,
             range_increment: r as i32,
             damage_bonus: power,
+            power_source: WeaponPowerSource::Ammo,
+            heat_per_shot: 1,
+            efficient_cooldown: false,
         });
     }
 
@@ -171,12 +174,25 @@ fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
     if let Some(r) = raw.ranged {
         cb.add(Ranged { range: r });
     }
-    if let Some((r, inc, d)) = raw.ranged_weapon {
+    if let Some(rw) = &raw.ranged_weapon {
+        let power_source = rw.power_source().unwrap_or(WeaponPowerSource::Ammo);
+        let heat_per_shot = rw.heat_per_shot.unwrap_or(1);
         cb.add(RangedWeapon {
-            range: r,
-            range_increment: inc,
-            damage_bonus: d,
+            range: rw.range,
+            range_increment: rw.range_increment,
+            damage_bonus: rw.damage_bonus,
+            power_source,
+            heat_per_shot,
+            efficient_cooldown: rw.efficient_cooldown,
         });
+        if power_source == WeaponPowerSource::Heat {
+            let capacity = rw.heat_capacity.unwrap_or(6);
+            cb.add(HeatMeter {
+                current: 0,
+                capacity,
+                venting: 0,
+            });
+        }
     }
     if let Some(r) = raw.aoe {
         cb.add(AreaOfEffect { radius: r });

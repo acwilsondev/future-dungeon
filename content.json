@@ -146,6 +146,15 @@
       "slot": "AnyHand", "biomes": null
     },
     {
+      "name": "Service Pistol",
+      "glyph": ")", "color": [180, 180, 180],
+      "price": 30, "weapon": {"power_bonus": 1, "weight": "Light", "n_dice": 1, "die_type": 6, "two_handed": false},
+      "ranged_weapon": {"range": 6, "range_increment": 4, "damage_bonus": 1, "power_source": "heat", "heat_capacity": 6, "heat_per_shot": 1},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.3, "min_floor": 1, "max_floor": 5,
+      "slot": "AnyHand", "biomes": null
+    },
+    {
       "name": "Arrows",
       "glyph": "`", "color": [150, 150, 150],
       "price": 2, "ammo": true, "consumable": true,

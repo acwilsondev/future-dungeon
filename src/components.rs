@@ -168,11 +168,49 @@ pub struct Ranged {
     pub range: i32,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WeaponPowerSource {
+    #[default]
+    Ammo,
+    HeavyAmmo,
+    Heat,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RangedWeapon {
     pub range: i32,
     pub range_increment: i32,
     pub damage_bonus: i32,
+    #[serde(default)]
+    pub power_source: WeaponPowerSource,
+    #[serde(default = "default_heat_per_shot")]
+    pub heat_per_shot: u32,
+    #[serde(default)]
+    pub efficient_cooldown: bool,
+}
+
+impl Default for RangedWeapon {
+    fn default() -> Self {
+        Self {
+            range: 0,
+            range_increment: 0,
+            damage_bonus: 0,
+            power_source: WeaponPowerSource::Ammo,
+            heat_per_shot: 1,
+            efficient_cooldown: false,
+        }
+    }
+}
+
+fn default_heat_per_shot() -> u32 {
+    1
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeatMeter {
+    pub current: u32,
+    pub capacity: u32,
+    pub venting: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
