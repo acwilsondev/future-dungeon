@@ -101,9 +101,7 @@ pub fn spawn_monster(
             range: r as i32,
             range_increment: r as i32,
             damage_bonus: power,
-            power_source: WeaponPowerSource::Ammo,
-            heat_per_shot: 1,
-            efficient_cooldown: false,
+            ..Default::default()
         });
     }
 
@@ -184,6 +182,7 @@ fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
             power_source,
             heat_per_shot,
             efficient_cooldown: rw.efficient_cooldown,
+            burst_count: rw.burst_count.unwrap_or(1),
         });
         if power_source == WeaponPowerSource::Heat {
             let capacity = rw.heat_capacity.unwrap_or(6);

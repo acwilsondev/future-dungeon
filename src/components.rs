@@ -187,6 +187,8 @@ pub struct RangedWeapon {
     pub heat_per_shot: u32,
     #[serde(default)]
     pub efficient_cooldown: bool,
+    #[serde(default = "default_burst_count")]
+    pub burst_count: u32,
 }
 
 impl Default for RangedWeapon {
@@ -198,11 +200,16 @@ impl Default for RangedWeapon {
             power_source: WeaponPowerSource::Ammo,
             heat_per_shot: 1,
             efficient_cooldown: false,
+            burst_count: 1,
         }
     }
 }
 
 fn default_heat_per_shot() -> u32 {
+    1
+}
+
+fn default_burst_count() -> u32 {
     1
 }
 

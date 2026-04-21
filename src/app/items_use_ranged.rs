@@ -335,16 +335,21 @@ impl App {
                         targets.push(id);
                     }
                 }
+                let burst_count = ranged_weapon_info
+                    .map(|rw| rw.burst_count.max(1))
+                    .unwrap_or(1);
                 for target_id in targets {
-                    self.handle_direct_damage(
-                        player_id,
-                        target_id,
-                        actual_target,
-                        Some(item_id),
-                        disadvantage,
-                    );
+                    for shot in 0..burst_count {
+                        self.handle_direct_damage(
+                            player_id,
+                            target_id,
+                            actual_target,
+                            Some(item_id),
+                            disadvantage + shot,
+                        );
+                    }
 
-                    // Off-hand ranged proc?
+                    // Off-hand ranged proc (once per target, not per burst shot)
                     if let Some(off_hand_id) = self.get_off_hand_weapon(player_id) {
                         if self.world.get::<&RangedWeapon>(off_hand_id).is_ok() {
                             let dex_mod = self.get_dex_modifier(player_id);
@@ -368,7 +373,10 @@ impl App {
                 self.add_player_xp(total_xp);
             }
 
-            if self.apply_heat_after_fire(item_id, 1) {
+            let shots_fired = ranged_weapon_info
+                .map(|rw| rw.burst_count.max(1))
+                .unwrap_or(1);
+            if self.apply_heat_after_fire(item_id, shots_fired) {
                 self.log
                     .push(format!("The {} vents superheated gas!", item_name));
             }
@@ -678,6 +686,7 @@ mod tests {
                 power_source: WeaponPowerSource::Heat,
                 heat_per_shot: 2,
                 efficient_cooldown: false,
+                ..Default::default()
             },
             HeatMeter {
                 current: 0,
@@ -704,6 +713,7 @@ mod tests {
                 power_source: WeaponPowerSource::Heat,
                 heat_per_shot: 3,
                 efficient_cooldown: false,
+                ..Default::default()
             },
             HeatMeter {
                 current: 4,
@@ -730,6 +740,7 @@ mod tests {
                 power_source: WeaponPowerSource::Heat,
                 heat_per_shot: 6,
                 efficient_cooldown: true,
+                ..Default::default()
             },
             HeatMeter {
                 current: 0,
@@ -757,5 +768,129 @@ mod tests {
         },));
         assert!(!app.is_venting(cooled));
         assert!(app.is_venting(hot));
+    }
+
+    #[test]
+    fn test_burst_weapon_accumulates_heat_per_shot_times_count() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 50,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+        ));
+        let _monster = app.world.spawn((
+            Monster,
+            Position { x: 15, y: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 100,
+                max_hp: 100,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let carbine = app.world.spawn((
+            Item,
+            Name("Carbine".to_string()),
+            RangedWeapon {
+                range: 8,
+                range_increment: 8,
+                damage_bonus: 1,
+                power_source: WeaponPowerSource::Heat,
+                heat_per_shot: 1,
+                burst_count: 3,
+                ..Default::default()
+            },
+            HeatMeter {
+                current: 0,
+                capacity: 9,
+                venting: 0,
+            },
+            InBackpack { owner: player },
+        ));
+
+        app.targeting_item = Some(carbine);
+        app.targeting_cursor = (15, 10);
+        app.fire_targeting_item();
+
+        let meter = app.world.get::<&HeatMeter>(carbine).unwrap();
+        assert_eq!(meter.current, 3, "3-burst heat accumulation");
+        assert_eq!(meter.venting, 0, "not venting yet");
+    }
+
+    #[test]
+    fn test_burst_weapon_hits_capacity_triggers_vent() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 10, y: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 50,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+        ));
+        let _monster = app.world.spawn((
+            Monster,
+            Position { x: 15, y: 10 },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 100,
+                max_hp: 100,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let carbine = app.world.spawn((
+            Item,
+            Name("Carbine".to_string()),
+            RangedWeapon {
+                range: 8,
+                range_increment: 8,
+                damage_bonus: 1,
+                power_source: WeaponPowerSource::Heat,
+                heat_per_shot: 1,
+                burst_count: 3,
+                ..Default::default()
+            },
+            HeatMeter {
+                current: 0,
+                capacity: 3,
+                venting: 0,
+            },
+            InBackpack { owner: player },
+        ));
+
+        app.targeting_item = Some(carbine);
+        app.targeting_cursor = (15, 10);
+        app.fire_targeting_item();
+
+        let meter = app.world.get::<&HeatMeter>(carbine).unwrap();
+        assert_eq!(meter.current, 0, "reset on vent");
+        assert_eq!(meter.venting, 3, "vent triggered");
     }
 }
