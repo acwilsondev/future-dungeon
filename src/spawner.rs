@@ -185,6 +185,7 @@ fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
             burst_count: rw.burst_count.unwrap_or(1),
             scatter: rw.scatter,
             shredding: rw.shredding,
+            tachyonic: rw.tachyonic,
         });
         if power_source == WeaponPowerSource::Heat {
             let capacity = rw.heat_capacity.unwrap_or(6);

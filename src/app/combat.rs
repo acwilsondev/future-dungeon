@@ -37,6 +37,9 @@ pub struct AttackResult {
     /// Set when the firing weapon has the Shredding modifier; handled by
     /// `apply_attack_result` on a successful projectile hit.
     pub shredding: bool,
+    /// Set when the firing weapon has the Tachyonic modifier; redirects the
+    /// projectile's damage application through the tachyonic absorption path.
+    pub tachyonic: bool,
 }
 
 impl App {
@@ -204,6 +207,7 @@ impl App {
             poison,
             confusion,
             shredding: is_ranged && ranged_weapon.map(|rw| rw.shredding).unwrap_or(false),
+            tachyonic: is_ranged && ranged_weapon.map(|rw| rw.tachyonic).unwrap_or(false),
         }
     }
 
@@ -401,7 +405,11 @@ impl App {
             return;
         }
 
-        let outcome = self.apply_damage(target, res.damage, res.route);
+        let outcome = if res.tachyonic && matches!(res.route, DamageRoute::Projectile) {
+            self.apply_projectile_tachyonic(target, res.damage)
+        } else {
+            self.apply_damage(target, res.damage, res.route)
+        };
 
         if res.shredding && res.damage > 0 {
             self.apply_shredded(target, 1);

@@ -99,6 +99,66 @@ impl App {
         out
     }
 
+    /// Apply a Tachyonic-modifier projectile hit. Aegis absorbs at 2× rate
+    /// (each HP of aegis soaks twice the raw damage); any overflow passes
+    /// through AV to HP as normal. Falls through to the regular projectile
+    /// path when the target has no aegis.
+    pub fn apply_projectile_tachyonic(&mut self, target: hecs::Entity, raw: i32) -> DamageOutcome {
+        if raw <= 0 {
+            return DamageOutcome::default();
+        }
+
+        let is_player = self.world.get::<&Player>(target).is_ok();
+        if is_player && self.god_mode {
+            return DamageOutcome::default();
+        }
+
+        let aegis_before = self
+            .world
+            .get::<&Aegis>(target)
+            .ok()
+            .map(|a| a.current)
+            .unwrap_or(0);
+
+        if aegis_before == 0 {
+            return self.apply_damage(target, raw, DamageRoute::Projectile);
+        }
+
+        let mut out = DamageOutcome::default();
+        let aegis_consumed = (raw * 2).min(aegis_before);
+        // Raw cost for the absorbed portion (ceil div by 2).
+        let raw_absorbed = (aegis_consumed + 1) / 2;
+        if let Ok(mut a) = self.world.get::<&mut Aegis>(target) {
+            a.current -= aegis_consumed;
+            out.aegis_damage = aegis_consumed;
+            out.aegis_depleted = a.current == 0;
+        }
+
+        let overflow = raw - raw_absorbed;
+        if overflow > 0 {
+            let av = self.get_target_av(target);
+            let hp_damage = (overflow - av).max(1);
+            if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target) {
+                stats.hp -= hp_damage;
+                out.hp_damage = hp_damage;
+            }
+        }
+
+        let drought_turns = if out.aegis_depleted { 10 } else { 5 };
+        self.apply_aegis_drought(target, drought_turns);
+
+        if is_player {
+            if let Ok(stats) = self.world.get::<&CombatStats>(target) {
+                if stats.hp <= 0 {
+                    self.death = true;
+                    self.state = RunState::Dead;
+                }
+            }
+        }
+
+        out
+    }
+
     /// Add `new_stacks` Shredded stacks to `target` (soft-capped at
     /// `SHREDDED_CAP`). Always resets the decay timer to
     /// `SHREDDED_DECAY_INTERVAL`, even when stacks are already at the cap.
@@ -300,6 +360,41 @@ mod tests {
         let mut app = setup();
         let t = spawn_target(&mut app, 10, 2, None);
         let out = app.apply_damage(t, 5, DamageRoute::Projectile);
+        assert_eq!(out.aegis_damage, 0);
+        assert_eq!(out.hp_damage, 3);
+    }
+
+    #[test]
+    fn tachyonic_doubles_aegis_soak() {
+        // 3 raw vs 10 aegis → aegis drops 6, overflow 0.
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 0, Some(10));
+        let out = app.apply_projectile_tachyonic(t, 3);
+        assert_eq!(out.aegis_damage, 6);
+        assert_eq!(out.hp_damage, 0);
+        assert_eq!(app.world.get::<&Aegis>(t).unwrap().current, 4);
+    }
+
+    #[test]
+    fn tachyonic_partial_absorb_overflows_to_hp() {
+        // 5 raw vs 6 aegis: aegis drops 6 (clamped), raw_absorbed = 3,
+        // overflow 2 → AV 0 → HP loses 2.
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 0, Some(6));
+        let out = app.apply_projectile_tachyonic(t, 5);
+        assert_eq!(out.aegis_damage, 6);
+        assert_eq!(out.hp_damage, 2);
+        let stats = app.world.get::<&CombatStats>(t).unwrap();
+        assert_eq!(stats.hp, 8);
+        assert!(out.aegis_depleted);
+    }
+
+    #[test]
+    fn tachyonic_no_aegis_behaves_as_normal_projectile() {
+        // 4 raw, AV 1, no aegis → HP loses 3.
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 1, None);
+        let out = app.apply_projectile_tachyonic(t, 4);
         assert_eq!(out.aegis_damage, 0);
         assert_eq!(out.hp_damage, 3);
     }
