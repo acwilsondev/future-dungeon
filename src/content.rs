@@ -78,6 +78,8 @@ pub struct RawRangedWeapon {
     pub efficient_cooldown: bool,
     #[serde(default)]
     pub burst_count: Option<u32>,
+    #[serde(default)]
+    pub scatter: bool,
 }
 
 impl<'de> Deserialize<'de> for RawRangedWeapon {
@@ -103,6 +105,8 @@ impl<'de> Deserialize<'de> for RawRangedWeapon {
                 efficient_cooldown: bool,
                 #[serde(default)]
                 burst_count: Option<u32>,
+                #[serde(default)]
+                scatter: bool,
             },
         }
 
@@ -117,6 +121,7 @@ impl<'de> Deserialize<'de> for RawRangedWeapon {
                 heat_per_shot: None,
                 efficient_cooldown: false,
                 burst_count: None,
+                scatter: false,
             },
             Form::Full {
                 range,
@@ -127,6 +132,7 @@ impl<'de> Deserialize<'de> for RawRangedWeapon {
                 heat_per_shot,
                 efficient_cooldown,
                 burst_count,
+                scatter,
             } => RawRangedWeapon {
                 range,
                 range_increment,
@@ -136,6 +142,7 @@ impl<'de> Deserialize<'de> for RawRangedWeapon {
                 heat_per_shot,
                 efficient_cooldown,
                 burst_count,
+                scatter,
             },
         })
     }

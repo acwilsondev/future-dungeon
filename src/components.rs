@@ -189,6 +189,8 @@ pub struct RangedWeapon {
     pub efficient_cooldown: bool,
     #[serde(default = "default_burst_count")]
     pub burst_count: u32,
+    #[serde(default)]
+    pub scatter: bool,
 }
 
 impl Default for RangedWeapon {
@@ -201,6 +203,7 @@ impl Default for RangedWeapon {
             heat_per_shot: 1,
             efficient_cooldown: false,
             burst_count: 1,
+            scatter: false,
         }
     }
 }

@@ -307,7 +307,7 @@ impl App {
                 let dist = (((player_pos.x as f32 - actual_target.0 as f32).powi(2)
                     + (player_pos.y as f32 - actual_target.1 as f32).powi(2))
                 .sqrt()) as i32;
-                if dist > rw.range {
+                if dist > rw.range && !rw.scatter {
                     disadvantage = ((dist - rw.range) / rw.range_increment) as u32 + 1;
                 }
                 power = rw.damage_bonus;

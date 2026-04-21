@@ -4,6 +4,20 @@ use bracket_pathfinding::prelude::*;
 use rand::Rng;
 use ratatui::prelude::Color;
 
+/// Die-size step-down ladder used by the Scatter weapon modifier. Each range
+/// increment beyond the base range drops the damage die one step along this
+/// ladder; the last entry is the floor.
+const SCATTER_DIE_LADDER: &[i32] = &[12, 10, 8, 6, 4, 2];
+
+fn scatter_step_down(base: i32, steps: u32) -> i32 {
+    let start = SCATTER_DIE_LADDER
+        .iter()
+        .position(|&d| d == base)
+        .unwrap_or(0);
+    let idx = (start + steps as usize).min(SCATTER_DIE_LADDER.len() - 1);
+    SCATTER_DIE_LADDER[idx]
+}
+
 pub struct AttackResult {
     pub hit: bool,
     pub critical: bool,
@@ -136,6 +150,21 @@ impl App {
         let mut confusion = None;
 
         if hit {
+            // Scatter: step the damage die down one rung per range increment
+            // past the base range. Replaces the disadvantage penalty for
+            // scatter weapons (disadvantage is zeroed at the call site).
+            if is_ranged {
+                if let Some(rw) = ranged_weapon {
+                    if rw.scatter {
+                        let dist = self.attack_distance(attacker, target);
+                        if dist > rw.range && rw.range_increment > 0 {
+                            let steps = ((dist - rw.range) / rw.range_increment) as u32 + 1;
+                            damage_dice.1 = scatter_step_down(damage_dice.1, steps);
+                        }
+                    }
+                }
+            }
+
             let mut n_dice = damage_dice.0;
             if critical {
                 n_dice *= 2;
@@ -245,6 +274,20 @@ impl App {
             }
         }
         None
+    }
+
+    /// Euclidean (floor) distance between two entities' positions. Returns 0
+    /// if either lacks a `Position`.
+    fn attack_distance(&self, a: hecs::Entity, b: hecs::Entity) -> i32 {
+        let Ok(ap) = self.world.get::<&Position>(a) else {
+            return 0;
+        };
+        let Ok(bp) = self.world.get::<&Position>(b) else {
+            return 0;
+        };
+        let dx = ap.x as f32 - bp.x as f32;
+        let dy = ap.y as f32 - bp.y as f32;
+        (dx * dx + dy * dy).sqrt() as i32
     }
 
     pub fn get_dex_modifier(&self, entity: hecs::Entity) -> i32 {
@@ -646,5 +689,105 @@ mod tests {
         }
         // Apply it without panicking
         app.apply_attack_result(target, &res, 0, 0);
+    }
+
+    #[test]
+    fn test_scatter_step_down_ladder() {
+        // d12 → d10 → d8 → d6 → d4 → d2 (floor)
+        assert_eq!(scatter_step_down(12, 0), 12);
+        assert_eq!(scatter_step_down(12, 1), 10);
+        assert_eq!(scatter_step_down(12, 3), 6);
+        assert_eq!(scatter_step_down(12, 5), 2);
+        assert_eq!(scatter_step_down(12, 99), 2, "floor at d2");
+        assert_eq!(scatter_step_down(8, 1), 6, "step from mid-ladder die");
+    }
+
+    #[test]
+    fn test_scatter_weapon_steps_die_down_with_range() {
+        let mut app = setup_test_app();
+        // Shooter at (1,5), target at (5,5): dist ≈ 4.
+        // weapon: range=1, range_increment=1 → steps = (4-1)/1 + 1 = 4.
+        // Base d12 stepped 4 times → d4.
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 1, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        // Give target 1000 HP so it never dies, and 0 AV.
+        {
+            let mut stats = app.world.get::<&mut CombatStats>(target).unwrap();
+            stats.hp = 1000;
+            stats.max_hp = 1000;
+        }
+        let weapon = app.world.spawn((
+            Name("Scattergun".to_string()),
+            Weapon {
+                damage_n_dice: 1,
+                damage_die_type: 12,
+                power_bonus: 0,
+                weight: WeaponWeight::Medium,
+                two_handed: false,
+            },
+            RangedWeapon {
+                range: 1,
+                range_increment: 1,
+                damage_bonus: 0,
+                scatter: true,
+                ..Default::default()
+            },
+        ));
+
+        let mut max_hit_roll = 0;
+        for _ in 0..200 {
+            let res = app.resolve_attack(attacker, target, Some(weapon), 0, true);
+            if res.hit && !res.critical {
+                max_hit_roll = max_hit_roll.max(res.damage_dice_roll);
+            }
+        }
+        assert!(
+            max_hit_roll <= 4,
+            "scatter at 4 steps should cap roll at d4 (got max {})",
+            max_hit_roll
+        );
+    }
+
+    #[test]
+    fn test_scatter_weapon_within_base_range_keeps_base_die() {
+        let mut app = setup_test_app();
+        // Shooter adjacent to target: dist 1, range 6 → no step-down.
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 4, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        {
+            let mut stats = app.world.get::<&mut CombatStats>(target).unwrap();
+            stats.hp = 1000;
+            stats.max_hp = 1000;
+        }
+        let weapon = app.world.spawn((
+            Name("Scattergun".to_string()),
+            Weapon {
+                damage_n_dice: 1,
+                damage_die_type: 12,
+                power_bonus: 0,
+                weight: WeaponWeight::Medium,
+                two_handed: false,
+            },
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 0,
+                scatter: true,
+                ..Default::default()
+            },
+        ));
+
+        let mut max_hit_roll = 0;
+        for _ in 0..200 {
+            let res = app.resolve_attack(attacker, target, Some(weapon), 0, true);
+            if res.hit && !res.critical {
+                max_hit_roll = max_hit_roll.max(res.damage_dice_roll);
+            }
+        }
+        assert!(
+            max_hit_roll > 4,
+            "within base range scatter should roll full d12 (got max {})",
+            max_hit_roll
+        );
     }
 }
