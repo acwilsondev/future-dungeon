@@ -95,13 +95,23 @@ impl App {
                     damage_dice = (w.damage_n_dice, w.damage_die_type);
                 }
                 power_bonus = rw.damage_bonus;
-            } else {
-                // Improvised Melee with Ranged Weapon
-                attr_mod = self.get_attribute_modifier(attacker, |a| a.strength);
-                if let Some(w) = weapon {
-                    damage_dice = (w.damage_n_dice, w.damage_die_type);
-                    power_bonus = w.power_bonus;
+            } else if let Some(w) = weapon {
+                // Melee bump with a ranged weapon uses the weapon's melee
+                // profile just like a dedicated melee weapon (weight picks
+                // STR vs DEX; two-handed grants 1.5× attr_mod).
+                attr_mod = match w.weight {
+                    WeaponWeight::Light => self.get_dex_modifier(attacker),
+                    _ => self.get_attribute_modifier(attacker, |a| a.strength),
+                };
+                if w.two_handed {
+                    attr_mod = (attr_mod as f32 * 1.5) as i32;
                 }
+                damage_dice = (w.damage_n_dice, w.damage_die_type);
+                power_bonus = w.power_bonus;
+            } else {
+                // Fallback: ranged weapon with no Weapon profile. Treat as
+                // an unarmed-style 1d4 STR strike.
+                attr_mod = self.get_attribute_modifier(attacker, |a| a.strength);
             }
         } else if let Some(w) = weapon {
             // Melee Attack with non-ranged weapon
@@ -708,6 +718,45 @@ mod tests {
         }
         // Apply it without panicking
         app.apply_attack_result(target, &res, 0, 0);
+    }
+
+    #[test]
+    fn test_melee_bump_with_light_ranged_weapon_uses_dex() {
+        let mut app = setup_test_app();
+        // High DEX, low STR — light ranged weapon bump should pick DEX.
+        let attacker = app.world.spawn((
+            Name("Gunslinger".to_string()),
+            Position { x: 4, y: 5 },
+            Attributes {
+                strength: 8,
+                dexterity: 18,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+        ));
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        let pistol = app.world.spawn((
+            Weapon {
+                damage_n_dice: 1,
+                damage_die_type: 4,
+                power_bonus: 0,
+                weight: WeaponWeight::Light,
+                two_handed: false,
+            },
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 0,
+                ..Default::default()
+            },
+        ));
+        let res = app.resolve_attack(attacker, target, Some(pistol), 0, false);
+        assert_eq!(
+            res.attack_mod, 4,
+            "light ranged weapon bump should use DEX +4"
+        );
     }
 
     #[test]
