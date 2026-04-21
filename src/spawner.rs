@@ -213,6 +213,12 @@ fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
     if raw.ammo {
         cb.add(Ammunition);
     }
+    if raw.heavy_ammo {
+        cb.add(HeavyAmmo);
+    }
+    if let Some(count) = raw.stack {
+        cb.add(ItemStack { count });
+    }
     if raw.consumable {
         cb.add(Consumable);
     }

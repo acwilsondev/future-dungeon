@@ -155,6 +155,68 @@
       "slot": "AnyHand", "biomes": null
     },
     {
+      "name": "Scattergun",
+      "glyph": "}", "color": [180, 100, 40],
+      "price": 80, "weapon": {"power_bonus": 0, "weight": "Heavy", "n_dice": 2, "die_type": 6, "two_handed": true},
+      "ranged_weapon": {"range": 3, "range_increment": 3, "damage_bonus": 0, "power_source": "heat", "heat_capacity": 4, "heat_per_shot": 2, "scatter": true},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.15, "min_floor": 2, "max_floor": 8,
+      "slot": "AnyHand", "biomes": null
+    },
+    {
+      "name": "Carbine",
+      "glyph": "}", "color": [120, 130, 140],
+      "price": 110, "weapon": {"power_bonus": 1, "weight": "Medium", "n_dice": 1, "die_type": 4, "two_handed": true},
+      "ranged_weapon": {"range": 8, "range_increment": 8, "damage_bonus": 1, "power_source": "heat", "heat_capacity": 9, "heat_per_shot": 1, "burst_count": 3},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.2, "min_floor": 3, "max_floor": 10,
+      "slot": "MainHand", "biomes": null
+    },
+    {
+      "name": "Heavy Rifle",
+      "glyph": "}", "color": [100, 100, 90],
+      "price": 220, "weapon": {"power_bonus": 2, "weight": "Heavy", "n_dice": 2, "die_type": 8, "two_handed": true},
+      "ranged_weapon": {"range": 12, "range_increment": 10, "damage_bonus": 2, "power_source": "heavy", "shredding": true},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.1, "min_floor": 4, "max_floor": 12,
+      "slot": "MainHand", "biomes": null
+    },
+    {
+      "name": "Tachyon Lance",
+      "glyph": "}", "color": [0, 220, 220],
+      "price": 350, "weapon": {"power_bonus": 0, "weight": "Medium", "n_dice": 1, "die_type": 10, "two_handed": true},
+      "ranged_weapon": {"range": 10, "range_increment": 8, "damage_bonus": 0, "power_source": "heat", "heat_capacity": 4, "heat_per_shot": 1, "efficient_cooldown": true, "tachyonic": true},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.08, "min_floor": 6, "max_floor": 15,
+      "slot": "MainHand", "biomes": null
+    },
+    {
+      "name": "Phoenix Repeater",
+      "glyph": ")", "color": [255, 120, 40],
+      "price": 180, "weapon": {"power_bonus": 0, "weight": "Light", "n_dice": 1, "die_type": 6, "two_handed": false},
+      "ranged_weapon": {"range": 6, "range_increment": 5, "damage_bonus": 0, "power_source": "heat", "heat_capacity": 5, "heat_per_shot": 1, "element": "Fire"},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.12, "min_floor": 5, "max_floor": 12,
+      "slot": "AnyHand", "biomes": null
+    },
+    {
+      "name": "Monk's Crook",
+      "glyph": "}", "color": [200, 180, 140],
+      "price": 140, "weapon": {"power_bonus": 0, "weight": "Medium", "n_dice": 1, "die_type": 8, "two_handed": true},
+      "ranged_weapon": {"range": 5, "range_increment": 4, "damage_bonus": 0, "power_source": "heat", "heat_capacity": 5, "heat_per_shot": 1},
+      "ammo": false, "consumable": false,
+      "spawn_chance": 0.1, "min_floor": 3, "max_floor": 10,
+      "slot": "MainHand", "biomes": null
+    },
+    {
+      "name": "Heavy Ammo",
+      "glyph": "\"", "color": [200, 150, 80],
+      "price": 3, "ammo": false, "consumable": true,
+      "heavy_ammo": true, "stack": 6,
+      "spawn_chance": 0.35, "min_floor": 3, "max_floor": 15,
+      "biomes": null
+    },
+    {
       "name": "Arrows",
       "glyph": "`", "color": [150, 150, 150],
       "price": 2, "ammo": true, "consumable": true,

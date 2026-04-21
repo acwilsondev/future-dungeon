@@ -217,6 +217,10 @@ pub struct RawItem {
     pub levitation: bool,
     #[serde(default)]
     pub regeneration: bool,
+    #[serde(default)]
+    pub heavy_ammo: bool,
+    #[serde(default)]
+    pub stack: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -672,5 +676,71 @@ mod tests {
         raw.mana_cost.orange = 0;
         raw.mana_cost.purple = 0;
         assert!(raw.bake().is_err());
+    }
+
+    #[test]
+    fn test_live_content_v09_weapons() {
+        use crate::components::WeaponPowerSource;
+        let content =
+            Content::load_from_path("content.json").expect("content.json must load cleanly");
+        let find = |name: &str| {
+            content
+                .items
+                .iter()
+                .find(|i| i.name == name)
+                .unwrap_or_else(|| panic!("missing item: {name}"))
+        };
+
+        // Scattergun — Scatter, Heat.
+        let rw = find("Scattergun")
+            .ranged_weapon
+            .as_ref()
+            .expect("Scattergun ranged_weapon");
+        assert!(rw.scatter, "Scattergun must have scatter flag");
+        assert_eq!(rw.power_source().unwrap(), WeaponPowerSource::Heat);
+
+        // Carbine — Burst 3, Heat.
+        let rw = find("Carbine")
+            .ranged_weapon
+            .as_ref()
+            .expect("Carbine ranged_weapon");
+        assert_eq!(rw.burst_count, Some(3));
+        assert_eq!(rw.power_source().unwrap(), WeaponPowerSource::Heat);
+
+        // Heavy Rifle — Shredding, HeavyAmmo.
+        let rw = find("Heavy Rifle")
+            .ranged_weapon
+            .as_ref()
+            .expect("Heavy Rifle ranged_weapon");
+        assert!(rw.shredding);
+        assert_eq!(rw.power_source().unwrap(), WeaponPowerSource::HeavyAmmo);
+
+        // Tachyon Lance — Tachyonic + Efficient Cooldown, Heat.
+        let rw = find("Tachyon Lance")
+            .ranged_weapon
+            .as_ref()
+            .expect("Tachyon Lance ranged_weapon");
+        assert!(rw.tachyonic);
+        assert!(rw.efficient_cooldown);
+        assert_eq!(rw.power_source().unwrap(), WeaponPowerSource::Heat);
+
+        // Phoenix Repeater — Elemental: Fire, Heat.
+        let rw = find("Phoenix Repeater")
+            .ranged_weapon
+            .as_ref()
+            .expect("Phoenix Repeater ranged_weapon");
+        assert_eq!(rw.element_type().unwrap(), Some(DamageType::Fire));
+
+        // Monk's Crook — Medium melee profile, Heat.
+        let crook = find("Monk's Crook");
+        let w = crook.weapon.as_ref().expect("Monk's Crook weapon profile");
+        assert_eq!(w.weight, crate::components::WeaponWeight::Medium);
+        assert!(crook.ranged_weapon.is_some());
+
+        // Heavy Ammo — heavy_ammo marker and stack count.
+        let ammo = find("Heavy Ammo");
+        assert!(ammo.heavy_ammo, "Heavy Ammo must carry heavy_ammo marker");
+        assert!(ammo.stack.is_some(), "Heavy Ammo must define a stack count");
+        assert!(ammo.consumable, "Heavy Ammo must be consumable");
     }
 }
