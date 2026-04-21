@@ -74,6 +74,8 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub heat: Option<HeatMeter>,
     #[serde(default)]
+    pub shredded: Option<Shredded>,
+    #[serde(default)]
     pub item_stack: Option<ItemStack>,
     #[serde(default)]
     pub is_heavy_ammo: bool,

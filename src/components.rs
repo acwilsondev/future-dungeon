@@ -191,6 +191,8 @@ pub struct RangedWeapon {
     pub burst_count: u32,
     #[serde(default)]
     pub scatter: bool,
+    #[serde(default)]
+    pub shredding: bool,
 }
 
 impl Default for RangedWeapon {
@@ -204,6 +206,7 @@ impl Default for RangedWeapon {
             efficient_cooldown: false,
             burst_count: 1,
             scatter: false,
+            shredding: false,
         }
     }
 }
@@ -237,6 +240,20 @@ pub struct HeavyAmmo;
 pub struct ItemStack {
     pub count: u32,
 }
+
+/// Stackable physical debuff applied by Shredding weapons. Each stack
+/// reduces the target's effective AV by 1 (floored at 0). Stacks decay
+/// one at a time: every `decay_timer` turns without re-application, a
+/// single stack sheds and the timer resets. Any new application resets
+/// the timer to `SHREDDED_DECAY_INTERVAL`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Shredded {
+    pub stacks: u32,
+    pub decay_timer: u32,
+}
+
+pub const SHREDDED_DECAY_INTERVAL: u32 = 5;
+pub const SHREDDED_CAP: u32 = 10;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AreaOfEffect {

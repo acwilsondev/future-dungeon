@@ -99,6 +99,24 @@ impl App {
         out
     }
 
+    /// Add `new_stacks` Shredded stacks to `target` (soft-capped at
+    /// `SHREDDED_CAP`). Always resets the decay timer to
+    /// `SHREDDED_DECAY_INTERVAL`, even when stacks are already at the cap.
+    pub fn apply_shredded(&mut self, target: hecs::Entity, new_stacks: u32) {
+        if let Ok(mut s) = self.world.get::<&mut Shredded>(target) {
+            s.stacks = (s.stacks + new_stacks).min(SHREDDED_CAP);
+            s.decay_timer = SHREDDED_DECAY_INTERVAL;
+            return;
+        }
+        let _ = self.world.insert_one(
+            target,
+            Shredded {
+                stacks: new_stacks.min(SHREDDED_CAP),
+                decay_timer: SHREDDED_DECAY_INTERVAL,
+            },
+        );
+    }
+
     /// Apply or refresh an AegisDrought. Never shortens an existing drought.
     pub fn apply_aegis_drought(&mut self, target: hecs::Entity, new_duration: u32) {
         let should_insert = match self.world.get::<&mut AegisDrought>(target) {
@@ -284,5 +302,84 @@ mod tests {
         let out = app.apply_damage(t, 5, DamageRoute::Projectile);
         assert_eq!(out.aegis_damage, 0);
         assert_eq!(out.hp_damage, 3);
+    }
+
+    #[test]
+    fn apply_shredded_inserts_with_timer() {
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 0, None);
+        app.apply_shredded(t, 1);
+        let s = app.world.get::<&Shredded>(t).unwrap();
+        assert_eq!(s.stacks, 1);
+        assert_eq!(s.decay_timer, SHREDDED_DECAY_INTERVAL);
+    }
+
+    #[test]
+    fn apply_shredded_stacks_and_resets_timer() {
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 0, None);
+        app.apply_shredded(t, 1);
+        // Manually age the timer down to 1.
+        app.world.get::<&mut Shredded>(t).unwrap().decay_timer = 1;
+        app.apply_shredded(t, 1);
+        let s = app.world.get::<&Shredded>(t).unwrap();
+        assert_eq!(s.stacks, 2);
+        assert_eq!(
+            s.decay_timer, SHREDDED_DECAY_INTERVAL,
+            "timer resets on re-apply"
+        );
+    }
+
+    #[test]
+    fn apply_shredded_soft_caps_at_ten() {
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 0, None);
+        for _ in 0..15 {
+            app.apply_shredded(t, 1);
+        }
+        let s = app.world.get::<&Shredded>(t).unwrap();
+        assert_eq!(s.stacks, SHREDDED_CAP);
+    }
+
+    #[test]
+    fn shredded_reset_at_cap_refreshes_timer() {
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 0, None);
+        for _ in 0..SHREDDED_CAP {
+            app.apply_shredded(t, 1);
+        }
+        app.world.get::<&mut Shredded>(t).unwrap().decay_timer = 1;
+        app.apply_shredded(t, 1);
+        let s = app.world.get::<&Shredded>(t).unwrap();
+        assert_eq!(s.stacks, SHREDDED_CAP);
+        assert_eq!(s.decay_timer, SHREDDED_DECAY_INTERVAL);
+    }
+
+    #[test]
+    fn shredded_reduces_effective_av() {
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 4, None);
+        app.apply_shredded(t, 2);
+        assert_eq!(app.get_target_av(t), 2);
+    }
+
+    #[test]
+    fn shredded_av_floors_at_zero() {
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 1, None);
+        app.apply_shredded(t, 5);
+        assert_eq!(app.get_target_av(t), 0, "AV floors at 0, never negative");
+    }
+
+    #[test]
+    fn shredded_does_not_reduce_aegis_soak() {
+        // With aegis up, shredding has no effect on the soaked portion.
+        let mut app = setup();
+        let t = spawn_target(&mut app, 10, 2, Some(5));
+        app.apply_shredded(t, 3);
+        // 3 raw projectile, all absorbed by aegis — HP untouched.
+        let out = app.apply_damage(t, 3, DamageRoute::Projectile);
+        assert_eq!(out.aegis_damage, 3);
+        assert_eq!(out.hp_damage, 0);
     }
 }

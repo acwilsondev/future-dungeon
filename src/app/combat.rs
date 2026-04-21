@@ -34,6 +34,9 @@ pub struct AttackResult {
     pub route: DamageRoute,
     pub poison: Option<Poison>,
     pub confusion: Option<Confusion>,
+    /// Set when the firing weapon has the Shredding modifier; handled by
+    /// `apply_attack_result` on a successful projectile hit.
+    pub shredding: bool,
 }
 
 impl App {
@@ -200,6 +203,7 @@ impl App {
             },
             poison,
             confusion,
+            shredding: is_ranged && ranged_weapon.map(|rw| rw.shredding).unwrap_or(false),
         }
     }
 
@@ -365,6 +369,9 @@ impl App {
                 }
             }
         }
+        if let Ok(s) = self.world.get::<&Shredded>(entity) {
+            def = (def - s.stacks as i32).max(0);
+        }
         def
     }
 
@@ -395,6 +402,10 @@ impl App {
         }
 
         let outcome = self.apply_damage(target, res.damage, res.route);
+
+        if res.shredding && res.damage > 0 {
+            self.apply_shredded(target, 1);
+        }
 
         let crit_str = if res.critical { "CRITICAL HIT! " } else { "" };
         let applied = outcome.hp_damage + outcome.aegis_damage;

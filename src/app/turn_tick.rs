@@ -18,6 +18,7 @@ impl App {
         self.apply_status_effects(player_id);
         self.tick_aegis(player_id);
         self.tick_heat();
+        self.tick_shredded();
         self.tick_mana_regen();
         self.handle_dead_monsters_from_poison();
         self.trim_log();
@@ -30,6 +31,26 @@ impl App {
             } else {
                 meter.current = meter.current.saturating_sub(1);
             }
+        }
+    }
+
+    fn tick_shredded(&mut self) {
+        let mut to_remove = Vec::new();
+        for (id, s) in self.world.query::<&mut Shredded>().iter() {
+            if s.decay_timer > 0 {
+                s.decay_timer -= 1;
+            }
+            if s.decay_timer == 0 {
+                s.stacks = s.stacks.saturating_sub(1);
+                if s.stacks == 0 {
+                    to_remove.push(id);
+                } else {
+                    s.decay_timer = SHREDDED_DECAY_INTERVAL;
+                }
+            }
+        }
+        for id in to_remove {
+            self.world.remove_one::<Shredded>(id).ok();
         }
     }
 
@@ -775,5 +796,65 @@ mod tests {
         },));
         app.on_turn_tick();
         assert_eq!(app.world.get::<&HeatMeter>(weapon).unwrap().current, 0);
+    }
+
+    fn spawn_pl(app: &mut App) -> hecs::Entity {
+        app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ))
+    }
+
+    #[test]
+    fn test_shredded_decays_one_stack_per_interval() {
+        let mut app = setup_test_app();
+        let _player = spawn_pl(&mut app);
+        let t = app.world.spawn((
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
+            Shredded {
+                stacks: 5,
+                decay_timer: SHREDDED_DECAY_INTERVAL,
+            },
+        ));
+        for _ in 0..SHREDDED_DECAY_INTERVAL {
+            app.on_turn_tick();
+        }
+        let s = app.world.get::<&Shredded>(t).unwrap();
+        assert_eq!(s.stacks, 4);
+        assert_eq!(s.decay_timer, SHREDDED_DECAY_INTERVAL);
+    }
+
+    #[test]
+    fn test_shredded_fully_removed_after_total_decay() {
+        let mut app = setup_test_app();
+        let _player = spawn_pl(&mut app);
+        let t = app.world.spawn((
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
+            Shredded {
+                stacks: 5,
+                decay_timer: SHREDDED_DECAY_INTERVAL,
+            },
+        ));
+        // 5 stacks × 5 turns = 25 turns total decay.
+        for _ in 0..(SHREDDED_DECAY_INTERVAL * 5) {
+            app.on_turn_tick();
+        }
+        assert!(app.world.get::<&Shredded>(t).is_err());
     }
 }

@@ -46,6 +46,7 @@ impl App {
             let aegis_drought = self.world.get::<&AegisDrought>(id).ok().map(|a| *a);
             let aegis_boost = self.world.get::<&AegisBoost>(id).ok().map(|a| *a);
             let heat = self.world.get::<&HeatMeter>(id).ok().map(|h| *h);
+            let shredded = self.world.get::<&Shredded>(id).ok().map(|s| *s);
             let item_stack = self.world.get::<&ItemStack>(id).ok().map(|s| *s);
 
             self.entities.push(EntitySnapshot {
@@ -86,6 +87,7 @@ impl App {
                 aegis_drought,
                 aegis_boost,
                 heat,
+                shredded,
                 item_stack,
                 is_heavy_ammo: self.world.get::<&HeavyAmmo>(id).is_ok(),
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
@@ -167,6 +169,9 @@ impl App {
         }
         if let Some(heat) = e.heat {
             cb.add(heat);
+        }
+        if let Some(shredded) = e.shredded {
+            cb.add(shredded);
         }
         if let Some(stack) = e.item_stack {
             cb.add(stack);
