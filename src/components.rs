@@ -195,6 +195,8 @@ pub struct RangedWeapon {
     pub shredding: bool,
     #[serde(default)]
     pub tachyonic: bool,
+    #[serde(default)]
+    pub element: Option<DamageType>,
 }
 
 impl Default for RangedWeapon {
@@ -210,6 +212,7 @@ impl Default for RangedWeapon {
             scatter: false,
             shredding: false,
             tachyonic: false,
+            element: None,
         }
     }
 }

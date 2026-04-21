@@ -175,6 +175,7 @@ fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
     if let Some(rw) = &raw.ranged_weapon {
         let power_source = rw.power_source().unwrap_or(WeaponPowerSource::Ammo);
         let heat_per_shot = rw.heat_per_shot.unwrap_or(1);
+        let element = rw.element_type().unwrap_or(None);
         cb.add(RangedWeapon {
             range: rw.range,
             range_increment: rw.range_increment,
@@ -186,6 +187,7 @@ fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
             scatter: rw.scatter,
             shredding: rw.shredding,
             tachyonic: rw.tachyonic,
+            element,
         });
         if power_source == WeaponPowerSource::Heat {
             let capacity = rw.heat_capacity.unwrap_or(6);

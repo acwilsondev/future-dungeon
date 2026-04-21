@@ -84,6 +84,8 @@ pub struct RawRangedWeapon {
     pub shredding: bool,
     #[serde(default)]
     pub tachyonic: bool,
+    #[serde(default)]
+    pub element: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for RawRangedWeapon {
@@ -115,6 +117,8 @@ impl<'de> Deserialize<'de> for RawRangedWeapon {
                 shredding: bool,
                 #[serde(default)]
                 tachyonic: bool,
+                #[serde(default)]
+                element: Option<String>,
             },
         }
 
@@ -132,6 +136,7 @@ impl<'de> Deserialize<'de> for RawRangedWeapon {
                 scatter: false,
                 shredding: false,
                 tachyonic: false,
+                element: None,
             },
             Form::Full {
                 range,
@@ -145,6 +150,7 @@ impl<'de> Deserialize<'de> for RawRangedWeapon {
                 scatter,
                 shredding,
                 tachyonic,
+                element,
             } => RawRangedWeapon {
                 range,
                 range_increment,
@@ -157,6 +163,7 @@ impl<'de> Deserialize<'de> for RawRangedWeapon {
                 scatter,
                 shredding,
                 tachyonic,
+                element,
             },
         })
     }
@@ -170,6 +177,13 @@ impl RawRangedWeapon {
             Some("heavy") => Ok(WeaponPowerSource::HeavyAmmo),
             Some("heat") => Ok(WeaponPowerSource::Heat),
             Some(other) => anyhow::bail!("unknown weapon power source: {}", other),
+        }
+    }
+
+    pub fn element_type(&self) -> anyhow::Result<Option<crate::components::DamageType>> {
+        match self.element.as_deref() {
+            None => Ok(None),
+            Some(s) => parse_damage_type(s).map(Some),
         }
     }
 }

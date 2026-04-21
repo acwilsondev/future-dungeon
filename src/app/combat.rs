@@ -40,6 +40,9 @@ pub struct AttackResult {
     /// Set when the firing weapon has the Tachyonic modifier; redirects the
     /// projectile's damage application through the tachyonic absorption path.
     pub tachyonic: bool,
+    /// Elemental damage type tag (Fire/Poison/etc.) for flavor logging and
+    /// future resistance systems.
+    pub element: Option<DamageType>,
 }
 
 impl App {
@@ -218,6 +221,11 @@ impl App {
             confusion,
             shredding: is_ranged && ranged_weapon.map(|rw| rw.shredding).unwrap_or(false),
             tachyonic: is_ranged && ranged_weapon.map(|rw| rw.tachyonic).unwrap_or(false),
+            element: if is_ranged {
+                ranged_weapon.and_then(|rw| rw.element)
+            } else {
+                None
+            },
         }
     }
 
@@ -432,13 +440,23 @@ impl App {
         } else {
             String::new()
         };
+        let element_tag = match res.element {
+            Some(DamageType::Fire) => " (Fire)",
+            Some(DamageType::Poison) => " (Poison)",
+            Some(DamageType::Necrotic) => " (Necrotic)",
+            Some(DamageType::Bludgeoning) => " (Bludgeoning)",
+            Some(DamageType::Slashing) => " (Slashing)",
+            Some(DamageType::Piercing) => " (Piercing)",
+            None => "",
+        };
         self.log.push(format!(
-            "{}{} hits {} for {} damage!{} (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
+            "{}{} hits {} for {} damage!{}{} (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
             crit_str,
             res.attacker_name,
             res.target_name,
             applied,
             aegis_tag,
+            element_tag,
             res.attack_roll,
             res.attack_mod,
             res.dodge_dc,
@@ -447,15 +465,23 @@ impl App {
             res.target_av
         ));
 
+        let flash_color = match res.element {
+            Some(DamageType::Fire) => Color::Rgb(255, 140, 0),
+            Some(DamageType::Poison) => Color::Green,
+            Some(DamageType::Necrotic) => Color::Rgb(120, 30, 120),
+            _ => {
+                if res.critical {
+                    Color::Yellow
+                } else {
+                    Color::Red
+                }
+            }
+        };
         self.effects.push(VisualEffect::Flash {
             x,
             y,
             glyph: if res.critical { '!' } else { '*' },
-            fg: if res.critical {
-                Color::Yellow
-            } else {
-                Color::Red
-            },
+            fg: flash_color,
             bg: None,
             duration: if res.critical { 10 } else { 5 },
         });
@@ -718,6 +744,44 @@ mod tests {
         }
         // Apply it without panicking
         app.apply_attack_result(target, &res, 0, 0);
+    }
+
+    #[test]
+    fn test_elemental_weapon_tags_attack_result_and_log() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 4, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        let weapon = app.world.spawn((
+            Weapon {
+                damage_n_dice: 1,
+                damage_die_type: 6,
+                power_bonus: 0,
+                weight: WeaponWeight::Medium,
+                two_handed: false,
+            },
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 0,
+                element: Some(DamageType::Fire),
+                ..Default::default()
+            },
+        ));
+        // Force a guaranteed hit by giving the attacker +100 to hit via DEX.
+        {
+            let mut attr = app.world.get::<&mut Attributes>(attacker).unwrap();
+            attr.dexterity = 60;
+        }
+        let res = app.resolve_attack(attacker, target, Some(weapon), 0, true);
+        assert_eq!(res.element, Some(DamageType::Fire));
+        if res.hit {
+            app.apply_attack_result(target, &res, 5, 5);
+            assert!(
+                app.log.iter().any(|l| l.contains("(Fire)")),
+                "hit log should carry element tag; log = {:?}",
+                app.log
+            );
+        }
     }
 
     #[test]
