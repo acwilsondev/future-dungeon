@@ -45,10 +45,30 @@ impl App {
                 true
             }
             WeaponPowerSource::HeavyAmmo => {
-                // Fungible Heavy Ammo items are not yet in content; for now treat
-                // absence as "out of ammo" and refuse to fire.
-                self.log.push("Out of heavy ammo.".to_string());
-                false
+                let stack_id = self
+                    .world
+                    .query::<(&HeavyAmmo, &ItemStack, &InBackpack)>()
+                    .iter()
+                    .find(|(_, (_, _, backpack))| backpack.owner == player_id)
+                    .map(|(id, _)| id);
+                let Some(aid) = stack_id else {
+                    self.log.push("Out of heavy ammo.".to_string());
+                    return false;
+                };
+                let new_count = {
+                    let mut stack = self
+                        .world
+                        .get::<&mut ItemStack>(aid)
+                        .expect("stack_id selected with ItemStack");
+                    stack.count = stack.count.saturating_sub(1);
+                    stack.count
+                };
+                if new_count == 0 {
+                    if let Err(e) = self.world.despawn(aid) {
+                        log::error!("Failed to despawn empty heavy-ammo stack: {}", e);
+                    }
+                }
+                true
             }
             WeaponPowerSource::Heat => true,
         }
@@ -892,5 +912,66 @@ mod tests {
         let meter = app.world.get::<&HeatMeter>(carbine).unwrap();
         assert_eq!(meter.current, 0, "reset on vent");
         assert_eq!(meter.venting, 3, "vent triggered");
+    }
+
+    fn spawn_heavy_weapon(app: &mut App, player: hecs::Entity) -> hecs::Entity {
+        app.world.spawn((
+            Item,
+            Name("Heavy Rifle".to_string()),
+            RangedWeapon {
+                range: 8,
+                range_increment: 4,
+                damage_bonus: 1,
+                power_source: WeaponPowerSource::HeavyAmmo,
+                ..Default::default()
+            },
+            InBackpack { owner: player },
+        ))
+    }
+
+    #[test]
+    fn test_heavy_ammo_consumes_one_per_shot() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let rifle = spawn_heavy_weapon(&mut app, player);
+        let stack = app.world.spawn((
+            Item,
+            HeavyAmmo,
+            ItemStack { count: 3 },
+            InBackpack { owner: player },
+        ));
+
+        assert!(app.consume_power(player, rifle));
+        let remaining = app.world.get::<&ItemStack>(stack).unwrap().count;
+        assert_eq!(remaining, 2);
+    }
+
+    #[test]
+    fn test_heavy_ammo_despawns_at_zero() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let rifle = spawn_heavy_weapon(&mut app, player);
+        let stack = app.world.spawn((
+            Item,
+            HeavyAmmo,
+            ItemStack { count: 1 },
+            InBackpack { owner: player },
+        ));
+
+        assert!(app.consume_power(player, rifle));
+        assert!(
+            app.world.get::<&ItemStack>(stack).is_err(),
+            "stack should be despawned at count 0"
+        );
+    }
+
+    #[test]
+    fn test_heavy_ammo_none_aborts_fire() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 10, y: 10 }));
+        let rifle = spawn_heavy_weapon(&mut app, player);
+
+        assert!(!app.consume_power(player, rifle));
+        assert!(app.log.iter().any(|l| l.contains("Out of heavy ammo")));
     }
 }

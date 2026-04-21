@@ -74,6 +74,10 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub heat: Option<HeatMeter>,
     #[serde(default)]
+    pub item_stack: Option<ItemStack>,
+    #[serde(default)]
+    pub is_heavy_ammo: bool,
+    #[serde(default)]
     pub last_hit_by_player: bool,
     #[serde(default)]
     pub is_levitation: bool,

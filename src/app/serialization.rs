@@ -46,6 +46,7 @@ impl App {
             let aegis_drought = self.world.get::<&AegisDrought>(id).ok().map(|a| *a);
             let aegis_boost = self.world.get::<&AegisBoost>(id).ok().map(|a| *a);
             let heat = self.world.get::<&HeatMeter>(id).ok().map(|h| *h);
+            let item_stack = self.world.get::<&ItemStack>(id).ok().map(|s| *s);
 
             self.entities.push(EntitySnapshot {
                 pos,
@@ -85,6 +86,8 @@ impl App {
                 aegis_drought,
                 aegis_boost,
                 heat,
+                item_stack,
+                is_heavy_ammo: self.world.get::<&HeavyAmmo>(id).is_ok(),
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_levitation: self.world.get::<&Levitation>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
@@ -165,6 +168,9 @@ impl App {
         if let Some(heat) = e.heat {
             cb.add(heat);
         }
+        if let Some(stack) = e.item_stack {
+            cb.add(stack);
+        }
     }
 
     fn add_item_components(cb: &mut hecs::EntityBuilder, e: &EntitySnapshot) {
@@ -236,6 +242,9 @@ impl App {
         }
         if e.ammo {
             cb.add(Ammunition);
+        }
+        if e.is_heavy_ammo {
+            cb.add(HeavyAmmo);
         }
         if e.consumable {
             cb.add(Consumable);

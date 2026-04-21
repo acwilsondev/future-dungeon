@@ -226,6 +226,18 @@ pub struct HeatMeter {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ammunition;
 
+/// Fungible Heavy Ammo marker. Heavy-ammo items also carry `ItemStack` so a
+/// single entity can represent N rounds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeavyAmmo;
+
+/// A stackable consumable: one entity represents `count` fungible units.
+/// Consumption decrements `count`; the entity is despawned at 0.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ItemStack {
+    pub count: u32,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AreaOfEffect {
     pub radius: i32,

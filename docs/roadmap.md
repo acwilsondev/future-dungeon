@@ -9,6 +9,8 @@ t = tech debt
 
 - (e) Gunplay **In Progress**
 - (e) Content Pass & Content Manifests
+  - Audit the codebase to make sure we have minimal hardcoding
+  - Define new content with growing lore base
 - (t) Improved Abstractions
 - (e) Advanced AI/Goal-Action-Planning
 - (t) Systems unification
