@@ -427,6 +427,7 @@ mod tests {
                 max_orange: 2,
                 current_purple: 0,
                 max_purple: 0,
+                regen_cooldown: 0,
             },
         ));
         let monster = app.world.spawn((
@@ -467,6 +468,7 @@ mod tests {
                 max_orange: 2,
                 current_purple: 0,
                 max_purple: 0,
+                regen_cooldown: 0,
             },
         ));
         let _monster = app.world.spawn((
@@ -525,6 +527,7 @@ mod tests {
                 max_orange: 2,
                 current_purple: 0,
                 max_purple: 0,
+                regen_cooldown: 0,
             },
         ));
         let heal = Spell {

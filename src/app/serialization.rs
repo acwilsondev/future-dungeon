@@ -45,6 +45,7 @@ impl App {
             let aegis = self.world.get::<&Aegis>(id).ok().map(|a| *a);
             let aegis_drought = self.world.get::<&AegisDrought>(id).ok().map(|a| *a);
             let aegis_boost = self.world.get::<&AegisBoost>(id).ok().map(|a| *a);
+            let mana = self.world.get::<&ManaPool>(id).ok().map(|m| *m);
             let heat = self.world.get::<&HeatMeter>(id).ok().map(|h| *h);
             let shredded = self.world.get::<&Shredded>(id).ok().map(|s| *s);
             let item_stack = self.world.get::<&ItemStack>(id).ok().map(|s| *s);
@@ -86,6 +87,7 @@ impl App {
                 aegis,
                 aegis_drought,
                 aegis_boost,
+                mana,
                 heat,
                 shredded,
                 item_stack,
@@ -166,6 +168,9 @@ impl App {
         }
         if let Some(aegis_boost) = e.aegis_boost {
             cb.add(aegis_boost);
+        }
+        if let Some(mana) = e.mana {
+            cb.add(mana);
         }
         if let Some(heat) = e.heat {
             cb.add(heat);
@@ -388,6 +393,13 @@ mod tests {
                         magnitude: 3,
                         duration: 6,
                     },
+                    ManaPool {
+                        current_orange: 2,
+                        max_orange: 3,
+                        current_purple: 1,
+                        max_purple: 2,
+                        regen_cooldown: 4,
+                    },
                 ),
             )
             .unwrap();
@@ -501,13 +513,15 @@ mod tests {
         assert_eq!(viewshed.visible_tiles, 10);
         assert_eq!(light.remaining_turns, Some(10));
 
-        let mut aegis_query = app2.world.query::<(&Aegis, &AegisDrought, &AegisBoost)>();
-        let (_, (aegis, drought, boost)) = aegis_query.iter().next().unwrap();
+        let mut aegis_query = app2.world.query::<(&Aegis, &AegisDrought, &AegisBoost, &ManaPool)>();
+        let (_, (aegis, drought, boost, pool)) = aegis_query.iter().next().unwrap();
         assert_eq!(aegis.current, 3);
         assert_eq!(aegis.max, 8);
         assert_eq!(drought.duration, 4);
         assert_eq!(boost.magnitude, 3);
         assert_eq!(boost.duration, 6);
+        assert_eq!(pool.current_orange, 2);
+        assert_eq!(pool.regen_cooldown, 4);
 
         // 8. Verify Potion
         let mut potion_query = app2.world.query::<(

@@ -47,28 +47,43 @@ impl App {
         }
 
         let mut light_sources = Vec::new();
+
+        // 1. Static and floor light sources
         for (_id, (pos, light)) in self.world.query::<(&Position, &LightSource)>().iter() {
             light_sources.push((*pos, *light));
         }
 
-        for (pos, light) in light_sources {
-            let idx_source = pos.y as usize * self.map.width as usize + pos.x as usize;
-            self.map.light[idx_source] = (self.map.light[idx_source] + 1.0).min(1.5);
-
-            let fov = field_of_view(Point::new(pos.x, pos.y), light.range, &self.map);
-            for p in fov {
-                if p.x >= 0
-                    && p.x < self.map.width as i32
-                    && p.y >= 0
-                    && p.y < self.map.height as i32
+        // 2. Light sources carried by player
+        if let Some(player_id) = self.get_player_id() {
+            if let Ok(player_pos) = self.world.get::<&Position>(player_id) {
+                for (item_id, (_item, backpack, light)) in
+                    self.world.query::<(&Item, &InBackpack, &LightSource)>().iter()
                 {
-                    let idx = p.y as usize * self.map.width as usize + p.x as usize;
-                    let dist = ((p.x as f32 - pos.x as f32).powi(2)
-                        + (p.y as f32 - pos.y as f32).powi(2))
-                    .sqrt();
-                    let intensity = 1.0 - (dist / light.range as f32);
-                    self.map.light[idx] = (self.map.light[idx] + intensity).min(1.5);
-                    // Can be slightly over-bright
+                    if backpack.owner == player_id {
+                        let needs_equip = self.world.get::<&Equippable>(item_id).is_ok();
+                        let is_equipped = self.world.get::<&Equipped>(item_id).is_ok();
+
+                        if !needs_equip || is_equipped {
+                            light_sources.push((*player_pos, *light));
+                        }
+                    }
+                }
+            }
+        }
+
+        for (pos, light) in light_sources {
+            if let Some(idx_source) = self.map.idx(pos.x, pos.y) {
+                self.map.light[idx_source] = (self.map.light[idx_source] + 1.0).min(1.5);
+
+                let fov = field_of_view(Point::new(pos.x, pos.y), light.range, &self.map);
+                for p in fov {
+                    if let Some(idx) = self.map.idx(p.x as u16, p.y as u16) {
+                        let dist = ((p.x as f32 - pos.x as f32).powi(2)
+                            + (p.y as f32 - pos.y as f32).powi(2))
+                        .sqrt();
+                        let intensity = 1.0 - (dist / light.range as f32);
+                        self.map.light[idx] = (self.map.light[idx] + intensity).min(1.5);
+                    }
                 }
             }
         }
@@ -115,9 +130,9 @@ impl App {
 
                         let idx = (nuy * self.map.width + nux) as usize;
                         let attenuation = if self.map.tiles[idx] == TileType::Wall {
-                            4.0 // Walls muffle sound significantly
+                            4.0
                         } else {
-                            1.1 // Open air attenuation
+                            1.1
                         };
 
                         let next_amount = current_amount - attenuation;
@@ -133,6 +148,7 @@ impl App {
     }
 
     pub fn update_fov(&mut self) {
+        self.update_blocked_and_opaque();
         self.update_lighting();
         self.update_sound();
         let (pos, range) = {
@@ -161,10 +177,13 @@ impl App {
                     + (p.y as f32 - pos.y as f32).powi(2))
                 .sqrt();
 
-                // Visible if within player's sight range AND the tile is lit
-                if dist <= range as f32 && self.map.light[idx] > 0.1 {
-                    self.map.visible[idx] = true;
-                    self.map.revealed[idx] = true;
+                // Visible if within player's sight range OR the tile is lit
+                // We use a broad LOS (fov) of 25 to allow seeing distant lights.
+                if dist <= range as f32 || self.map.light[idx] > 0.4 {
+                    if self.map.light[idx] > 0.1 {
+                        self.map.visible[idx] = true;
+                        self.map.revealed[idx] = true;
+                    }
                 }
             }
         }

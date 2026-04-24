@@ -371,10 +371,10 @@ mod tests {
         assert!(has_longsword, "Missing Longsword");
         assert!(has_shield, "Missing Shield");
         assert!(has_chainmail, "Missing Chainmail");
-        assert_eq!(items_in_backpack, 5, "Should have 5 starting items");
+        assert_eq!(items_in_backpack, 6, "Should have 6 starting items");
         assert_eq!(
-            items_equipped, 3,
-            "Longsword, Torch, Chainmail should be equipped (Shield is in backpack)"
+            items_equipped, 2,
+            "Chainmail and Carbine should be equipped (Carbine unequips Longsword, Shield, and Torch)"
         );
     }
 

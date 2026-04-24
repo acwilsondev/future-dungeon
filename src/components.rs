@@ -500,10 +500,12 @@ pub struct ManaPool {
     pub max_orange: u32,
     pub current_purple: u32,
     pub max_purple: u32,
+    pub regen_cooldown: u32, // turns until next pip
 }
 
 impl ManaPool {
     pub const CAP: u32 = 5;
+    pub const MANA_REGEN_INTERVAL: u32 = 5;
 
     pub fn total_max(&self) -> u32 {
         self.max_orange + self.max_purple

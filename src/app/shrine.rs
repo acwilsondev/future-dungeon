@@ -189,6 +189,7 @@ mod tests {
                 max_orange: 5,
                 current_purple: 0,
                 max_purple: 0,
+                regen_cooldown: 0,
             },
         ));
         let shrine = app.world.spawn((Shrine {

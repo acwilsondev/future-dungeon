@@ -88,7 +88,6 @@ impl App {
         };
         meter.current = meter.current.saturating_add(rw.heat_per_shot * shots);
         if meter.current >= meter.capacity {
-            meter.current = 0;
             meter.venting = if rw.efficient_cooldown { 1 } else { 3 };
             true
         } else {
@@ -438,16 +437,30 @@ impl App {
         }
 
         if let Some(item_id) = ranged_item {
-            let has_ammo = self
-                .world
-                .query::<(&Ammunition, &InBackpack)>()
-                .iter()
-                .any(|(_, (_, backpack))| backpack.owner == player_id);
+            if let Ok(rw) = self.world.get::<&RangedWeapon>(item_id) {
+                let has_ammo = match rw.power_source {
+                    WeaponPowerSource::Ammo => self
+                        .world
+                        .query::<(&Ammunition, &InBackpack)>()
+                        .iter()
+                        .any(|(_, (_, backpack))| backpack.owner == player_id),
+                    WeaponPowerSource::HeavyAmmo => self
+                        .world
+                        .query::<(&HeavyAmmo, &InBackpack)>()
+                        .iter()
+                        .any(|(_, (_, backpack))| backpack.owner == player_id),
+                    WeaponPowerSource::Heat => true,
+                };
 
-            if !has_ammo {
-                self.log
-                    .push("You have no ammunition for this weapon!".to_string());
-                return;
+                if !has_ammo {
+                    let item_name = self.get_item_name(item_id);
+                    let msg = match rw.power_source {
+                        WeaponPowerSource::HeavyAmmo => format!("You have no heavy ammunition for your {}!", item_name),
+                        _ => format!("You have no ammunition for your {}!", item_name),
+                    };
+                    self.log.push(msg);
+                    return;
+                }
             }
 
             if let Ok(player_pos) = self.world.get::<&Position>(player_id) {
@@ -744,7 +757,7 @@ mod tests {
         let vented = app.apply_heat_after_fire(weapon, 1);
         assert!(vented);
         let m = app.world.get::<&HeatMeter>(weapon).unwrap();
-        assert_eq!(m.current, 0);
+        assert_eq!(m.current, 7); // 4 + 3
         assert_eq!(m.venting, 3);
     }
 
@@ -910,7 +923,7 @@ mod tests {
         app.fire_targeting_item();
 
         let meter = app.world.get::<&HeatMeter>(carbine).unwrap();
-        assert_eq!(meter.current, 0, "reset on vent");
+        assert_eq!(meter.current, 3, "stays at capacity on vent");
         assert_eq!(meter.venting, 3, "vent triggered");
     }
 

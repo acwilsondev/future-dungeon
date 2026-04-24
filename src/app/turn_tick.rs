@@ -762,18 +762,24 @@ mod tests {
             },
         ));
         let weapon = app.world.spawn((HeatMeter {
-            current: 0,
+            current: 6,
             capacity: 6,
             venting: 3,
         },));
         app.on_turn_tick();
         let m = app.world.get::<&HeatMeter>(weapon).unwrap();
         assert_eq!(m.venting, 2);
-        assert_eq!(m.current, 0);
+        assert_eq!(m.current, 6); // Remains at 6 while venting
         drop(m);
         app.on_turn_tick();
         app.on_turn_tick();
-        assert_eq!(app.world.get::<&HeatMeter>(weapon).unwrap().venting, 0);
+        {
+            let m = app.world.get::<&HeatMeter>(weapon).unwrap();
+            assert_eq!(m.venting, 0);
+            assert_eq!(m.current, 6); // Still at 6 immediately after vent expires
+        }
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&HeatMeter>(weapon).unwrap().current, 5); // Now it starts cooling
     }
 
     #[test]

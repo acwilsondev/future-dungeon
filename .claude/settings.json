@@ -27,5 +27,84 @@
     ]
   },
   "_generated_by": "delimit_init",
-  "_note": "Edit freely. Delimit will never overwrite this file."
+  "_note": "Edit freely. Delimit will never overwrite this file.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/aaron/.claude/hooks/delimit",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "delimit-cli hook pre-tool $TOOL_NAME"
+          }
+        ],
+        "if": "Edit && (path_matches('**/openapi*') || path_matches('**/swagger*') || path_matches('**/*.yaml') || path_matches('**/*.yml'))"
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "delimit-cli hook pre-commit"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "delimit-cli doctor",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "delimit-cli hook deploy-gate",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "delimit-cli lint \"$DELIMIT_FILE_PATH\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/aaron/.claude/hooks/delimit-stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }

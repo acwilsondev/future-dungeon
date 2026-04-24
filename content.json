@@ -281,7 +281,7 @@
       "name": "Identification Scroll",
       "glyph": "?", "color": [255, 255, 255],
       "price": 20, "ammo": false, "consumable": true,
-      "spawn_chance": 0.3, "min_floor": 1, "max_floor": 999,
+      "spawn_chance": 0.0, "min_floor": 1, "max_floor": 999,
       "obfuscated_name": "Unreadable Scroll", "biomes": null
     },
     {

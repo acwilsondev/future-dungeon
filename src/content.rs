@@ -288,7 +288,7 @@ pub struct Content {
     pub spells: Vec<RawSpell>,
 }
 
-const REQUIRED_ITEMS: &[&str] = &["Amulet of the Ancients", "Identification Scroll"];
+const REQUIRED_ITEMS: &[&str] = &["Amulet of the Ancients"];
 
 impl Content {
     pub fn load_from_str(s: &str) -> anyhow::Result<Self> {

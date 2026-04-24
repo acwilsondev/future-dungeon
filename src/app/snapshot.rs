@@ -72,6 +72,8 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub aegis_boost: Option<AegisBoost>,
     #[serde(default)]
+    pub mana: Option<ManaPool>,
+    #[serde(default)]
     pub heat: Option<HeatMeter>,
     #[serde(default)]
     pub shredded: Option<Shredded>,
