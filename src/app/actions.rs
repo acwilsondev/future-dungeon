@@ -151,7 +151,14 @@ impl App {
                     )
                     .ok();
 
-                let starting_items = ["Chainmail", "Shield", "Torch", "Longsword", "Health Potion"];
+                let starting_items = [
+                    "Chainmail",
+                    "Shield",
+                    "Torch",
+                    "Longsword",
+                    "Carbine",
+                    "Health Potion",
+                ];
                 for item_name in starting_items {
                     if let Some(item_raw) = self
                         .content
@@ -170,6 +177,7 @@ impl App {
                             || item_name == "Shield"
                             || item_name == "Chainmail"
                             || item_name == "Torch"
+                            || item_name == "Carbine"
                         {
                             self.equip_item(item_id);
                         }
@@ -186,6 +194,7 @@ impl App {
                             max_orange: 0,
                             current_purple: 1,
                             max_purple: 1,
+                            regen_cooldown: ManaPool::MANA_REGEN_INTERVAL,
                         },
                         "Venom Dart",
                     )
@@ -197,6 +206,7 @@ impl App {
                             max_orange: 1,
                             current_purple: 0,
                             max_purple: 0,
+                            regen_cooldown: ManaPool::MANA_REGEN_INTERVAL,
                         },
                         "Magic Missile",
                     )
@@ -233,7 +243,13 @@ impl App {
                 }
                 self.world.insert_one(player_id, book).ok();
 
-                let starting_items = ["Leather Armor", "Torch", "Dagger", "Health Potion"];
+                let starting_items = [
+                    "Leather Armor",
+                    "Torch",
+                    "Dagger",
+                    "Service Pistol",
+                    "Health Potion",
+                ];
                 for item_name in starting_items {
                     if let Some(item_raw) = self
                         .content
@@ -248,9 +264,10 @@ impl App {
                             &item_raw,
                         );
                         self.identified_items.insert(item_name.to_string());
-                        if item_name == "Leather Armor"
-                            || item_name == "Dagger"
+                        if item_name == "Dagger"
+                            || item_name == "Leather Armor"
                             || item_name == "Torch"
+                            || item_name == "Service Pistol"
                         {
                             self.equip_item(item_id);
                         }
@@ -507,6 +524,18 @@ mod tests {
         let book = app.world.get::<&Spellbook>(player_id).unwrap();
         assert_eq!(book.spells.len(), 1);
         assert_eq!(book.spells[0].title, "Venom Dart");
+
+        let mut has_pistol = false;
+        for (id, (name, backpack)) in app.world.query::<(&Name, &InBackpack)>().iter() {
+            if backpack.owner == player_id && name.0 == "Service Pistol" {
+                has_pistol = true;
+                assert!(app.world.get::<&Equipped>(id).is_ok());
+            }
+        }
+        assert!(
+            has_pistol,
+            "Nihil Initiate should start with Service Pistol"
+        );
     }
 
     #[test]
@@ -533,5 +562,17 @@ mod tests {
         let book = app.world.get::<&Spellbook>(player_id).unwrap();
         assert_eq!(book.spells.len(), 1);
         assert_eq!(book.spells[0].title, "Magic Missile");
+
+        let mut has_pistol = false;
+        for (id, (name, backpack)) in app.world.query::<(&Name, &InBackpack)>().iter() {
+            if backpack.owner == player_id && name.0 == "Service Pistol" {
+                has_pistol = true;
+                assert!(app.world.get::<&Equipped>(id).is_ok());
+            }
+        }
+        assert!(
+            has_pistol,
+            "Solari Initiate should start with Service Pistol"
+        );
     }
 }

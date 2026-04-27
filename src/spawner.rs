@@ -45,6 +45,7 @@ pub fn spawn_player(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         },
         Perks { traits: Vec::new() },
         Gold { amount: 0 },
+        Aegis { current: 5, max: 5 },
     ))
 }
 
@@ -100,6 +101,7 @@ pub fn spawn_monster(
             range: r as i32,
             range_increment: r as i32,
             damage_bonus: power,
+            ..Default::default()
         });
     }
 
@@ -170,12 +172,31 @@ fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
     if let Some(r) = raw.ranged {
         cb.add(Ranged { range: r });
     }
-    if let Some((r, inc, d)) = raw.ranged_weapon {
+    if let Some(rw) = &raw.ranged_weapon {
+        let power_source = rw.power_source().unwrap_or(WeaponPowerSource::Ammo);
+        let heat_per_shot = rw.heat_per_shot.unwrap_or(1);
+        let element = rw.element_type().unwrap_or(None);
         cb.add(RangedWeapon {
-            range: r,
-            range_increment: inc,
-            damage_bonus: d,
+            range: rw.range,
+            range_increment: rw.range_increment,
+            damage_bonus: rw.damage_bonus,
+            power_source,
+            heat_per_shot,
+            efficient_cooldown: rw.efficient_cooldown,
+            burst_count: rw.burst_count.unwrap_or(1),
+            scatter: rw.scatter,
+            shredding: rw.shredding,
+            tachyonic: rw.tachyonic,
+            element,
         });
+        if power_source == WeaponPowerSource::Heat {
+            let capacity = rw.heat_capacity.unwrap_or(6);
+            cb.add(HeatMeter {
+                current: 0,
+                capacity,
+                venting: 0,
+            });
+        }
     }
     if let Some(r) = raw.aoe {
         cb.add(AreaOfEffect { radius: r });
@@ -191,6 +212,12 @@ fn add_item_components(cb: &mut hecs::EntityBuilder, raw: &RawItem) {
     }
     if raw.ammo {
         cb.add(Ammunition);
+    }
+    if raw.heavy_ammo {
+        cb.add(HeavyAmmo);
+    }
+    if let Some(count) = raw.stack {
+        cb.add(ItemStack { count });
     }
     if raw.consumable {
         cb.add(Consumable);
@@ -294,6 +321,19 @@ pub fn spawn_spore(world: &mut World, x: u16, y: u16) -> hecs::Entity {
             turns: 5,
         },
         Name("Poison Spore".to_string()),
+    ))
+}
+
+pub fn spawn_partial_cover(world: &mut World, x: u16, y: u16) -> hecs::Entity {
+    world.spawn((
+        Position { x, y },
+        Renderable {
+            glyph: '.',
+            fg: Color::Rgb(150, 120, 80),
+        },
+        RenderOrder::Map,
+        PartialCover,
+        Name("Debris".to_string()),
     ))
 }
 

@@ -37,15 +37,32 @@ impl App {
         }
 
         for id in regen_ids {
-            let (orange_deficit, purple_deficit) = {
-                let Ok(pool) = self.world.get::<&ManaPool>(id) else {
+            let (orange_deficit, purple_deficit, should_regen) = {
+                let Ok(mut pool) = self.world.get::<&mut ManaPool>(id) else {
                     continue;
                 };
-                (
-                    pool.max_orange.saturating_sub(pool.current_orange),
-                    pool.max_purple.saturating_sub(pool.current_purple),
-                )
+
+                if pool.regen_cooldown > 0 {
+                    pool.regen_cooldown -= 1;
+                }
+
+                if pool.regen_cooldown == 0 {
+                    // We hit 0, we can regen. Reset cooldown for the NEXT pip.
+                    pool.regen_cooldown = ManaPool::MANA_REGEN_INTERVAL;
+                    (
+                        pool.max_orange.saturating_sub(pool.current_orange),
+                        pool.max_purple.saturating_sub(pool.current_purple),
+                        true,
+                    )
+                } else {
+                    (0, 0, false)
+                }
             };
+
+            if !should_regen {
+                continue;
+            }
+
             let max_deficit = orange_deficit.max(purple_deficit);
             if max_deficit == 0 {
                 continue;
@@ -91,11 +108,13 @@ mod tests {
                 max_orange: 2,
                 current_purple: 0,
                 max_purple: 0,
+                regen_cooldown: 0,
             },
         ));
         app.tick_mana_regen();
         let pool = app.world.get::<&ManaPool>(player).unwrap();
         assert_eq!(pool.current_orange, 1);
+        assert_eq!(pool.regen_cooldown, ManaPool::MANA_REGEN_INTERVAL);
     }
 
     #[test]
@@ -108,6 +127,7 @@ mod tests {
                 max_orange: 3,
                 current_purple: 1,
                 max_purple: 2,
+                regen_cooldown: 0,
             },
         ));
         // Orange deficit=2, purple deficit=1. Should regen orange.
@@ -127,12 +147,15 @@ mod tests {
                 max_orange: 2,
                 current_purple: 0,
                 max_purple: 0,
+                regen_cooldown: 1,
             },
             ManaDrought { duration: 3 },
         ));
+        // Drought freezes cooldown and regen.
         app.tick_mana_regen();
         let pool = app.world.get::<&ManaPool>(player).unwrap();
         assert_eq!(pool.current_orange, 0);
+        assert_eq!(pool.regen_cooldown, 1); // frozen
         let d = app.world.get::<&ManaDrought>(player).unwrap();
         assert_eq!(d.duration, 2);
     }
@@ -157,11 +180,93 @@ mod tests {
                 max_orange: 2,
                 current_purple: 1,
                 max_purple: 1,
+                regen_cooldown: 0,
             },
         ));
         app.tick_mana_regen();
         let pool = app.world.get::<&ManaPool>(player).unwrap();
         assert_eq!(pool.current_orange, 2);
         assert_eq!(pool.current_purple, 1);
+    }
+
+    #[test]
+    fn test_regen_rate_is_one_per_five_turns() {
+        let mut app = setup();
+        let player = app.world.spawn((
+            Player,
+            ManaPool {
+                current_orange: 0,
+                max_orange: 2,
+                current_purple: 0,
+                max_purple: 0,
+                regen_cooldown: 5,
+            },
+        ));
+
+        // 4 ticks: cooldown drops to 1, no regen
+        for _ in 0..4 {
+            app.tick_mana_regen();
+        }
+        {
+            let pool = app.world.get::<&ManaPool>(player).unwrap();
+            assert_eq!(pool.current_orange, 0);
+            assert_eq!(pool.regen_cooldown, 1);
+        }
+
+        // 5th tick: cooldown hits 0, regens 1, resets to 5
+        app.tick_mana_regen();
+        {
+            let pool = app.world.get::<&ManaPool>(player).unwrap();
+            assert_eq!(pool.current_orange, 1);
+            assert_eq!(pool.regen_cooldown, 5);
+        }
+    }
+
+    #[test]
+    fn test_cooldown_persists_across_drought() {
+        let mut app = setup();
+        let player = app.world.spawn((
+            Player,
+            ManaPool {
+                current_orange: 0,
+                max_orange: 2,
+                current_purple: 0,
+                max_purple: 0,
+                regen_cooldown: 2,
+            },
+        ));
+
+        // Apply drought
+        app.world
+            .insert_one(player, ManaDrought { duration: 10 })
+            .unwrap();
+
+        // Tick 10 times - drought should expire, cooldown remains at 2
+        for _ in 0..10 {
+            app.tick_mana_regen();
+        }
+        assert!(app.world.get::<&ManaDrought>(player).is_err());
+        {
+            let pool = app.world.get::<&ManaPool>(player).unwrap();
+            assert_eq!(pool.regen_cooldown, 2);
+        }
+
+        // One more tick: cooldown drops to 1
+        app.tick_mana_regen();
+        assert_eq!(
+            app.world.get::<&ManaPool>(player).unwrap().regen_cooldown,
+            1
+        );
+
+        // Final tick: regen
+        app.tick_mana_regen();
+        assert_eq!(
+            app.world.get::<&ManaPool>(player).unwrap().current_orange,
+            1
+        );
+        assert_eq!(
+            app.world.get::<&ManaPool>(player).unwrap().regen_cooldown,
+            5
+        );
     }
 }

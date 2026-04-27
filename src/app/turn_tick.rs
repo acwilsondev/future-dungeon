@@ -1,4 +1,4 @@
-use crate::app::{App, RunState};
+use crate::app::{App, DamageRoute};
 use crate::components::*;
 use rand::Rng;
 
@@ -16,9 +16,97 @@ impl App {
         self.apply_passive_equipment_effects(player_id);
         self.cleanup_noise();
         self.apply_status_effects(player_id);
+        self.tick_aegis(player_id);
+        self.tick_heat();
+        self.tick_shredded();
         self.tick_mana_regen();
         self.handle_dead_monsters_from_poison();
         self.trim_log();
+    }
+
+    fn tick_heat(&mut self) {
+        for (_id, meter) in self.world.query::<&mut HeatMeter>().iter() {
+            if meter.venting > 0 {
+                meter.venting -= 1;
+            } else {
+                meter.current = meter.current.saturating_sub(1);
+            }
+        }
+    }
+
+    fn tick_shredded(&mut self) {
+        let mut to_remove = Vec::new();
+        for (id, s) in self.world.query::<&mut Shredded>().iter() {
+            if s.decay_timer > 0 {
+                s.decay_timer -= 1;
+            }
+            if s.decay_timer == 0 {
+                s.stacks = s.stacks.saturating_sub(1);
+                if s.stacks == 0 {
+                    to_remove.push(id);
+                } else {
+                    s.decay_timer = SHREDDED_DECAY_INTERVAL;
+                }
+            }
+        }
+        for id in to_remove {
+            self.world.remove_one::<Shredded>(id).ok();
+        }
+    }
+
+    fn tick_aegis(&mut self, player_id: hecs::Entity) {
+        let mut had_drought = Vec::new();
+        for (id, _) in self.world.query::<&AegisDrought>().iter() {
+            had_drought.push(id);
+        }
+
+        let mut drought_to_remove = Vec::new();
+        for (id, drought) in self.world.query::<&mut AegisDrought>().iter() {
+            drought.duration = drought.duration.saturating_sub(1);
+            if drought.duration == 0 {
+                drought_to_remove.push(id);
+            }
+        }
+        for id in &drought_to_remove {
+            self.world.remove_one::<AegisDrought>(*id).ok();
+            if *id == player_id {
+                self.log.push("Your aegis is recharging again.".to_string());
+            }
+        }
+
+        let mut boost_expired = Vec::new();
+        for (id, boost) in self.world.query::<&mut AegisBoost>().iter() {
+            boost.duration = boost.duration.saturating_sub(1);
+            if boost.duration == 0 {
+                boost_expired.push((id, boost.magnitude));
+            }
+        }
+        for (id, magnitude) in boost_expired {
+            if let Ok(mut aegis) = self.world.get::<&mut Aegis>(id) {
+                aegis.max = (aegis.max - magnitude).max(0);
+                aegis.current = aegis.current.min(aegis.max);
+            }
+            self.world.remove_one::<AegisBoost>(id).ok();
+            if id == player_id {
+                self.log
+                    .push("Your temporary aegis boost fades.".to_string());
+            }
+        }
+
+        let mut regen_targets = Vec::new();
+        for (id, _) in self.world.query::<&Aegis>().iter() {
+            if had_drought.contains(&id) {
+                continue;
+            }
+            regen_targets.push(id);
+        }
+        for id in regen_targets {
+            if let Ok(mut aegis) = self.world.get::<&mut Aegis>(id) {
+                if aegis.current < aegis.max {
+                    aegis.current += 1;
+                }
+            }
+        }
     }
 
     fn trim_log(&mut self) {
@@ -189,16 +277,10 @@ impl App {
         }
 
         for (id, damage) in poison_damage {
-            if let Ok(mut stats) = self.world.get::<&mut CombatStats>(id) {
-                stats.hp -= damage;
-                if id == player_id {
-                    self.log
-                        .push(format!("You suffer {} damage from poison!", damage));
-                    if stats.hp <= 0 {
-                        self.death = true;
-                        self.state = RunState::Dead;
-                    }
-                }
+            self.apply_damage(id, damage, DamageRoute::Systemic);
+            if id == player_id {
+                self.log
+                    .push(format!("You suffer {} damage from poison!", damage));
             }
         }
 
@@ -555,5 +637,230 @@ mod tests {
         ));
         app.on_turn_tick();
         assert!(app.world.get::<&Mired>(player).is_err());
+    }
+
+    #[test]
+    fn test_aegis_regens_one_per_turn() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+            Aegis { current: 2, max: 5 },
+        ));
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&Aegis>(player).unwrap().current, 3);
+        app.on_turn_tick();
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&Aegis>(player).unwrap().current, 5);
+        app.on_turn_tick();
+        assert_eq!(
+            app.world.get::<&Aegis>(player).unwrap().current,
+            5,
+            "clamped at max"
+        );
+    }
+
+    #[test]
+    fn test_aegis_drought_blocks_regen_and_expires() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+            Aegis { current: 0, max: 5 },
+            AegisDrought { duration: 2 },
+        ));
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&Aegis>(player).unwrap().current, 0);
+        assert_eq!(app.world.get::<&AegisDrought>(player).unwrap().duration, 1);
+        app.on_turn_tick();
+        assert!(app.world.get::<&AegisDrought>(player).is_err());
+        assert_eq!(
+            app.world.get::<&Aegis>(player).unwrap().current,
+            0,
+            "no regen on expiry tick"
+        );
+        app.on_turn_tick();
+        assert_eq!(
+            app.world.get::<&Aegis>(player).unwrap().current,
+            1,
+            "regen resumes next tick"
+        );
+    }
+
+    #[test]
+    fn test_aegis_boost_expires_and_trims_current_and_max() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+            Aegis { current: 7, max: 7 },
+            AegisBoost {
+                magnitude: 3,
+                duration: 1,
+            },
+        ));
+        app.on_turn_tick();
+        assert!(app.world.get::<&AegisBoost>(player).is_err());
+        let a = app.world.get::<&Aegis>(player).unwrap();
+        assert_eq!(a.max, 4);
+        assert_eq!(a.current, 4);
+    }
+
+    #[test]
+    fn test_heat_passive_cooldown_decrements_when_not_venting() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let weapon = app.world.spawn((HeatMeter {
+            current: 3,
+            capacity: 6,
+            venting: 0,
+        },));
+        app.on_turn_tick();
+        let m = app.world.get::<&HeatMeter>(weapon).unwrap();
+        assert_eq!(m.current, 2);
+        assert_eq!(m.venting, 0);
+    }
+
+    #[test]
+    fn test_heat_venting_decrements_and_skips_cooldown() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let weapon = app.world.spawn((HeatMeter {
+            current: 6,
+            capacity: 6,
+            venting: 3,
+        },));
+        app.on_turn_tick();
+        let m = app.world.get::<&HeatMeter>(weapon).unwrap();
+        assert_eq!(m.venting, 2);
+        assert_eq!(m.current, 6); // Remains at 6 while venting
+        drop(m);
+        app.on_turn_tick();
+        app.on_turn_tick();
+        {
+            let m = app.world.get::<&HeatMeter>(weapon).unwrap();
+            assert_eq!(m.venting, 0);
+            assert_eq!(m.current, 6); // Still at 6 immediately after vent expires
+        }
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&HeatMeter>(weapon).unwrap().current, 5); // Now it starts cooling
+    }
+
+    #[test]
+    fn test_heat_current_floors_at_zero() {
+        let mut app = setup_test_app();
+        let _player = app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ));
+        let weapon = app.world.spawn((HeatMeter {
+            current: 0,
+            capacity: 6,
+            venting: 0,
+        },));
+        app.on_turn_tick();
+        assert_eq!(app.world.get::<&HeatMeter>(weapon).unwrap().current, 0);
+    }
+
+    fn spawn_pl(app: &mut App) -> hecs::Entity {
+        app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 1,
+            },
+        ))
+    }
+
+    #[test]
+    fn test_shredded_decays_one_stack_per_interval() {
+        let mut app = setup_test_app();
+        let _player = spawn_pl(&mut app);
+        let t = app.world.spawn((
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
+            Shredded {
+                stacks: 5,
+                decay_timer: SHREDDED_DECAY_INTERVAL,
+            },
+        ));
+        for _ in 0..SHREDDED_DECAY_INTERVAL {
+            app.on_turn_tick();
+        }
+        let s = app.world.get::<&Shredded>(t).unwrap();
+        assert_eq!(s.stacks, 4);
+        assert_eq!(s.decay_timer, SHREDDED_DECAY_INTERVAL);
+    }
+
+    #[test]
+    fn test_shredded_fully_removed_after_total_decay() {
+        let mut app = setup_test_app();
+        let _player = spawn_pl(&mut app);
+        let t = app.world.spawn((
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
+            Shredded {
+                stacks: 5,
+                decay_timer: SHREDDED_DECAY_INTERVAL,
+            },
+        ));
+        // 5 stacks × 5 turns = 25 turns total decay.
+        for _ in 0..(SHREDDED_DECAY_INTERVAL * 5) {
+            app.on_turn_tick();
+        }
+        assert!(app.world.get::<&Shredded>(t).is_err());
     }
 }

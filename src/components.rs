@@ -155,6 +155,9 @@ pub struct Trap {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PartialCover;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Item;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -165,15 +168,98 @@ pub struct Ranged {
     pub range: i32,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WeaponPowerSource {
+    #[default]
+    Ammo,
+    HeavyAmmo,
+    Heat,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RangedWeapon {
     pub range: i32,
     pub range_increment: i32,
     pub damage_bonus: i32,
+    #[serde(default)]
+    pub power_source: WeaponPowerSource,
+    #[serde(default = "default_heat_per_shot")]
+    pub heat_per_shot: u32,
+    #[serde(default)]
+    pub efficient_cooldown: bool,
+    #[serde(default = "default_burst_count")]
+    pub burst_count: u32,
+    #[serde(default)]
+    pub scatter: bool,
+    #[serde(default)]
+    pub shredding: bool,
+    #[serde(default)]
+    pub tachyonic: bool,
+    #[serde(default)]
+    pub element: Option<DamageType>,
+}
+
+impl Default for RangedWeapon {
+    fn default() -> Self {
+        Self {
+            range: 0,
+            range_increment: 0,
+            damage_bonus: 0,
+            power_source: WeaponPowerSource::Ammo,
+            heat_per_shot: 1,
+            efficient_cooldown: false,
+            burst_count: 1,
+            scatter: false,
+            shredding: false,
+            tachyonic: false,
+            element: None,
+        }
+    }
+}
+
+fn default_heat_per_shot() -> u32 {
+    1
+}
+
+fn default_burst_count() -> u32 {
+    1
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeatMeter {
+    pub current: u32,
+    pub capacity: u32,
+    pub venting: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ammunition;
+
+/// Fungible Heavy Ammo marker. Heavy-ammo items also carry `ItemStack` so a
+/// single entity can represent N rounds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeavyAmmo;
+
+/// A stackable consumable: one entity represents `count` fungible units.
+/// Consumption decrements `count`; the entity is despawned at 0.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ItemStack {
+    pub count: u32,
+}
+
+/// Stackable physical debuff applied by Shredding weapons. Each stack
+/// reduces the target's effective AV by 1 (floored at 0). Stacks decay
+/// one at a time: every `decay_timer` turns without re-application, a
+/// single stack sheds and the timer resets. Any new application resets
+/// the timer to `SHREDDED_DECAY_INTERVAL`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Shredded {
+    pub stacks: u32,
+    pub decay_timer: u32,
+}
+
+pub const SHREDDED_DECAY_INTERVAL: u32 = 5;
+pub const SHREDDED_CAP: u32 = 10;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AreaOfEffect {
@@ -256,6 +342,23 @@ pub struct CombatStats {
     pub hp: i32,
     pub defense: i32,
     pub power: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Aegis {
+    pub current: i32,
+    pub max: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AegisDrought {
+    pub duration: u32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AegisBoost {
+    pub magnitude: i32,
+    pub duration: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -397,10 +500,12 @@ pub struct ManaPool {
     pub max_orange: u32,
     pub current_purple: u32,
     pub max_purple: u32,
+    pub regen_cooldown: u32, // turns until next pip
 }
 
 impl ManaPool {
     pub const CAP: u32 = 5;
+    pub const MANA_REGEN_INTERVAL: u32 = 5;
 
     pub fn total_max(&self) -> u32 {
         self.max_orange + self.max_purple

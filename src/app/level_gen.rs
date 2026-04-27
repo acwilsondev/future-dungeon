@@ -144,6 +144,36 @@ impl App {
                 crate::spawner::spawn_trap(&mut self.world, pos.0, pos.1);
             }
         }
+        self.spawn_partial_cover(mb);
+    }
+
+    fn spawn_partial_cover(&mut self, mb: &MapBuilder) {
+        let reserved: Vec<(u16, u16)> = std::iter::once(mb.player_start)
+            .chain(std::iter::once(mb.stairs_down))
+            .chain(std::iter::once(mb.stairs_up))
+            .chain(mb.stairs_down_alt)
+            .chain(mb.door_spawns.iter().copied())
+            .chain(mb.trap_spawns.iter().copied())
+            .collect();
+
+        // Skip room 0 (player spawn room) to avoid cramping the opening.
+        for room in mb.rooms.iter().skip(1) {
+            if !self.rng.random_bool(0.33) {
+                continue;
+            }
+            let count = self.rng.random_range(1..=3);
+            for _ in 0..count {
+                if room.x2 - room.x1 < 3 || room.y2 - room.y1 < 3 {
+                    break;
+                }
+                let x = self.rng.random_range((room.x1 + 1)..room.x2) as u16;
+                let y = self.rng.random_range((room.y1 + 1)..room.y2) as u16;
+                if reserved.iter().any(|&(rx, ry)| rx == x && ry == y) {
+                    continue;
+                }
+                crate::spawner::spawn_partial_cover(&mut self.world, x, y);
+            }
+        }
     }
 
     fn spawn_monsters(
@@ -341,10 +371,10 @@ mod tests {
         assert!(has_longsword, "Missing Longsword");
         assert!(has_shield, "Missing Shield");
         assert!(has_chainmail, "Missing Chainmail");
-        assert_eq!(items_in_backpack, 5, "Should have 5 starting items");
+        assert_eq!(items_in_backpack, 6, "Should have 6 starting items");
         assert_eq!(
-            items_equipped, 3,
-            "Longsword, Torch, Chainmail should be equipped (Shield is in backpack)"
+            items_equipped, 2,
+            "Chainmail and Carbine should be equipped (Carbine unequips Longsword, Shield, and Torch)"
         );
     }
 

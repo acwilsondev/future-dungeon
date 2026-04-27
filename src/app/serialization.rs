@@ -42,6 +42,13 @@ impl App {
             let cursed = self.world.get::<&Cursed>(id).ok().map(|c| *c);
             let equippable = self.world.get::<&Equippable>(id).ok().map(|e| *e);
             let equipped = self.world.get::<&Equipped>(id).ok().map(|e| *e);
+            let aegis = self.world.get::<&Aegis>(id).ok().map(|a| *a);
+            let aegis_drought = self.world.get::<&AegisDrought>(id).ok().map(|a| *a);
+            let aegis_boost = self.world.get::<&AegisBoost>(id).ok().map(|a| *a);
+            let mana = self.world.get::<&ManaPool>(id).ok().map(|m| *m);
+            let heat = self.world.get::<&HeatMeter>(id).ok().map(|h| *h);
+            let shredded = self.world.get::<&Shredded>(id).ok().map(|s| *s);
+            let item_stack = self.world.get::<&ItemStack>(id).ok().map(|s| *s);
 
             self.entities.push(EntitySnapshot {
                 pos,
@@ -77,6 +84,14 @@ impl App {
                 cursed,
                 equippable,
                 equipped,
+                aegis,
+                aegis_drought,
+                aegis_boost,
+                mana,
+                heat,
+                shredded,
+                item_stack,
+                is_heavy_ammo: self.world.get::<&HeavyAmmo>(id).is_ok(),
                 last_hit_by_player: self.world.get::<&LastHitByPlayer>(id).is_ok(),
                 is_levitation: self.world.get::<&Levitation>(id).is_ok(),
                 is_merchant: self.world.get::<&Merchant>(id).is_ok(),
@@ -86,6 +101,7 @@ impl App {
                 is_player: self.world.get::<&Player>(id).is_ok(),
                 is_monster: self.world.get::<&Monster>(id).is_ok(),
                 is_wisp: self.world.get::<&Wisp>(id).is_ok(),
+                is_partial_cover: self.world.get::<&PartialCover>(id).is_ok(),
                 is_item: self.world.get::<&Item>(id).is_ok(),
                 is_down_stairs: self.world.get::<&DownStairs>(id).is_ok(),
                 is_up_stairs: self.world.get::<&UpStairs>(id).is_ok(),
@@ -143,6 +159,27 @@ impl App {
         }
         if let Some(light_source) = e.light_source {
             cb.add(light_source);
+        }
+        if let Some(aegis) = e.aegis {
+            cb.add(aegis);
+        }
+        if let Some(aegis_drought) = e.aegis_drought {
+            cb.add(aegis_drought);
+        }
+        if let Some(aegis_boost) = e.aegis_boost {
+            cb.add(aegis_boost);
+        }
+        if let Some(mana) = e.mana {
+            cb.add(mana);
+        }
+        if let Some(heat) = e.heat {
+            cb.add(heat);
+        }
+        if let Some(shredded) = e.shredded {
+            cb.add(shredded);
+        }
+        if let Some(stack) = e.item_stack {
+            cb.add(stack);
         }
     }
 
@@ -216,6 +253,9 @@ impl App {
         if e.ammo {
             cb.add(Ammunition);
         }
+        if e.is_heavy_ammo {
+            cb.add(HeavyAmmo);
+        }
         if e.consumable {
             cb.add(Consumable);
         }
@@ -227,6 +267,9 @@ impl App {
         }
         if e.is_wisp {
             cb.add(Wisp);
+        }
+        if e.is_partial_cover {
+            cb.add(PartialCover);
         }
         if e.is_item {
             cb.add(Item);
@@ -340,6 +383,26 @@ mod tests {
                 flicker: true,
             },
         ));
+        app.world
+            .insert(
+                player,
+                (
+                    Aegis { current: 3, max: 8 },
+                    AegisDrought { duration: 4 },
+                    AegisBoost {
+                        magnitude: 3,
+                        duration: 6,
+                    },
+                    ManaPool {
+                        current_orange: 2,
+                        max_orange: 3,
+                        current_purple: 1,
+                        max_purple: 2,
+                        regen_cooldown: 4,
+                    },
+                ),
+            )
+            .unwrap();
 
         // 2. Item 1: Potion
         app.world.spawn((
@@ -390,6 +453,7 @@ mod tests {
                 range: 8,
                 range_increment: 12,
                 damage_bonus: 10,
+                ..Default::default()
             },
             Cursed,
             Equippable {
@@ -449,6 +513,18 @@ mod tests {
         assert_eq!(viewshed.visible_tiles, 10);
         assert_eq!(light.remaining_turns, Some(10));
 
+        let mut aegis_query = app2
+            .world
+            .query::<(&Aegis, &AegisDrought, &AegisBoost, &ManaPool)>();
+        let (_, (aegis, drought, boost, pool)) = aegis_query.iter().next().unwrap();
+        assert_eq!(aegis.current, 3);
+        assert_eq!(aegis.max, 8);
+        assert_eq!(drought.duration, 4);
+        assert_eq!(boost.magnitude, 3);
+        assert_eq!(boost.duration, 6);
+        assert_eq!(pool.current_orange, 2);
+        assert_eq!(pool.regen_cooldown, 4);
+
         // 8. Verify Potion
         let mut potion_query = app2.world.query::<(
             &Potion,
@@ -485,5 +561,33 @@ mod tests {
         assert_eq!(trap.damage, 10);
         assert!(trap.revealed);
         assert_eq!(stairs.destination, (2, Branch::Main));
+    }
+
+    #[test]
+    fn test_partial_cover_round_trip() {
+        let mut app = setup_test_app();
+        app.world.spawn((
+            Player,
+            Position { x: 0, y: 0 },
+            Renderable {
+                glyph: '@',
+                fg: Color::White,
+            },
+            RenderOrder::Player,
+            Name("Hero".to_string()),
+        ));
+        crate::spawner::spawn_partial_cover(&mut app.world, 7, 3);
+
+        app.pack_entities();
+        let mut app2 = App::new_test(42);
+        app2.entities = app.entities.clone();
+        app2.unpack_entities().unwrap();
+
+        let mut cover_query = app2.world.query::<(&Position, &PartialCover)>();
+        let (_, (pos, _)) = cover_query
+            .iter()
+            .next()
+            .expect("PartialCover should survive round-trip");
+        assert_eq!((pos.x, pos.y), (7, 3));
     }
 }

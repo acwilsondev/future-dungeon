@@ -109,16 +109,30 @@ impl App {
             || (self.world.get::<&RangedWeapon>(item_id).is_ok()
                 && self.world.get::<&Equipped>(item_id).is_ok())
         {
-            if self.world.get::<&RangedWeapon>(item_id).is_ok() {
-                // Check for ammo
-                let has_ammo = self
-                    .world
-                    .query::<(&Ammunition, &InBackpack)>()
-                    .iter()
-                    .any(|(_, (_, backpack))| backpack.owner == player_id);
+            if let Ok(rw) = self.world.get::<&RangedWeapon>(item_id) {
+                // Check for correct ammo type based on power source
+                let has_ammo = match rw.power_source {
+                    WeaponPowerSource::Ammo => self
+                        .world
+                        .query::<(&Ammunition, &InBackpack)>()
+                        .iter()
+                        .any(|(_, (_, backpack))| backpack.owner == player_id),
+                    WeaponPowerSource::HeavyAmmo => self
+                        .world
+                        .query::<(&HeavyAmmo, &InBackpack)>()
+                        .iter()
+                        .any(|(_, (_, backpack))| backpack.owner == player_id),
+                    WeaponPowerSource::Heat => true, // Heat based weapons don't need inventory ammo
+                };
+
                 if !has_ammo {
-                    self.log
-                        .push("You have no ammunition for this weapon!".to_string());
+                    let msg = match rw.power_source {
+                        WeaponPowerSource::HeavyAmmo => {
+                            format!("You have no heavy ammunition for your {}!", item_name)
+                        }
+                        _ => format!("You have no ammunition for your {}!", item_name),
+                    };
+                    self.log.push(msg);
                     return;
                 }
             }
@@ -297,6 +311,7 @@ mod tests {
                 range: 8,
                 range_increment: 12,
                 damage_bonus: 2,
+                ..Default::default()
             },
             Equippable {
                 slot: EquipmentSlot::AnyHand,
@@ -313,7 +328,11 @@ mod tests {
 
         // Try using again, now it should check for ammo
         app.use_item(bow);
-        assert!(app.log.last().unwrap().contains("no ammunition"));
+        assert!(app
+            .log
+            .last()
+            .unwrap()
+            .contains("no ammunition for your Bow"));
     }
 
     #[test]

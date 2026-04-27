@@ -40,7 +40,7 @@ impl App {
             },
         };
 
-        self.world.insert_one(player_id, base_attrs).unwrap();
+        self.world.insert_one(player_id, base_attrs).ok();
         self.recalculate_player_max_hp();
         self.log.push(format!(
             "You have {} attribute points to redistribute.",

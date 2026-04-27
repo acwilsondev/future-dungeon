@@ -66,6 +66,22 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub equipped: Option<Equipped>,
     #[serde(default)]
+    pub aegis: Option<Aegis>,
+    #[serde(default)]
+    pub aegis_drought: Option<AegisDrought>,
+    #[serde(default)]
+    pub aegis_boost: Option<AegisBoost>,
+    #[serde(default)]
+    pub mana: Option<ManaPool>,
+    #[serde(default)]
+    pub heat: Option<HeatMeter>,
+    #[serde(default)]
+    pub shredded: Option<Shredded>,
+    #[serde(default)]
+    pub item_stack: Option<ItemStack>,
+    #[serde(default)]
+    pub is_heavy_ammo: bool,
+    #[serde(default)]
     pub last_hit_by_player: bool,
     #[serde(default)]
     pub is_levitation: bool,
@@ -81,6 +97,8 @@ pub struct EntitySnapshot {
     pub is_monster: bool,
     #[serde(default)]
     pub is_wisp: bool,
+    #[serde(default)]
+    pub is_partial_cover: bool,
     #[serde(default)]
     pub is_item: bool,
     #[serde(default)]

@@ -1,11 +1,27 @@
-use crate::app::{App, VisualEffect};
+use crate::app::{App, DamageRoute, VisualEffect};
 use crate::components::*;
+use bracket_pathfinding::prelude::*;
 use rand::Rng;
 use ratatui::prelude::Color;
+
+/// Die-size step-down ladder used by the Scatter weapon modifier. Each range
+/// increment beyond the base range drops the damage die one step along this
+/// ladder; the last entry is the floor.
+const SCATTER_DIE_LADDER: &[i32] = &[12, 10, 8, 6, 4, 2];
+
+fn scatter_step_down(base: i32, steps: u32) -> i32 {
+    let start = SCATTER_DIE_LADDER
+        .iter()
+        .position(|&d| d == base)
+        .unwrap_or(0);
+    let idx = (start + steps as usize).min(SCATTER_DIE_LADDER.len() - 1);
+    SCATTER_DIE_LADDER[idx]
+}
 
 pub struct AttackResult {
     pub hit: bool,
     pub critical: bool,
+    /// Raw pre-mitigation damage. Mitigation (Aegis, AV) is applied in `apply_damage`.
     pub damage: i32,
     pub attacker_name: String,
     pub target_name: String,
@@ -15,8 +31,18 @@ pub struct AttackResult {
     pub damage_dice_roll: i32,
     pub damage_mod: i32,
     pub target_av: i32,
+    pub route: DamageRoute,
     pub poison: Option<Poison>,
     pub confusion: Option<Confusion>,
+    /// Set when the firing weapon has the Shredding modifier; handled by
+    /// `apply_attack_result` on a successful projectile hit.
+    pub shredding: bool,
+    /// Set when the firing weapon has the Tachyonic modifier; redirects the
+    /// projectile's damage application through the tachyonic absorption path.
+    pub tachyonic: bool,
+    /// Elemental damage type tag (Fire/Poison/etc.) for flavor logging and
+    /// future resistance systems.
+    pub element: Option<DamageType>,
 }
 
 impl App {
@@ -72,13 +98,23 @@ impl App {
                     damage_dice = (w.damage_n_dice, w.damage_die_type);
                 }
                 power_bonus = rw.damage_bonus;
-            } else {
-                // Improvised Melee with Ranged Weapon
-                attr_mod = self.get_attribute_modifier(attacker, |a| a.strength);
-                if let Some(w) = weapon {
-                    damage_dice = (w.damage_n_dice, w.damage_die_type);
-                    power_bonus = w.power_bonus;
+            } else if let Some(w) = weapon {
+                // Melee bump with a ranged weapon uses the weapon's melee
+                // profile just like a dedicated melee weapon (weight picks
+                // STR vs DEX; two-handed grants 1.5× attr_mod).
+                attr_mod = match w.weight {
+                    WeaponWeight::Light => self.get_dex_modifier(attacker),
+                    _ => self.get_attribute_modifier(attacker, |a| a.strength),
+                };
+                if w.two_handed {
+                    attr_mod = (attr_mod as f32 * 1.5) as i32;
                 }
+                damage_dice = (w.damage_n_dice, w.damage_die_type);
+                power_bonus = w.power_bonus;
+            } else {
+                // Fallback: ranged weapon with no Weapon profile. Treat as
+                // an unarmed-style 1d4 STR strike.
+                attr_mod = self.get_attribute_modifier(attacker, |a| a.strength);
             }
         } else if let Some(w) = weapon {
             // Melee Attack with non-ranged weapon
@@ -109,9 +145,12 @@ impl App {
         let mut hit = false;
         let mut critical = false;
 
-        // Target Dodge DC (10 + capped DEX mod)
+        // Target Dodge DC (10 + capped DEX mod, +2 if ranged and partial cover intervenes)
         let target_dex_mod = self.get_dex_modifier(target);
-        let dodge_dc = 10 + target_dex_mod;
+        let mut dodge_dc = 10 + target_dex_mod;
+        if is_ranged && self.has_partial_cover_between(attacker, target) {
+            dodge_dc += 2;
+        }
 
         if roll == 20 {
             hit = true;
@@ -122,7 +161,7 @@ impl App {
             hit = true;
         }
 
-        // 3. Damage Calculation
+        // 3. Damage Calculation (raw — mitigation happens in apply_damage)
         let mut damage = 0;
         let mut weapon_roll = 0;
         let mut target_av = 0;
@@ -130,6 +169,21 @@ impl App {
         let mut confusion = None;
 
         if hit {
+            // Scatter: step the damage die down one rung per range increment
+            // past the base range. Replaces the disadvantage penalty for
+            // scatter weapons (disadvantage is zeroed at the call site).
+            if is_ranged {
+                if let Some(rw) = ranged_weapon {
+                    if rw.scatter {
+                        let dist = self.attack_distance(attacker, target);
+                        if dist > rw.range && rw.range_increment > 0 {
+                            let steps = ((dist - rw.range) / rw.range_increment) as u32 + 1;
+                            damage_dice.1 = scatter_step_down(damage_dice.1, steps);
+                        }
+                    }
+                }
+            }
+
             let mut n_dice = damage_dice.0;
             if critical {
                 n_dice *= 2;
@@ -139,9 +193,8 @@ impl App {
             }
 
             target_av = self.get_target_av(target);
-            damage = (weapon_roll + attr_mod + power_bonus - target_av).max(1);
+            damage = (weapon_roll + attr_mod + power_bonus).max(0);
 
-            // Check for status effects
             let effect_source = weapon_entity.unwrap_or(attacker);
             poison = self.world.get::<&Poison>(effect_source).ok().map(|p| *p);
             confusion = self.world.get::<&Confusion>(effect_source).ok().map(|c| *c);
@@ -159,8 +212,20 @@ impl App {
             damage_dice_roll: weapon_roll,
             damage_mod: attr_mod + power_bonus,
             target_av,
+            route: if is_ranged {
+                DamageRoute::Projectile
+            } else {
+                DamageRoute::Contact
+            },
             poison,
             confusion,
+            shredding: is_ranged && ranged_weapon.map(|rw| rw.shredding).unwrap_or(false),
+            tachyonic: is_ranged && ranged_weapon.map(|rw| rw.tachyonic).unwrap_or(false),
+            element: if is_ranged {
+                ranged_weapon.and_then(|rw| rw.element)
+            } else {
+                None
+            },
         }
     }
 
@@ -237,6 +302,20 @@ impl App {
         None
     }
 
+    /// Euclidean (floor) distance between two entities' positions. Returns 0
+    /// if either lacks a `Position`.
+    fn attack_distance(&self, a: hecs::Entity, b: hecs::Entity) -> i32 {
+        let Ok(ap) = self.world.get::<&Position>(a) else {
+            return 0;
+        };
+        let Ok(bp) = self.world.get::<&Position>(b) else {
+            return 0;
+        };
+        let dx = ap.x as f32 - bp.x as f32;
+        let dy = ap.y as f32 - bp.y as f32;
+        (dx * dx + dy * dy).sqrt() as i32
+    }
+
     pub fn get_dex_modifier(&self, entity: hecs::Entity) -> i32 {
         let mut m = self.get_attribute_modifier(entity, |a| a.dexterity);
         if let Some(limit) = self.get_max_dex_bonus(entity) {
@@ -256,6 +335,47 @@ impl App {
         }
     }
 
+    /// Returns true if partial cover intervenes between attacker and target:
+    /// either on the target's own tile or on the tile immediately before it
+    /// along the Bresenham line from attacker to target.
+    pub fn has_partial_cover_between(&self, attacker: hecs::Entity, target: hecs::Entity) -> bool {
+        let Ok(a_pos) = self.world.get::<&Position>(attacker) else {
+            return false;
+        };
+        let Ok(t_pos) = self.world.get::<&Position>(target) else {
+            return false;
+        };
+        let (ax, ay) = (a_pos.x, a_pos.y);
+        let (tx, ty) = (t_pos.x, t_pos.y);
+        drop(a_pos);
+        drop(t_pos);
+
+        if ax == tx && ay == ty {
+            return self.tile_has_partial_cover(tx, ty);
+        }
+
+        let points = line2d(LineAlg::Bresenham, Point::new(ax, ay), Point::new(tx, ty));
+        if points.len() < 2 {
+            return self.tile_has_partial_cover(tx, ty);
+        }
+
+        // Target tile always qualifies; penultimate tile on the line also qualifies.
+        if self.tile_has_partial_cover(tx, ty) {
+            return true;
+        }
+        let penult = points[points.len() - 2];
+        self.tile_has_partial_cover(penult.x as u16, penult.y as u16)
+    }
+
+    fn tile_has_partial_cover(&self, x: u16, y: u16) -> bool {
+        for (_id, (pos, _cover)) in self.world.query::<(&Position, &PartialCover)>().iter() {
+            if pos.x == x && pos.y == y {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn get_target_av(&self, entity: hecs::Entity) -> i32 {
         let mut def = self
             .world
@@ -270,6 +390,9 @@ impl App {
                     def += armor.defense_bonus;
                 }
             }
+        }
+        if let Ok(s) = self.world.get::<&Shredded>(entity) {
+            def = (def - s.stacks as i32).max(0);
         }
         def
     }
@@ -300,13 +423,40 @@ impl App {
             return;
         }
 
+        let outcome = if res.tachyonic && matches!(res.route, DamageRoute::Projectile) {
+            self.apply_projectile_tachyonic(target, res.damage)
+        } else {
+            self.apply_damage(target, res.damage, res.route)
+        };
+
+        if res.shredding && res.damage > 0 {
+            self.apply_shredded(target, 1);
+        }
+
         let crit_str = if res.critical { "CRITICAL HIT! " } else { "" };
+        let applied = outcome.hp_damage + outcome.aegis_damage;
+        let aegis_tag = if outcome.aegis_damage > 0 {
+            format!(" [{} to Aegis]", outcome.aegis_damage)
+        } else {
+            String::new()
+        };
+        let element_tag = match res.element {
+            Some(DamageType::Fire) => " (Fire)",
+            Some(DamageType::Poison) => " (Poison)",
+            Some(DamageType::Necrotic) => " (Necrotic)",
+            Some(DamageType::Bludgeoning) => " (Bludgeoning)",
+            Some(DamageType::Slashing) => " (Slashing)",
+            Some(DamageType::Piercing) => " (Piercing)",
+            None => "",
+        };
         self.log.push(format!(
-            "{}{} hits {} for {} damage! (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
+            "{}{} hits {} for {} damage!{}{} (Roll:{}+{} vs DC:{}, Dmg:{}+{} DR:{})",
             crit_str,
             res.attacker_name,
             res.target_name,
-            res.damage,
+            applied,
+            aegis_tag,
+            element_tag,
             res.attack_roll,
             res.attack_mod,
             res.dodge_dc,
@@ -315,27 +465,31 @@ impl App {
             res.target_av
         ));
 
+        let flash_color = match res.element {
+            Some(DamageType::Fire) => Color::Rgb(255, 140, 0),
+            Some(DamageType::Poison) => Color::Green,
+            Some(DamageType::Necrotic) => Color::Rgb(120, 30, 120),
+            _ => {
+                if res.critical {
+                    Color::Yellow
+                } else {
+                    Color::Red
+                }
+            }
+        };
         self.effects.push(VisualEffect::Flash {
             x,
             y,
             glyph: if res.critical { '!' } else { '*' },
-            fg: if res.critical {
-                Color::Yellow
-            } else {
-                Color::Red
-            },
+            fg: flash_color,
             bg: None,
             duration: if res.critical { 10 } else { 5 },
         });
 
-        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(target) {
-            let is_player = self.world.get::<&Player>(target).is_ok();
-            if !is_player || !self.god_mode {
-                stats.hp -= res.damage;
-            } else {
-                self.log
-                    .push("Debug: Player is in God Mode! No damage taken.".to_string());
-            }
+        let is_player_god = self.world.get::<&Player>(target).is_ok() && self.god_mode;
+        if is_player_god && res.damage > 0 {
+            self.log
+                .push("Debug: Player is in God Mode! No damage taken.".to_string());
         }
 
         // Apply status effects
@@ -472,6 +626,79 @@ mod tests {
         }
     }
 
+    fn spawn_cover(app: &mut App, x: u16, y: u16) {
+        app.world
+            .spawn((Position { x, y }, PartialCover, Name("Debris".to_string())));
+    }
+
+    fn spawn_plain_fighter(app: &mut App, name: &str, x: u16, y: u16) -> hecs::Entity {
+        app.world.spawn((
+            Name(name.to_string()),
+            Position { x, y },
+            Attributes {
+                strength: 10,
+                dexterity: 10,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+            CombatStats {
+                hp: 10,
+                max_hp: 10,
+                defense: 0,
+                power: 0,
+            },
+        ))
+    }
+
+    #[test]
+    fn test_partial_cover_raises_ranged_dodge_dc() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 1, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        // Cover on the penultimate tile between attacker and target
+        spawn_cover(&mut app, 4, 5);
+
+        let res = app.resolve_attack(attacker, target, None, 0, true);
+        assert_eq!(res.dodge_dc, 12, "partial cover should add +2 to dodge DC");
+    }
+
+    #[test]
+    fn test_partial_cover_on_target_tile_raises_dodge_dc() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 1, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        // Cover on target's own tile also qualifies
+        spawn_cover(&mut app, 5, 5);
+
+        let res = app.resolve_attack(attacker, target, None, 0, true);
+        assert_eq!(res.dodge_dc, 12);
+    }
+
+    #[test]
+    fn test_partial_cover_on_far_side_gives_no_bonus() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 1, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        // Cover on the far side of target — not between attacker and target
+        spawn_cover(&mut app, 6, 5);
+
+        let res = app.resolve_attack(attacker, target, None, 0, true);
+        assert_eq!(res.dodge_dc, 10, "cover beyond target should not add DC");
+    }
+
+    #[test]
+    fn test_partial_cover_ignored_for_melee() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Bumper", 4, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        spawn_cover(&mut app, 4, 5);
+
+        let res = app.resolve_attack(attacker, target, None, 0, false);
+        assert_eq!(res.dodge_dc, 10, "melee attacks ignore partial cover");
+    }
+
     #[test]
     fn test_overkill_damage_does_not_panic() {
         let mut app = setup_test_app();
@@ -517,5 +744,182 @@ mod tests {
         }
         // Apply it without panicking
         app.apply_attack_result(target, &res, 0, 0);
+    }
+
+    #[test]
+    fn test_elemental_weapon_tags_attack_result_and_log() {
+        let mut app = setup_test_app();
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 4, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        let weapon = app.world.spawn((
+            Weapon {
+                damage_n_dice: 1,
+                damage_die_type: 6,
+                power_bonus: 0,
+                weight: WeaponWeight::Medium,
+                two_handed: false,
+            },
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 0,
+                element: Some(DamageType::Fire),
+                ..Default::default()
+            },
+        ));
+        // Force a guaranteed hit by giving the attacker +100 to hit via DEX.
+        {
+            let mut attr = app.world.get::<&mut Attributes>(attacker).unwrap();
+            attr.dexterity = 60;
+        }
+        let res = app.resolve_attack(attacker, target, Some(weapon), 0, true);
+        assert_eq!(res.element, Some(DamageType::Fire));
+        if res.hit {
+            app.apply_attack_result(target, &res, 5, 5);
+            assert!(
+                app.log.iter().any(|l| l.contains("(Fire)")),
+                "hit log should carry element tag; log = {:?}",
+                app.log
+            );
+        }
+    }
+
+    #[test]
+    fn test_melee_bump_with_light_ranged_weapon_uses_dex() {
+        let mut app = setup_test_app();
+        // High DEX, low STR — light ranged weapon bump should pick DEX.
+        let attacker = app.world.spawn((
+            Name("Gunslinger".to_string()),
+            Position { x: 4, y: 5 },
+            Attributes {
+                strength: 8,
+                dexterity: 18,
+                constitution: 10,
+                intelligence: 10,
+                wisdom: 10,
+                charisma: 10,
+            },
+        ));
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        let pistol = app.world.spawn((
+            Weapon {
+                damage_n_dice: 1,
+                damage_die_type: 4,
+                power_bonus: 0,
+                weight: WeaponWeight::Light,
+                two_handed: false,
+            },
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 0,
+                ..Default::default()
+            },
+        ));
+        let res = app.resolve_attack(attacker, target, Some(pistol), 0, false);
+        assert_eq!(
+            res.attack_mod, 4,
+            "light ranged weapon bump should use DEX +4"
+        );
+    }
+
+    #[test]
+    fn test_scatter_step_down_ladder() {
+        // d12 → d10 → d8 → d6 → d4 → d2 (floor)
+        assert_eq!(scatter_step_down(12, 0), 12);
+        assert_eq!(scatter_step_down(12, 1), 10);
+        assert_eq!(scatter_step_down(12, 3), 6);
+        assert_eq!(scatter_step_down(12, 5), 2);
+        assert_eq!(scatter_step_down(12, 99), 2, "floor at d2");
+        assert_eq!(scatter_step_down(8, 1), 6, "step from mid-ladder die");
+    }
+
+    #[test]
+    fn test_scatter_weapon_steps_die_down_with_range() {
+        let mut app = setup_test_app();
+        // Shooter at (1,5), target at (5,5): dist ≈ 4.
+        // weapon: range=1, range_increment=1 → steps = (4-1)/1 + 1 = 4.
+        // Base d12 stepped 4 times → d4.
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 1, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        // Give target 1000 HP so it never dies, and 0 AV.
+        {
+            let mut stats = app.world.get::<&mut CombatStats>(target).unwrap();
+            stats.hp = 1000;
+            stats.max_hp = 1000;
+        }
+        let weapon = app.world.spawn((
+            Name("Scattergun".to_string()),
+            Weapon {
+                damage_n_dice: 1,
+                damage_die_type: 12,
+                power_bonus: 0,
+                weight: WeaponWeight::Medium,
+                two_handed: false,
+            },
+            RangedWeapon {
+                range: 1,
+                range_increment: 1,
+                damage_bonus: 0,
+                scatter: true,
+                ..Default::default()
+            },
+        ));
+
+        let mut max_hit_roll = 0;
+        for _ in 0..200 {
+            let res = app.resolve_attack(attacker, target, Some(weapon), 0, true);
+            if res.hit && !res.critical {
+                max_hit_roll = max_hit_roll.max(res.damage_dice_roll);
+            }
+        }
+        assert!(
+            max_hit_roll <= 4,
+            "scatter at 4 steps should cap roll at d4 (got max {})",
+            max_hit_roll
+        );
+    }
+
+    #[test]
+    fn test_scatter_weapon_within_base_range_keeps_base_die() {
+        let mut app = setup_test_app();
+        // Shooter adjacent to target: dist 1, range 6 → no step-down.
+        let attacker = spawn_plain_fighter(&mut app, "Shooter", 4, 5);
+        let target = spawn_plain_fighter(&mut app, "Target", 5, 5);
+        {
+            let mut stats = app.world.get::<&mut CombatStats>(target).unwrap();
+            stats.hp = 1000;
+            stats.max_hp = 1000;
+        }
+        let weapon = app.world.spawn((
+            Name("Scattergun".to_string()),
+            Weapon {
+                damage_n_dice: 1,
+                damage_die_type: 12,
+                power_bonus: 0,
+                weight: WeaponWeight::Medium,
+                two_handed: false,
+            },
+            RangedWeapon {
+                range: 6,
+                range_increment: 4,
+                damage_bonus: 0,
+                scatter: true,
+                ..Default::default()
+            },
+        ));
+
+        let mut max_hit_roll = 0;
+        for _ in 0..200 {
+            let res = app.resolve_attack(attacker, target, Some(weapon), 0, true);
+            if res.hit && !res.critical {
+                max_hit_roll = max_hit_roll.max(res.damage_dice_roll);
+            }
+        }
+        assert!(
+            max_hit_roll > 4,
+            "within base range scatter should roll full d12 (got max {})",
+            max_hit_roll
+        );
     }
 }

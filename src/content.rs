@@ -59,6 +59,135 @@ pub struct RawArmor {
     pub max_dex_bonus: Option<i32>,
 }
 
+/// Struct form of a ranged weapon in `content.json`. Accepts either the
+/// legacy 3-tuple `[range, increment, damage_bonus]` via a custom
+/// deserializer, or the struct form with optional power-source / heat
+/// fields introduced in v0.9-gunplay.
+#[derive(Serialize, Clone, Debug)]
+pub struct RawRangedWeapon {
+    pub range: i32,
+    pub range_increment: i32,
+    pub damage_bonus: i32,
+    #[serde(default)]
+    pub power_source: Option<String>,
+    #[serde(default)]
+    pub heat_capacity: Option<u32>,
+    #[serde(default)]
+    pub heat_per_shot: Option<u32>,
+    #[serde(default)]
+    pub efficient_cooldown: bool,
+    #[serde(default)]
+    pub burst_count: Option<u32>,
+    #[serde(default)]
+    pub scatter: bool,
+    #[serde(default)]
+    pub shredding: bool,
+    #[serde(default)]
+    pub tachyonic: bool,
+    #[serde(default)]
+    pub element: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for RawRangedWeapon {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Form {
+            Tuple(i32, i32, i32),
+            Full {
+                range: i32,
+                range_increment: i32,
+                damage_bonus: i32,
+                #[serde(default)]
+                power_source: Option<String>,
+                #[serde(default)]
+                heat_capacity: Option<u32>,
+                #[serde(default)]
+                heat_per_shot: Option<u32>,
+                #[serde(default)]
+                efficient_cooldown: bool,
+                #[serde(default)]
+                burst_count: Option<u32>,
+                #[serde(default)]
+                scatter: bool,
+                #[serde(default)]
+                shredding: bool,
+                #[serde(default)]
+                tachyonic: bool,
+                #[serde(default)]
+                element: Option<String>,
+            },
+        }
+
+        let form = Form::deserialize(deserializer)?;
+        Ok(match form {
+            Form::Tuple(range, range_increment, damage_bonus) => RawRangedWeapon {
+                range,
+                range_increment,
+                damage_bonus,
+                power_source: None,
+                heat_capacity: None,
+                heat_per_shot: None,
+                efficient_cooldown: false,
+                burst_count: None,
+                scatter: false,
+                shredding: false,
+                tachyonic: false,
+                element: None,
+            },
+            Form::Full {
+                range,
+                range_increment,
+                damage_bonus,
+                power_source,
+                heat_capacity,
+                heat_per_shot,
+                efficient_cooldown,
+                burst_count,
+                scatter,
+                shredding,
+                tachyonic,
+                element,
+            } => RawRangedWeapon {
+                range,
+                range_increment,
+                damage_bonus,
+                power_source,
+                heat_capacity,
+                heat_per_shot,
+                efficient_cooldown,
+                burst_count,
+                scatter,
+                shredding,
+                tachyonic,
+                element,
+            },
+        })
+    }
+}
+
+impl RawRangedWeapon {
+    pub fn power_source(&self) -> anyhow::Result<crate::components::WeaponPowerSource> {
+        use crate::components::WeaponPowerSource;
+        match self.power_source.as_deref() {
+            None | Some("ammo") => Ok(WeaponPowerSource::Ammo),
+            Some("heavy") => Ok(WeaponPowerSource::HeavyAmmo),
+            Some("heat") => Ok(WeaponPowerSource::Heat),
+            Some(other) => anyhow::bail!("unknown weapon power source: {}", other),
+        }
+    }
+
+    pub fn element_type(&self) -> anyhow::Result<Option<crate::components::DamageType>> {
+        match self.element.as_deref() {
+            None => Ok(None),
+            Some(s) => parse_damage_type(s).map(Some),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct RawItem {
     pub name: String,
@@ -72,7 +201,7 @@ pub struct RawItem {
     pub weapon: Option<RawWeapon>,
     pub armor: Option<RawArmor>,
     pub ranged: Option<i32>,
-    pub ranged_weapon: Option<(i32, i32, i32)>,
+    pub ranged_weapon: Option<RawRangedWeapon>,
     pub aoe: Option<i32>,
     pub confusion: Option<i32>,
     pub poison: Option<(i32, i32)>,
@@ -88,6 +217,10 @@ pub struct RawItem {
     pub levitation: bool,
     #[serde(default)]
     pub regeneration: bool,
+    #[serde(default)]
+    pub heavy_ammo: bool,
+    #[serde(default)]
+    pub stack: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -155,7 +288,7 @@ pub struct Content {
     pub spells: Vec<RawSpell>,
 }
 
-const REQUIRED_ITEMS: &[&str] = &["Amulet of the Ancients", "Identification Scroll"];
+const REQUIRED_ITEMS: &[&str] = &["Amulet of the Ancients"];
 
 impl Content {
     pub fn load_from_str(s: &str) -> anyhow::Result<Self> {
@@ -543,5 +676,71 @@ mod tests {
         raw.mana_cost.orange = 0;
         raw.mana_cost.purple = 0;
         assert!(raw.bake().is_err());
+    }
+
+    #[test]
+    fn test_live_content_v09_weapons() {
+        use crate::components::WeaponPowerSource;
+        let content =
+            Content::load_from_path("content.json").expect("content.json must load cleanly");
+        let find = |name: &str| {
+            content
+                .items
+                .iter()
+                .find(|i| i.name == name)
+                .unwrap_or_else(|| panic!("missing item: {name}"))
+        };
+
+        // Scattergun — Scatter, Heat.
+        let rw = find("Scattergun")
+            .ranged_weapon
+            .as_ref()
+            .expect("Scattergun ranged_weapon");
+        assert!(rw.scatter, "Scattergun must have scatter flag");
+        assert_eq!(rw.power_source().unwrap(), WeaponPowerSource::Heat);
+
+        // Carbine — Burst 3, Heat.
+        let rw = find("Carbine")
+            .ranged_weapon
+            .as_ref()
+            .expect("Carbine ranged_weapon");
+        assert_eq!(rw.burst_count, Some(3));
+        assert_eq!(rw.power_source().unwrap(), WeaponPowerSource::Heat);
+
+        // Heavy Rifle — Shredding, HeavyAmmo.
+        let rw = find("Heavy Rifle")
+            .ranged_weapon
+            .as_ref()
+            .expect("Heavy Rifle ranged_weapon");
+        assert!(rw.shredding);
+        assert_eq!(rw.power_source().unwrap(), WeaponPowerSource::HeavyAmmo);
+
+        // Tachyon Lance — Tachyonic + Efficient Cooldown, Heat.
+        let rw = find("Tachyon Lance")
+            .ranged_weapon
+            .as_ref()
+            .expect("Tachyon Lance ranged_weapon");
+        assert!(rw.tachyonic);
+        assert!(rw.efficient_cooldown);
+        assert_eq!(rw.power_source().unwrap(), WeaponPowerSource::Heat);
+
+        // Phoenix Repeater — Elemental: Fire, Heat.
+        let rw = find("Phoenix Repeater")
+            .ranged_weapon
+            .as_ref()
+            .expect("Phoenix Repeater ranged_weapon");
+        assert_eq!(rw.element_type().unwrap(), Some(DamageType::Fire));
+
+        // Monk's Crook — Medium melee profile, Heat.
+        let crook = find("Monk's Crook");
+        let w = crook.weapon.as_ref().expect("Monk's Crook weapon profile");
+        assert_eq!(w.weight, crate::components::WeaponWeight::Medium);
+        assert!(crook.ranged_weapon.is_some());
+
+        // Heavy Ammo — heavy_ammo marker and stack count.
+        let ammo = find("Heavy Ammo");
+        assert!(ammo.heavy_ammo, "Heavy Ammo must carry heavy_ammo marker");
+        assert!(ammo.stack.is_some(), "Heavy Ammo must define a stack count");
+        assert!(ammo.consumable, "Heavy Ammo must be consumable");
     }
 }

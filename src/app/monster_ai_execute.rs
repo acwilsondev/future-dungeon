@@ -286,6 +286,7 @@ mod tests {
                 range: 8,
                 range_increment: 12,
                 damage_bonus: 4,
+                ..Default::default()
             },
             CombatStats {
                 hp: 10,

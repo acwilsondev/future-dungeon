@@ -1,4 +1,4 @@
-use crate::app::{App, RunState};
+use crate::app::{App, DamageRoute, RunState};
 use crate::components::*;
 use rand::Rng;
 
@@ -185,13 +185,7 @@ impl App {
             } else {
                 self.log
                     .push(format!("A trap deals {} damage to you!", total_damage));
-                if let Ok(mut player_stats) = self.world.get::<&mut CombatStats>(player_id) {
-                    player_stats.hp -= total_damage;
-                    if player_stats.hp <= 0 {
-                        self.death = true;
-                        self.state = RunState::Dead;
-                    }
-                }
+                self.apply_damage(player_id, total_damage, DamageRoute::Contact);
             }
         }
 
@@ -640,6 +634,7 @@ mod tests {
                 max_orange: 1,
                 current_purple: 1,
                 max_purple: 1,
+                regen_cooldown: 0,
             },
         ));
         let shrine = app.world.spawn((

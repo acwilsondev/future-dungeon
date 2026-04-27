@@ -110,6 +110,7 @@ mod tests {
                 max_orange: 2,
                 current_purple: 0,
                 max_purple: 0,
+                regen_cooldown: 0,
             },
         ));
         let monster = app.world.spawn((
@@ -160,6 +161,7 @@ mod tests {
                 max_orange: 2,
                 current_purple: 0,
                 max_purple: 0,
+                regen_cooldown: 0,
             },
             ManaDrought { duration: 2 },
         ));
@@ -186,6 +188,7 @@ mod tests {
                 max_orange: 0,
                 current_purple: 2,
                 max_purple: 2,
+                regen_cooldown: 0,
             },
         ));
         let m1 = app.world.spawn((

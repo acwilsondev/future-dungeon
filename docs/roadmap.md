@@ -7,9 +7,15 @@ This document outlines planned initiatives.
 e = enhancement
 t = tech debt
 
-- (e) Content Pass
+- (e) Gunplay **In Progress**
+- (e) Content Pass & Content Manifests
+  - Audit the codebase to make sure we have minimal hardcoding
+  - Define new content with growing lore base
 - (t) Improved Abstractions
 - (e) Advanced AI/Goal-Action-Planning
+- (t) Systems unification
+  - In particular, we want all creatures to leverage the general set of
+    components that the player gets.
 - (e) Lore
   - Solari/Nihil lore is dropped when the player gains a mana pip for the
     respective faction. It takes the form of a narrative, biased story.
@@ -23,6 +29,7 @@ t = tech debt
 - (e) Faction Improvements
 - (t) Save File Improvements
 - (e) Dungeon Features
+- (e) Summonables
 - (e) Portals & Shafts (Chutes & Ladders)
 - (e) Hidden Side Levels
 - (e) Hidden Dungeon Features
@@ -37,6 +44,10 @@ t = tech debt
 These features are good ideas but not on the roadmap yet.
 
 - Corpses
+- Money changes
+  - "Gold" -> "Glint"
+  - Money should just be a thing in the inventory, not a stat
+  - Money should not be picked up automatically
 - Inspect items/creatures with a Look action.
 - Game should log when you step on an item or dungeon feature.
 - Combat log should be state when an offhand attack is made.

@@ -17,10 +17,10 @@ Not comprehensive:
 * **Weight:** Firearms have light, medium, heavy weights, just as melee weapons.
 * **Burst N:** Some weapons are burst-fire and make N attack roles per "attack". Each attack after the first takes an additional disadvantage roll.
 * **Scatter:** A Scatter gun does not receive disadvantage for range increments. Instead, the damage die drops by 1 step per range increment. Their increments are usually shorter and their base damage rolls are higher. In other words, they are especially efffective at close or mid-range.
-* **Heavy:** These firearms consume Heavy Ammo, a specially stacked item.
+* **Heavy:** These firearms consume Heavy Ammo, a specially stacked item. Heavy Ammo is consumed directly from the inventory and is fungible.
 * **Efficient Cooldown:** Usually a modifier, cooldown starts in X turns instead of Y.
 * **Shredding:** Damages AV first.
-* **Tachyonic:** Double damage against shields.
+* **Tachyonic:** Double damage against Aegis.
 * **Melee:** Improved or dedicated melee bump attack rating.
 * **Elemental:** Deals elemental damage
 
