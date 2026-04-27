@@ -243,7 +243,13 @@ impl App {
                 }
                 self.world.insert_one(player_id, book).ok();
 
-                let starting_items = ["Leather Armor", "Torch", "Dagger", "Service Pistol", "Health Potion"];
+                let starting_items = [
+                    "Leather Armor",
+                    "Torch",
+                    "Dagger",
+                    "Service Pistol",
+                    "Health Potion",
+                ];
                 for item_name in starting_items {
                     if let Some(item_raw) = self
                         .content
@@ -526,7 +532,10 @@ mod tests {
                 assert!(app.world.get::<&Equipped>(id).is_ok());
             }
         }
-        assert!(has_pistol, "Nihil Initiate should start with Service Pistol");
+        assert!(
+            has_pistol,
+            "Nihil Initiate should start with Service Pistol"
+        );
     }
 
     #[test]
@@ -561,6 +570,9 @@ mod tests {
                 assert!(app.world.get::<&Equipped>(id).is_ok());
             }
         }
-        assert!(has_pistol, "Solari Initiate should start with Service Pistol");
+        assert!(
+            has_pistol,
+            "Solari Initiate should start with Service Pistol"
+        );
     }
 }

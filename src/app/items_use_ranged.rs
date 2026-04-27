@@ -455,7 +455,9 @@ impl App {
                 if !has_ammo {
                     let item_name = self.get_item_name(item_id);
                     let msg = match rw.power_source {
-                        WeaponPowerSource::HeavyAmmo => format!("You have no heavy ammunition for your {}!", item_name),
+                        WeaponPowerSource::HeavyAmmo => {
+                            format!("You have no heavy ammunition for your {}!", item_name)
+                        }
                         _ => format!("You have no ammunition for your {}!", item_name),
                     };
                     self.log.push(msg);

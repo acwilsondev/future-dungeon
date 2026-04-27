@@ -513,7 +513,9 @@ mod tests {
         assert_eq!(viewshed.visible_tiles, 10);
         assert_eq!(light.remaining_turns, Some(10));
 
-        let mut aegis_query = app2.world.query::<(&Aegis, &AegisDrought, &AegisBoost, &ManaPool)>();
+        let mut aegis_query = app2
+            .world
+            .query::<(&Aegis, &AegisDrought, &AegisBoost, &ManaPool)>();
         let (_, (aegis, drought, boost, pool)) = aegis_query.iter().next().unwrap();
         assert_eq!(aegis.current, 3);
         assert_eq!(aegis.max, 8);

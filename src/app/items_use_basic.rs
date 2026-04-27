@@ -127,7 +127,9 @@ impl App {
 
                 if !has_ammo {
                     let msg = match rw.power_source {
-                        WeaponPowerSource::HeavyAmmo => format!("You have no heavy ammunition for your {}!", item_name),
+                        WeaponPowerSource::HeavyAmmo => {
+                            format!("You have no heavy ammunition for your {}!", item_name)
+                        }
                         _ => format!("You have no ammunition for your {}!", item_name),
                     };
                     self.log.push(msg);
@@ -326,7 +328,11 @@ mod tests {
 
         // Try using again, now it should check for ammo
         app.use_item(bow);
-        assert!(app.log.last().unwrap().contains("no ammunition for your Bow"));
+        assert!(app
+            .log
+            .last()
+            .unwrap()
+            .contains("no ammunition for your Bow"));
     }
 
     #[test]

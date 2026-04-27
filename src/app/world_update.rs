@@ -56,8 +56,10 @@ impl App {
         // 2. Light sources carried by player
         if let Some(player_id) = self.get_player_id() {
             if let Ok(player_pos) = self.world.get::<&Position>(player_id) {
-                for (item_id, (_item, backpack, light)) in
-                    self.world.query::<(&Item, &InBackpack, &LightSource)>().iter()
+                for (item_id, (_item, backpack, light)) in self
+                    .world
+                    .query::<(&Item, &InBackpack, &LightSource)>()
+                    .iter()
                 {
                     if backpack.owner == player_id {
                         let needs_equip = self.world.get::<&Equippable>(item_id).is_ok();
@@ -179,11 +181,10 @@ impl App {
 
                 // Visible if within player's sight range OR the tile is lit
                 // We use a broad LOS (fov) of 25 to allow seeing distant lights.
-                if dist <= range as f32 || self.map.light[idx] > 0.4 {
-                    if self.map.light[idx] > 0.1 {
-                        self.map.visible[idx] = true;
-                        self.map.revealed[idx] = true;
-                    }
+                if (dist <= range as f32 || self.map.light[idx] > 0.4) && self.map.light[idx] > 0.1
+                {
+                    self.map.visible[idx] = true;
+                    self.map.revealed[idx] = true;
                 }
             }
         }
