@@ -7,7 +7,6 @@ This document outlines planned initiatives.
 e = enhancement
 t = tech debt
 
-- (e) Gunplay **In Progress**
 - (e) Content Pass & Content Manifests
   - Audit the codebase to make sure we have minimal hardcoding
   - Define new content with growing lore base
@@ -61,6 +60,7 @@ These features are good ideas but not on the roadmap yet.
 
 This section documents completed epics
 
+- (e) 0.9 Gunplay
 - (e) 0.8 Magic
 - (t) 0.7 Automated Builds & CICD
 - (e) 0.6 Main Menu [main_menu.md](archive/v0.6/main_menu.md)
