@@ -127,6 +127,7 @@ mod tests {
         // Load some dummy content for minions
         app.content.monsters.push(crate::content::RawMonster {
             name: "Goblin".to_string(),
+            description: String::new(),
             glyph: 'g',
             color: (0, 255, 0),
             hp: 5,

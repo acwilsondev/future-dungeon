@@ -189,6 +189,7 @@ mod tests {
         // Mock content
         let monster_raw = crate::content::RawMonster {
             name: "Boss".to_string(),
+            description: String::new(),
             glyph: 'B',
             color: (255, 0, 0),
             hp: 100,

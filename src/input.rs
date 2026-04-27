@@ -13,13 +13,14 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
         },
         RunState::AwaitingInput => match key.code {
             KeyCode::Char('q') => Some(Action::Quit),
-            KeyCode::Left | KeyCode::Char('h') => Some(Action::MovePlayer(-1, 0)),
-            KeyCode::Right | KeyCode::Char('l') => Some(Action::MovePlayer(1, 0)),
-            KeyCode::Up | KeyCode::Char('k') => Some(Action::MovePlayer(0, -1)),
-            KeyCode::Down | KeyCode::Char('j') => Some(Action::MovePlayer(0, 1)),
+            KeyCode::Left => Some(Action::MovePlayer(-1, 0)),
+            KeyCode::Right => Some(Action::MovePlayer(1, 0)),
+            KeyCode::Up => Some(Action::MovePlayer(0, -1)),
+            KeyCode::Down => Some(Action::MovePlayer(0, 1)),
             KeyCode::Char('g') => Some(Action::PickUpItem),
             KeyCode::Char('i') => Some(Action::OpenInventory),
             KeyCode::Char('a') => Some(Action::OpenSpells),
+            KeyCode::Char('l') => Some(Action::OpenLook),
             KeyCode::Char('?') | KeyCode::Char('/') => Some(Action::OpenHelp),
             KeyCode::Char('m') => Some(Action::OpenLogHistory),
             KeyCode::Char('b') => Some(Action::OpenBestiary),
@@ -50,11 +51,19 @@ pub fn map_key_to_action(key: KeyEvent, state: RunState) -> Option<Action> {
         },
         RunState::ShowTargeting => match key.code {
             KeyCode::Esc => Some(Action::CloseMenu),
-            KeyCode::Left | KeyCode::Char('h') => Some(Action::MovePlayer(-1, 0)),
-            KeyCode::Right | KeyCode::Char('l') => Some(Action::MovePlayer(1, 0)),
-            KeyCode::Up | KeyCode::Char('k') => Some(Action::MovePlayer(0, -1)),
-            KeyCode::Down | KeyCode::Char('j') => Some(Action::MovePlayer(0, 1)),
+            KeyCode::Left => Some(Action::MovePlayer(-1, 0)),
+            KeyCode::Right => Some(Action::MovePlayer(1, 0)),
+            KeyCode::Up => Some(Action::MovePlayer(0, -1)),
+            KeyCode::Down => Some(Action::MovePlayer(0, 1)),
             KeyCode::Enter => Some(Action::MenuSelect),
+            _ => None,
+        },
+        RunState::Look => match key.code {
+            KeyCode::Esc | KeyCode::Char('l') => Some(Action::CloseMenu),
+            KeyCode::Left => Some(Action::MovePlayer(-1, 0)),
+            KeyCode::Right => Some(Action::MovePlayer(1, 0)),
+            KeyCode::Up => Some(Action::MovePlayer(0, -1)),
+            KeyCode::Down => Some(Action::MovePlayer(0, 1)),
             _ => None,
         },
         RunState::MainMenu => match key.code {
@@ -137,37 +146,70 @@ mod tests {
 
     #[test]
     fn test_map_key_movement() {
-        assert_eq!(
-            map_key_to_action(mock_key(KeyCode::Char('h')), RunState::AwaitingInput),
-            Some(Action::MovePlayer(-1, 0))
-        );
+        // Arrow keys still move the player
         assert_eq!(
             map_key_to_action(mock_key(KeyCode::Left), RunState::AwaitingInput),
             Some(Action::MovePlayer(-1, 0))
-        );
-        assert_eq!(
-            map_key_to_action(mock_key(KeyCode::Char('l')), RunState::AwaitingInput),
-            Some(Action::MovePlayer(1, 0))
         );
         assert_eq!(
             map_key_to_action(mock_key(KeyCode::Right), RunState::AwaitingInput),
             Some(Action::MovePlayer(1, 0))
         );
         assert_eq!(
-            map_key_to_action(mock_key(KeyCode::Char('k')), RunState::AwaitingInput),
-            Some(Action::MovePlayer(0, -1))
-        );
-        assert_eq!(
             map_key_to_action(mock_key(KeyCode::Up), RunState::AwaitingInput),
             Some(Action::MovePlayer(0, -1))
         );
         assert_eq!(
-            map_key_to_action(mock_key(KeyCode::Char('j')), RunState::AwaitingInput),
-            Some(Action::MovePlayer(0, 1))
-        );
-        assert_eq!(
             map_key_to_action(mock_key(KeyCode::Down), RunState::AwaitingInput),
             Some(Action::MovePlayer(0, 1))
+        );
+        // vim hjkl must NOT move the player in AwaitingInput
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Char('h')), RunState::AwaitingInput),
+            None
+        );
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Char('j')), RunState::AwaitingInput),
+            None
+        );
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Char('k')), RunState::AwaitingInput),
+            None
+        );
+        // 'l' opens Look mode
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Char('l')), RunState::AwaitingInput),
+            Some(Action::OpenLook)
+        );
+    }
+
+    #[test]
+    fn test_map_key_look_state() {
+        // Arrow keys move the cursor in Look mode
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Left), RunState::Look),
+            Some(Action::MovePlayer(-1, 0))
+        );
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Right), RunState::Look),
+            Some(Action::MovePlayer(1, 0))
+        );
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Up), RunState::Look),
+            Some(Action::MovePlayer(0, -1))
+        );
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Down), RunState::Look),
+            Some(Action::MovePlayer(0, 1))
+        );
+        // Esc or 'l' exits Look mode
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Esc), RunState::Look),
+            Some(Action::CloseMenu)
+        );
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Char('l')), RunState::Look),
+            Some(Action::CloseMenu)
         );
     }
 
@@ -226,7 +268,7 @@ mod tests {
     #[test]
     fn test_map_key_targeting() {
         assert_eq!(
-            map_key_to_action(mock_key(KeyCode::Char('h')), RunState::ShowTargeting),
+            map_key_to_action(mock_key(KeyCode::Left), RunState::ShowTargeting),
             Some(Action::MovePlayer(-1, 0))
         );
         assert_eq!(
@@ -341,6 +383,10 @@ mod tests {
         assert_eq!(
             map_key_to_action(mock_key(KeyCode::Char('g')), RunState::AwaitingInput),
             Some(Action::PickUpItem)
+        );
+        assert_eq!(
+            map_key_to_action(mock_key(KeyCode::Char('l')), RunState::AwaitingInput),
+            Some(Action::OpenLook)
         );
         assert_eq!(
             map_key_to_action(mock_key(KeyCode::Char('/')), RunState::AwaitingInput),

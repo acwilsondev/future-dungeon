@@ -21,6 +21,7 @@ pub enum Action {
 
     Wait,
     Target,
+    OpenLook,
 
     // Debug Console
     ToggleDebugConsole,

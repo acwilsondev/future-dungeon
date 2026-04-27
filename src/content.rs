@@ -14,6 +14,8 @@ pub struct RawBossPhase {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RawMonster {
     pub name: String,
+    #[serde(default)]
+    pub description: String,
     pub glyph: char,
     pub color: (u8, u8, u8),
     pub hp: i32,
@@ -59,7 +61,7 @@ pub struct RawArmor {
     pub max_dex_bonus: Option<i32>,
 }
 
-/// Struct form of a ranged weapon in `content.json`. Accepts either the
+/// Struct form of a ranged weapon in content YAML. Accepts either the
 /// legacy 3-tuple `[range, increment, damage_bonus]` via a custom
 /// deserializer, or the struct form with optional power-source / heat
 /// fields introduced in v0.9-gunplay.
@@ -191,6 +193,8 @@ impl RawRangedWeapon {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct RawItem {
     pub name: String,
+    #[serde(default)]
+    pub description: String,
     pub glyph: char,
     pub color: (u8, u8, u8),
     pub spawn_chance: f32,
@@ -291,25 +295,81 @@ pub struct Content {
 const REQUIRED_ITEMS: &[&str] = &["Amulet of the Ancients"];
 
 impl Content {
+    #[cfg(test)]
     pub fn load_from_str(s: &str) -> anyhow::Result<Self> {
         let content: Self = serde_json::from_str(s)?;
         content.validate()?;
         Ok(content)
     }
 
-    pub fn load_from_path(path: &str) -> anyhow::Result<Self> {
-        let s = std::fs::read_to_string(path)?;
-        Self::load_from_str(&s)
+    pub fn load_from_dir(path: &std::path::Path) -> anyhow::Result<Self> {
+        let mut merged = Self::default();
+        let mut monster_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut item_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut spell_titles: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        let mut yaml_files: Vec<std::path::PathBuf> = Vec::new();
+        for entry in walkdir::WalkDir::new(path)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let p = entry.path();
+            if p.extension().and_then(|e| e.to_str()) == Some("yaml") {
+                yaml_files.push(p.to_path_buf());
+            }
+        }
+        yaml_files.sort();
+
+        for file in &yaml_files {
+            let s = std::fs::read_to_string(file)?;
+            let partial: Self = serde_yml::from_str(&s)
+                .map_err(|e| anyhow::anyhow!("{}: {}", file.display(), e))?;
+
+            for m in partial.monsters {
+                if !monster_names.insert(m.name.clone()) {
+                    anyhow::bail!(
+                        "duplicate monster name '{}' (found in {})",
+                        m.name,
+                        file.display()
+                    );
+                }
+                merged.monsters.push(m);
+            }
+            for i in partial.items {
+                if !item_names.insert(i.name.clone()) {
+                    anyhow::bail!(
+                        "duplicate item name '{}' (found in {})",
+                        i.name,
+                        file.display()
+                    );
+                }
+                merged.items.push(i);
+            }
+            for sp in partial.spells {
+                if !spell_titles.insert(sp.title.clone()) {
+                    anyhow::bail!(
+                        "duplicate spell title '{}' (found in {})",
+                        sp.title,
+                        file.display()
+                    );
+                }
+                merged.spells.push(sp);
+            }
+        }
+
+        merged.validate()?;
+        Ok(merged)
     }
 
     pub fn load() -> anyhow::Result<Self> {
-        Self::load_from_path("content.json")
+        Self::load_from_dir(std::path::Path::new("content/"))
     }
 
     fn validate(&self) -> anyhow::Result<()> {
         for name in REQUIRED_ITEMS {
             if !self.items.iter().any(|i| i.name == *name) {
-                anyhow::bail!("content.json is missing required item: \"{}\"", name);
+                anyhow::bail!("content is missing required item: \"{}\"", name);
             }
         }
         for raw in &self.spells {
@@ -543,8 +603,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_nonexistent_file_returns_err() {
-        let result = Content::load_from_path("this_file_does_not_exist_xyz.json");
+    fn test_load_nonexistent_dir_returns_err() {
+        let result = Content::load_from_dir(std::path::Path::new("this_dir_does_not_exist_xyz/"));
         assert!(result.is_err());
     }
 
@@ -655,9 +715,108 @@ mod tests {
     }
 
     #[test]
+    fn test_load_from_dir_merges_files() {
+        use std::fs;
+        use tempfile::TempDir;
+        let dir = TempDir::new().unwrap();
+        let amulet_yaml = r#"
+items:
+  - name: "Amulet of the Ancients"
+    glyph: '"'
+    color: [255, 215, 0]
+    price: 5000
+    spawn_chance: 0.0
+    min_floor: 10
+    max_floor: 10
+    ammo: false
+    consumable: false
+monsters: []
+spells: []
+"#;
+        let extra_yaml = r#"
+monsters:
+  - name: "Test Rat"
+    glyph: r
+    color: [100, 100, 100]
+    hp: 3
+    defense: 0
+    power: 1
+    viewshed: 5
+    spawn_chance: 1.0
+    min_floor: 1
+    max_floor: 99
+    personality: Brave
+    faction: Animals
+    xp_reward: 1
+items: []
+spells: []
+"#;
+        fs::write(dir.path().join("base.yaml"), amulet_yaml).unwrap();
+        fs::write(dir.path().join("extra.yaml"), extra_yaml).unwrap();
+        let content = Content::load_from_dir(dir.path()).expect("load_from_dir failed");
+        assert_eq!(content.items.len(), 1);
+        assert_eq!(content.monsters.len(), 1);
+        assert_eq!(content.items[0].name, "Amulet of the Ancients");
+        assert_eq!(content.monsters[0].name, "Test Rat");
+    }
+
+    #[test]
+    fn test_load_from_dir_duplicate_name_is_error() {
+        use std::fs;
+        use tempfile::TempDir;
+        let dir = TempDir::new().unwrap();
+        let yaml_a = r#"
+items:
+  - name: "Amulet of the Ancients"
+    glyph: '"'
+    color: [255, 215, 0]
+    price: 5000
+    spawn_chance: 0.0
+    min_floor: 10
+    max_floor: 10
+    ammo: false
+    consumable: false
+  - name: "Duplicate Item"
+    glyph: '!'
+    color: [255, 0, 0]
+    price: 1
+    spawn_chance: 0.1
+    min_floor: 1
+    max_floor: 5
+    ammo: false
+    consumable: true
+monsters: []
+spells: []
+"#;
+        let yaml_b = r#"
+items:
+  - name: "Duplicate Item"
+    glyph: '!'
+    color: [0, 255, 0]
+    price: 2
+    spawn_chance: 0.2
+    min_floor: 1
+    max_floor: 5
+    ammo: false
+    consumable: true
+monsters: []
+spells: []
+"#;
+        fs::write(dir.path().join("a.yaml"), yaml_a).unwrap();
+        fs::write(dir.path().join("b.yaml"), yaml_b).unwrap();
+        let result = Content::load_from_dir(dir.path());
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("duplicate") || msg.contains("Duplicate Item"),
+            "error: {msg}"
+        );
+    }
+
+    #[test]
     fn test_live_content_spells_bake() {
-        let content =
-            Content::load_from_path("content.json").expect("content.json must load cleanly");
+        let content = Content::load_from_dir(std::path::Path::new("content/"))
+            .expect("content/ must load cleanly");
         for raw in &content.spells {
             raw.bake()
                 .unwrap_or_else(|e| panic!("spell '{}' failed to bake: {}", raw.title, e));
@@ -681,8 +840,8 @@ mod tests {
     #[test]
     fn test_live_content_v09_weapons() {
         use crate::components::WeaponPowerSource;
-        let content =
-            Content::load_from_path("content.json").expect("content.json must load cleanly");
+        let content = Content::load_from_dir(std::path::Path::new("content/"))
+            .expect("content/ must load cleanly");
         let find = |name: &str| {
             content
                 .items
