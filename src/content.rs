@@ -333,28 +333,72 @@ pub struct LoreSnippet {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "snake_case", tag = "kind")]
-pub enum RawFeatureKind {
-    Door,
-    Trap { damage: i32 },
-    PoisonTrap { damage: i32, turns: i32 },
-    Cover,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RawFeature {
     pub name: String,
     #[serde(default)]
     pub description: String,
     pub glyph: char,
     pub color: (u8, u8, u8),
-    #[serde(flatten)]
-    pub kind: RawFeatureKind,
+    /// Spawns a Door component (opens on player contact).
+    #[serde(default)]
+    pub door: bool,
+    /// Spawns a PartialCover component (ranged attack penalty for adjacent targets).
+    #[serde(default)]
+    pub cover: bool,
+    /// Spawns a Trap with this spike damage. Hidden until triggered.
+    #[serde(default)]
+    pub trap_damage: Option<i32>,
+    /// Spawns a Poison component with this damage-per-turn. Implies a visible trap.
+    #[serde(default)]
+    pub poison_damage: Option<i32>,
+    /// Duration in turns for the poison effect (default 5).
+    #[serde(default)]
+    pub poison_turns: Option<i32>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
     pub branches: Option<Vec<String>>,
     pub spawn_chance: f32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct FloorTrigger {
+    /// Match exactly this floor number.
+    pub at: Option<u16>,
+    /// Match every N floors (floor % every == offset).
+    pub every: Option<u16>,
+    /// Offset for the every trigger (default 0).
+    #[serde(default)]
+    pub offset: u16,
+}
+
+impl FloorTrigger {
+    pub fn matches(&self, floor: u16) -> bool {
+        if let Some(at) = self.at {
+            return floor == at;
+        }
+        if let Some(every) = self.every {
+            return floor > 0 && floor % every == self.offset;
+        }
+        false
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum FloorEventKind {
+    /// Replace the floor with a safe merchant area; no monsters are spawned.
+    MerchantHaven,
+    /// Spawn a Reset Shrine in a random room.
+    ResetShrine,
+    /// Spawn the Amulet of the Ancients (win-condition item).
+    AmuletSpawn,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawFloorEvent {
+    pub trigger: FloorTrigger,
+    pub kind: FloorEventKind,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -369,6 +413,8 @@ pub struct Content {
     pub lore: Vec<LoreSnippet>,
     #[serde(default)]
     pub features: Vec<RawFeature>,
+    #[serde(default)]
+    pub floor_events: Vec<RawFloorEvent>,
     #[serde(default)]
     pub player: Option<RawPlayerDefaults>,
 }
@@ -461,6 +507,7 @@ impl Content {
                 }
                 merged.features.push(f);
             }
+            merged.floor_events.extend(partial.floor_events);
             if let Some(pd) = partial.player {
                 if merged.player.is_some() {
                     anyhow::bail!(
@@ -507,6 +554,14 @@ impl Content {
             Some(p) => std::borrow::Cow::Borrowed(p),
             None => std::borrow::Cow::Owned(RawPlayerDefaults::default()),
         }
+    }
+
+    pub fn active_floor_events(&self, floor: u16) -> Vec<FloorEventKind> {
+        self.floor_events
+            .iter()
+            .filter(|e| e.trigger.matches(floor))
+            .map(|e| e.kind.clone())
+            .collect()
     }
 
     pub fn monsters_by_tag<'a>(

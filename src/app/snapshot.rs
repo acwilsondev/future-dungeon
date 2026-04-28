@@ -42,6 +42,8 @@ pub struct EntitySnapshot {
     #[serde(default)]
     pub personality: Option<AIPersonality>,
     #[serde(default)]
+    pub ai_thresholds: Option<AIThresholds>,
+    #[serde(default)]
     pub experience: Option<Experience>,
     #[serde(default)]
     pub perks: Option<Perks>,

@@ -3,7 +3,7 @@ features:
     description: A wooden door, worn but functional.
     glyph: "+"
     color: [139, 90, 43]
-    kind: door
+    door: true
     tags: [door]
     spawn_chance: 1.0
 
@@ -11,8 +11,7 @@ features:
     description: A hidden pressure plate connected to a sharp mechanism.
     glyph: "^"
     color: [255, 0, 0]
-    kind: trap
-    damage: 5
+    trap_damage: 5
     tags: [trap]
     branches: [Main, Vaults]
     spawn_chance: 1.0
@@ -21,9 +20,8 @@ features:
     description: A cluster of toxic fungi that bursts underfoot.
     glyph: ","
     color: [0, 255, 0]
-    kind: poison_trap
-    damage: 2
-    turns: 5
+    poison_damage: 2
+    poison_turns: 5
     tags: [trap]
     branches: [Gardens]
     spawn_chance: 1.0
@@ -32,6 +30,6 @@ features:
     description: Scattered rubble that provides partial cover.
     glyph: "."
     color: [150, 120, 80]
-    kind: cover
+    cover: true
     tags: [cover]
     spawn_chance: 1.0

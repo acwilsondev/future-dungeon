@@ -9,7 +9,8 @@ struct MonsterAIContext {
     target_id: hecs::Entity,
     target_pos: Position,
     dist: f32,
-    personality: Personality,
+    flee_below_hp_pct: Option<f32>,
+    flee_below_dist: Option<f32>,
     stats: CombatStats,
     is_merchant: bool,
 }
@@ -75,10 +76,13 @@ impl App {
 
     fn decide_ai_action(&self, ctx: MonsterAIContext) -> Option<MonsterAction> {
         // Check for flee
-        if (!ctx.is_merchant)
-            && ((ctx.personality == Personality::Cowardly && ctx.stats.hp < ctx.stats.max_hp / 2)
-                || (ctx.personality == Personality::Tactical && ctx.dist < 4.0))
-        {
+        let flee_hp = ctx
+            .flee_below_hp_pct
+            .map(|pct| ctx.stats.hp as f32 / (ctx.stats.max_hp as f32) < pct)
+            .unwrap_or(false);
+        let flee_dist = ctx.flee_below_dist.map(|d| ctx.dist < d).unwrap_or(false);
+
+        if !ctx.is_merchant && (flee_hp || flee_dist) {
             let mut dx = 0;
             let mut dy = 0;
             if ctx.pos.x < ctx.target_pos.x {
@@ -94,8 +98,8 @@ impl App {
             return Some(MonsterAction::Move(dx, dy));
         }
 
-        // Check for ranged attack
-        if ctx.personality == Personality::Tactical
+        // Check for ranged attack (only for monsters that prefer distance)
+        if ctx.flee_below_dist.is_some()
             && ctx.dist > 1.5
             && ctx.dist < 8.0
             && self.world.get::<&RangedWeapon>(ctx.id).is_ok()
@@ -152,20 +156,34 @@ impl App {
         id: hecs::Entity,
         player_id: hecs::Entity,
     ) -> Option<MonsterAction> {
-        let (pos, faction, personality, stats, viewshed, alert) = {
-            if let (Ok(p), Ok(f), Ok(pers), Ok(s), Ok(v), Ok(a)) = (
+        let (pos, faction, stats, viewshed, alert) = {
+            if let (Ok(p), Ok(f), Ok(s), Ok(v), Ok(a)) = (
                 self.world.get::<&Position>(id),
                 self.world.get::<&Faction>(id),
-                self.world.get::<&AIPersonality>(id),
                 self.world.get::<&CombatStats>(id),
                 self.world.get::<&Viewshed>(id),
                 self.world.get::<&AlertState>(id),
             ) {
-                (*p, *f, *pers, *s, v.visible_tiles, *a)
+                (*p, *f, *s, v.visible_tiles, *a)
             } else {
                 return None;
             }
         };
+        let thresholds = self
+            .world
+            .get::<&AIThresholds>(id)
+            .ok()
+            .map(|t| *t)
+            .unwrap_or_else(|| {
+                // Fallback for entities without AIThresholds (pre-migration saves).
+                let p = self
+                    .world
+                    .get::<&AIPersonality>(id)
+                    .ok()
+                    .map(|p| p.0)
+                    .unwrap_or(Personality::Brave);
+                AIThresholds::from_personality(p)
+            });
 
         if self.world.get::<&Confusion>(id).is_ok() {
             return Some(MonsterAction::Move(
@@ -196,7 +214,8 @@ impl App {
                 target_id,
                 target_pos,
                 dist,
-                personality: personality.0,
+                flee_below_hp_pct: thresholds.flee_below_hp_pct,
+                flee_below_dist: thresholds.flee_below_dist,
                 stats,
                 is_merchant,
             };

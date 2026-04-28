@@ -1,5 +1,6 @@
 use crate::app::{App, Branch, EntitySnapshot};
 use crate::components::*;
+use crate::content::FloorEventKind;
 use crate::map_builder::MapBuilder;
 use hecs::World;
 use rand::Rng;
@@ -41,9 +42,9 @@ impl App {
         &mut self,
         mb: &MapBuilder,
         available_items: &[&crate::content::RawItem],
+        active_events: &[FloorEventKind],
     ) {
-        if self.dungeon_level % 10 == 5 {
-            // Merchant Haven
+        if active_events.contains(&FloorEventKind::MerchantHaven) {
             let center = mb.rooms[0].center();
             let merchant = crate::spawner::spawn_merchant(
                 &mut self.world,
@@ -54,13 +55,11 @@ impl App {
                 let selected_item = self.select_weighted(available_items, |i| i.spawn_chance);
                 crate::spawner::spawn_item_in_backpack(&mut self.world, merchant, selected_item);
             }
-
             crate::spawner::spawn_holy_altar(&mut self.world, center.0 as u16 - 2, center.1 as u16);
             return;
         }
 
-        if self.dungeon_level.is_multiple_of(20) {
-            // Reset Shrine hidden somewhere
+        if active_events.contains(&FloorEventKind::ResetShrine) {
             let room_idx = self.rng.random_range(0..mb.rooms.len());
             let pos = mb.rooms[room_idx].center();
             crate::spawner::spawn_reset_shrine(&mut self.world, pos.0 as u16, pos.1 as u16);
@@ -239,8 +238,13 @@ impl App {
         }
     }
 
-    fn spawn_items(&mut self, mb: &MapBuilder, available_items: &[&crate::content::RawItem]) {
-        if self.dungeon_level == 10 && !self.escaping {
+    fn spawn_items(
+        &mut self,
+        mb: &MapBuilder,
+        available_items: &[&crate::content::RawItem],
+        active_events: &[FloorEventKind],
+    ) {
+        if active_events.contains(&FloorEventKind::AmuletSpawn) && !self.escaping {
             if let Some(amulet) = self
                 .content
                 .items
@@ -309,11 +313,11 @@ impl App {
             .collect();
 
         let items_ref: Vec<&crate::content::RawItem> = available_items.iter().collect();
-        self.spawn_room_features(&mb, &items_ref);
+        let active_events = self.content.active_floor_events(self.dungeon_level);
+        self.spawn_room_features(&mb, &items_ref, &active_events);
         self.spawn_environmental_features(&mb, branch_str);
 
-        if self.dungeon_level % 10 == 5 {
-            // Haven floors are safe
+        if active_events.contains(&FloorEventKind::MerchantHaven) {
             self.update_blocked_and_opaque();
             self.update_fov();
             return;
@@ -327,7 +331,7 @@ impl App {
             .collect();
         let monsters_ref: Vec<&crate::content::RawMonster> = available_monsters.iter().collect();
         self.spawn_monsters(&mb, &monsters_ref);
-        self.spawn_items(&mb, &items_ref);
+        self.spawn_items(&mb, &items_ref, &active_events);
 
         log::debug!(
             "Level {} generated. Spawns: {} monsters, {} items, {} monster_slots, {} item_slots.",
