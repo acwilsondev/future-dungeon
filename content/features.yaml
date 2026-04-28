@@ -1,0 +1,37 @@
+features:
+  - name: Door
+    description: A wooden door, worn but functional.
+    glyph: "+"
+    color: [139, 90, 43]
+    kind: door
+    tags: [door]
+    spawn_chance: 1.0
+
+  - name: Trap
+    description: A hidden pressure plate connected to a sharp mechanism.
+    glyph: "^"
+    color: [255, 0, 0]
+    kind: trap
+    damage: 5
+    tags: [trap]
+    branches: [Main, Vaults]
+    spawn_chance: 1.0
+
+  - name: Poison Spore
+    description: A cluster of toxic fungi that bursts underfoot.
+    glyph: ","
+    color: [0, 255, 0]
+    kind: poison_trap
+    damage: 2
+    turns: 5
+    tags: [trap]
+    branches: [Gardens]
+    spawn_chance: 1.0
+
+  - name: Debris
+    description: Scattered rubble that provides partial cover.
+    glyph: "."
+    color: [150, 120, 80]
+    kind: cover
+    tags: [cover]
+    spawn_chance: 1.0

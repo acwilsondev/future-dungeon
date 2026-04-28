@@ -359,7 +359,9 @@ pub struct RawFeature {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Content {
+    #[serde(default)]
     pub monsters: Vec<RawMonster>,
+    #[serde(default)]
     pub items: Vec<RawItem>,
     #[serde(default)]
     pub spells: Vec<RawSpell>,

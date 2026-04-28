@@ -1,0 +1,239 @@
+monsters:
+  - name: Orc
+    description: A brutish warrior with tusks and a short temper. Attacks without thought.
+    glyph: o
+    color: [255, 0, 0]
+    hp: 15
+    defense: 1
+    power: 4
+    faction: Orcs
+    personality: Brave
+    viewshed: 8
+    xp_reward: 15
+    spawn_chance: 0.4
+    min_floor: 1
+    max_floor: 999
+    biomes: [Dungeon]
+    tags: [monster, melee, humanoid]
+
+  - name: Goblin
+    description: Wiry and cowardly, goblins flee when the odds turn against them.
+    glyph: g
+    color: [0, 255, 0]
+    hp: 8
+    defense: 0
+    power: 2
+    faction: Goblins
+    personality: Cowardly
+    viewshed: 8
+    xp_reward: 10
+    spawn_chance: 0.5
+    min_floor: 1
+    max_floor: 10
+    biomes: [Dungeon]
+    tags: [monster, melee, humanoid]
+
+  - name: Goblin Archer
+    description: A goblin that prefers distance, loosing crude arrows from the shadows.
+    glyph: a
+    color: [0, 255, 255]
+    hp: 6
+    defense: 0
+    power: 3
+    faction: Goblins
+    personality: Tactical
+    viewshed: 10
+    xp_reward: 12
+    ranged: 8
+    spawn_chance: 0.3
+    min_floor: 2
+    max_floor: 15
+    biomes: [Dungeon]
+    tags: [monster, ranged, humanoid]
+
+  - name: Spider
+    description: Eight legs, eight eyes, and venom enough to make you regret exploring caves.
+    glyph: s
+    color: [255, 165, 0]
+    hp: 5
+    defense: 0
+    power: 5
+    faction: Animals
+    personality: Brave
+    viewshed: 6
+    xp_reward: 15
+    spawn_chance: 0.3
+    min_floor: 1
+    max_floor: 999
+    biomes: [Caves]
+    tags: [monster, melee, beast]
+
+  - name: Garden Snake
+    description: Deceptively docile-looking. Its bite carries a slow-acting venom.
+    glyph: s
+    color: [0, 200, 0]
+    hp: 12
+    defense: 1
+    power: 4
+    faction: Animals
+    personality: Tactical
+    viewshed: 6
+    xp_reward: 20
+    poison: [3, 8]
+    spawn_chance: 0.4
+    min_floor: 2
+    max_floor: 999
+    biomes: [Caves]
+    tags: [monster, melee, beast, poison]
+
+  - name: Skeleton
+    description: Animated bones held together by necrotic will. It does not tire.
+    glyph: z
+    color: [240, 240, 240]
+    hp: 12
+    defense: 2
+    power: 4
+    faction: Undead
+    personality: Brave
+    viewshed: 8
+    xp_reward: 20
+    spawn_chance: 0.4
+    min_floor: 1
+    max_floor: 999
+    biomes: [Crypt]
+    tags: [monster, melee, undead]
+
+  - name: Zombie
+    description: Bloated with rot and relentless hunger. It feels no pain.
+    glyph: z
+    color: [100, 150, 100]
+    hp: 20
+    defense: 0
+    power: 5
+    faction: Undead
+    personality: Brave
+    viewshed: 6
+    xp_reward: 25
+    spawn_chance: 0.3
+    min_floor: 1
+    max_floor: 999
+    biomes: [Crypt]
+    tags: [monster, melee, undead]
+
+  - name: Temple Priest
+    description: A zealot who channels divine light as a weapon. Calls for aid.
+    glyph: P
+    color: [255, 255, 0]
+    hp: 25
+    defense: 2
+    power: 6
+    faction: Temple
+    personality: Tactical
+    viewshed: 10
+    xp_reward: 50
+    ranged: 10
+    spawn_chance: 0.2
+    min_floor: 1
+    max_floor: 999
+    biomes: [Temple]
+    tags: [monster, ranged, humanoid, caster]
+
+  - name: Imp
+    description: A minor demon, quick and spiteful. Hurls blasts of infernal fire.
+    glyph: i
+    color: [255, 0, 0]
+    hp: 10
+    defense: 1
+    power: 4
+    faction: Demons
+    personality: Brave
+    viewshed: 10
+    xp_reward: 30
+    ranged: 6
+    spawn_chance: 0.4
+    min_floor: 1
+    max_floor: 999
+    biomes: [Hell]
+    tags: [monster, ranged, demon]
+
+  - name: Ice Elemental
+    description: A crystalline spirit of pure cold. Moves silently, strikes hard.
+    glyph: E
+    color: [100, 100, 255]
+    hp: 25
+    defense: 3
+    power: 6
+    faction: Animals
+    personality: Brave
+    viewshed: 8
+    xp_reward: 30
+    spawn_chance: 0.4
+    min_floor: 2
+    max_floor: 999
+    branches: [Vaults]
+    tags: [monster, melee, elemental]
+
+  - name: The Broodmother
+    description: An ancient spider queen whose egg sacs line entire chambers. She calls her children.
+    glyph: S
+    color: [255, 100, 255]
+    hp: 100
+    defense: 2
+    power: 8
+    faction: Animals
+    personality: Brave
+    viewshed: 10
+    xp_reward: 200
+    spawn_chance: 0.0
+    min_floor: 3
+    max_floor: 3
+    is_boss: true
+    phases:
+      - hp_threshold_pct: 0.5
+        action: SummonMinions
+    guaranteed_loot: Venomous Dagger
+    tags: [monster, melee, beast, boss]
+
+  - name: Ancient Guardian
+    description: A colossal construct of the old world, sealed here to protect what was stolen.
+    glyph: A
+    color: [192, 192, 192]
+    hp: 250
+    defense: 10
+    power: 15
+    faction: Animals
+    personality: Brave
+    viewshed: 15
+    xp_reward: 1000
+    spawn_chance: 0.0
+    min_floor: 10
+    max_floor: 10
+    is_boss: true
+    phases:
+      - hp_threshold_pct: 0.5
+        action: SummonMinions
+    guaranteed_loot: Amulet of the Ancients
+    tags: [monster, melee, construct, boss]
+
+  - name: The Goblin King
+    description: Fat with stolen gold and vicious cunning. His rage is legendary.
+    glyph: G
+    color: [255, 215, 0]
+    hp: 150
+    defense: 4
+    power: 10
+    faction: Goblins
+    personality: Brave
+    viewshed: 12
+    xp_reward: 400
+    spawn_chance: 0.0
+    min_floor: 6
+    max_floor: 6
+    is_boss: true
+    phases:
+      - hp_threshold_pct: 0.6
+        action: Enrage
+      - hp_threshold_pct: 0.3
+        action: Enrage
+    guaranteed_loot: King's Armor
+    tags: [monster, melee, humanoid, boss]
