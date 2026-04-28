@@ -1,0 +1,36 @@
+monsters: []
+items: []
+spells: []
+
+lore:
+  - id: solari_first_pip
+    faction: Solari
+    text: "The light came to you not as revelation but as warmth—a slow kindling behind the ribs. The Solari speak of the Radiance as a gift freely given, yet you sense the debt already forming."
+
+  - id: solari_second_pip
+    faction: Solari
+    text: "The warmth has become a flame. You understand now why the Solari temples face east: not to worship the sun, but to remind themselves that even fire needs tending. Left alone, it devours."
+
+  - id: nihil_first_pip
+    faction: Nihil
+    text: "Something in you has grown quieter. The Nihil call it the Hollow—the space cleared when ambition is burned away. What remains is sharper for the emptiness."
+
+  - id: nihil_second_pip
+    faction: Nihil
+    text: "The Hollow deepens. You hear less of the world and more of the space between its sounds. The Nihil say this is not silence but listening. You are beginning to understand what they listen for."
+
+  - id: nihil_third_pip
+    faction: Nihil
+    text: "The Hollow is now large enough to step into. The Nihil have a word for this stage: *Undone*. It is not a warning. It is an invitation."
+
+  - id: iron_document_1
+    faction: Iron
+    text: "—fragment of a quartermaster's ledger, water-stained—\n\nBarrels (salted): 40. Swords (serviceable): 22. Men (willing): fewer each day. The Colonel says the Vaults pay for everything. I have stopped asking what the Vaults cost."
+
+  - id: iron_document_2
+    faction: Iron
+    text: "—scratched into a cell wall—\n\nIf you find this, go back. The iron here is not iron. The men who work it are not men, not anymore. We thought we were building something. We were being built."
+
+  - id: aetheric_vision_1
+    faction: Aetheric
+    text: "The geometry wrong. Too many angles. A door that is also a question. You reach for the frame and your hand passes through—not empty air but something denser, patient, watching the way stone watches before it becomes an arch."

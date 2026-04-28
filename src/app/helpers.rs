@@ -11,6 +11,11 @@ impl App {
             .map(|(id, _)| id)
     }
 
+    pub fn get_player_pos(&self) -> Option<Position> {
+        let id = self.get_player_id()?;
+        self.world.get::<&Position>(id).ok().map(|p| *p)
+    }
+
     pub fn get_player_stats(&self) -> (i32, i32, i32) {
         let Some(player_id) = self.get_player_id() else {
             return (0, 0, 0);

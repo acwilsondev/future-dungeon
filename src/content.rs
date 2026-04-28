@@ -14,6 +14,8 @@ pub struct RawBossPhase {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RawMonster {
     pub name: String,
+    #[serde(default)]
+    pub description: String,
     pub glyph: char,
     pub color: (u8, u8, u8),
     pub hp: i32,
@@ -34,6 +36,8 @@ pub struct RawMonster {
     pub guaranteed_loot: Option<String>,
     pub branches: Option<Vec<String>>,
     pub biomes: Option<Vec<crate::components::Biome>>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -59,7 +63,7 @@ pub struct RawArmor {
     pub max_dex_bonus: Option<i32>,
 }
 
-/// Struct form of a ranged weapon in `content.json`. Accepts either the
+/// Struct form of a ranged weapon in content YAML. Accepts either the
 /// legacy 3-tuple `[range, increment, damage_bonus]` via a custom
 /// deserializer, or the struct form with optional power-source / heat
 /// fields introduced in v0.9-gunplay.
@@ -191,6 +195,8 @@ impl RawRangedWeapon {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct RawItem {
     pub name: String,
+    #[serde(default)]
+    pub description: String,
     pub glyph: char,
     pub color: (u8, u8, u8),
     pub spawn_chance: f32,
@@ -221,6 +227,8 @@ pub struct RawItem {
     pub heavy_ammo: bool,
     #[serde(default)]
     pub stack: Option<u32>,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -280,42 +288,286 @@ pub struct RawSpell {
     pub effects: Vec<RawSpellEffect>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawPlayerDefaults {
+    pub max_hp: i32,
+    pub defense: i32,
+    pub power: i32,
+    pub viewshed: i32,
+    pub hearing_range: i32,
+    pub light_range: i32,
+    pub aegis: i32,
+    pub str: i32,
+    pub dex: i32,
+    pub con: i32,
+    pub int: i32,
+    pub wis: i32,
+    pub cha: i32,
+}
+
+impl Default for RawPlayerDefaults {
+    fn default() -> Self {
+        Self {
+            max_hp: 30,
+            defense: 2,
+            power: 5,
+            viewshed: 8,
+            hearing_range: 15,
+            light_range: 2,
+            aegis: 5,
+            str: 10,
+            dex: 10,
+            con: 10,
+            int: 10,
+            wis: 10,
+            cha: 10,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LoreSnippet {
+    pub id: String,
+    pub text: String,
+    pub faction: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum RawFeatureKind {
+    Door,
+    Trap { damage: i32 },
+    PoisonTrap { damage: i32, turns: i32 },
+    Cover,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RawFeature {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    pub glyph: char,
+    pub color: (u8, u8, u8),
+    #[serde(flatten)]
+    pub kind: RawFeatureKind,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub branches: Option<Vec<String>>,
+    pub spawn_chance: f32,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Content {
+    #[serde(default)]
     pub monsters: Vec<RawMonster>,
+    #[serde(default)]
     pub items: Vec<RawItem>,
     #[serde(default)]
     pub spells: Vec<RawSpell>,
+    #[serde(default)]
+    pub lore: Vec<LoreSnippet>,
+    #[serde(default)]
+    pub features: Vec<RawFeature>,
+    #[serde(default)]
+    pub player: Option<RawPlayerDefaults>,
 }
 
 const REQUIRED_ITEMS: &[&str] = &["Amulet of the Ancients"];
 
 impl Content {
+    #[cfg(test)]
     pub fn load_from_str(s: &str) -> anyhow::Result<Self> {
         let content: Self = serde_json::from_str(s)?;
         content.validate()?;
         Ok(content)
     }
 
-    pub fn load_from_path(path: &str) -> anyhow::Result<Self> {
-        let s = std::fs::read_to_string(path)?;
-        Self::load_from_str(&s)
+    pub fn load_from_dir(path: &std::path::Path) -> anyhow::Result<Self> {
+        let t0 = std::time::Instant::now();
+
+        let mut merged = Self::default();
+        let mut monster_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut item_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut spell_titles: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut lore_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut feature_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        let mut yaml_files: Vec<std::path::PathBuf> = Vec::new();
+        for entry in walkdir::WalkDir::new(path)
+            .follow_links(false)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let p = entry.path();
+            if p.extension().and_then(|e| e.to_str()) == Some("yaml") {
+                yaml_files.push(p.to_path_buf());
+            }
+        }
+        yaml_files.sort();
+
+        for file in &yaml_files {
+            let s = std::fs::read_to_string(file)?;
+            let partial: Self = serde_yml::from_str(&s)
+                .map_err(|e| anyhow::anyhow!("{}: {}", file.display(), e))?;
+
+            for m in partial.monsters {
+                if !monster_names.insert(m.name.clone()) {
+                    anyhow::bail!(
+                        "duplicate monster name '{}' (found in {})",
+                        m.name,
+                        file.display()
+                    );
+                }
+                merged.monsters.push(m);
+            }
+            for i in partial.items {
+                if !item_names.insert(i.name.clone()) {
+                    anyhow::bail!(
+                        "duplicate item name '{}' (found in {})",
+                        i.name,
+                        file.display()
+                    );
+                }
+                merged.items.push(i);
+            }
+            for sp in partial.spells {
+                if !spell_titles.insert(sp.title.clone()) {
+                    anyhow::bail!(
+                        "duplicate spell title '{}' (found in {})",
+                        sp.title,
+                        file.display()
+                    );
+                }
+                merged.spells.push(sp);
+            }
+            for ls in partial.lore {
+                if !lore_ids.insert(ls.id.clone()) {
+                    anyhow::bail!(
+                        "duplicate lore id '{}' (found in {})",
+                        ls.id,
+                        file.display()
+                    );
+                }
+                merged.lore.push(ls);
+            }
+            for f in partial.features {
+                if !feature_names.insert(f.name.clone()) {
+                    anyhow::bail!(
+                        "duplicate feature name '{}' (found in {})",
+                        f.name,
+                        file.display()
+                    );
+                }
+                merged.features.push(f);
+            }
+            if let Some(pd) = partial.player {
+                if merged.player.is_some() {
+                    anyhow::bail!(
+                        "duplicate [player] defaults section (found in {})",
+                        file.display()
+                    );
+                }
+                merged.player = Some(pd);
+            }
+        }
+
+        let elapsed_ms = t0.elapsed().as_millis();
+        if elapsed_ms > 200 {
+            log::warn!(
+                "Content::load_from_dir took {}ms — check for I/O bottlenecks or excessive content volume",
+                elapsed_ms
+            );
+        } else {
+            log::debug!("Content loaded in {}ms", elapsed_ms);
+        }
+
+        merged.validate()?;
+        Ok(merged)
     }
 
     pub fn load() -> anyhow::Result<Self> {
-        Self::load_from_path("content.json")
+        Self::load_from_dir(std::path::Path::new("content/"))
     }
 
     fn validate(&self) -> anyhow::Result<()> {
         for name in REQUIRED_ITEMS {
             if !self.items.iter().any(|i| i.name == *name) {
-                anyhow::bail!("content.json is missing required item: \"{}\"", name);
+                anyhow::bail!("content is missing required item: \"{}\"", name);
             }
         }
         for raw in &self.spells {
             raw.validate()?;
         }
         Ok(())
+    }
+
+    pub fn player_defaults(&self) -> std::borrow::Cow<'_, RawPlayerDefaults> {
+        match &self.player {
+            Some(p) => std::borrow::Cow::Borrowed(p),
+            None => std::borrow::Cow::Owned(RawPlayerDefaults::default()),
+        }
+    }
+
+    pub fn monsters_by_tag<'a>(
+        &'a self,
+        tag: &str,
+        level: u16,
+        branch_str: &str,
+        biome: &crate::components::Biome,
+    ) -> Vec<&'a RawMonster> {
+        self.monsters
+            .iter()
+            .filter(|m| m.tags.iter().any(|t| t == tag))
+            .filter(|m| level >= m.min_floor && level <= m.max_floor)
+            .filter(|m| {
+                m.branches
+                    .as_ref()
+                    .is_none_or(|b| b.iter().any(|s| s == branch_str))
+            })
+            .filter(|m| m.biomes.as_ref().is_none_or(|b| b.contains(biome)))
+            .collect()
+    }
+
+    #[allow(dead_code)]
+    pub fn items_by_tag<'a>(
+        &'a self,
+        tag: &str,
+        level: u16,
+        branch_str: &str,
+        biome: &crate::components::Biome,
+    ) -> Vec<&'a RawItem> {
+        self.items
+            .iter()
+            .filter(|i| i.tags.iter().any(|t| t == tag))
+            .filter(|i| level >= i.min_floor && level <= i.max_floor)
+            .filter(|i| {
+                i.branches
+                    .as_ref()
+                    .is_none_or(|b| b.iter().any(|s| s == branch_str))
+            })
+            .filter(|i| i.biomes.as_ref().is_none_or(|b| b.contains(biome)))
+            .collect()
+    }
+
+    pub fn features_by_tag<'a>(&'a self, tag: &str, branch_str: &str) -> Vec<&'a RawFeature> {
+        self.features
+            .iter()
+            .filter(|f| f.tags.iter().any(|t| t == tag))
+            .filter(|f| {
+                f.branches
+                    .as_ref()
+                    .is_none_or(|b| b.iter().any(|s| s == branch_str))
+            })
+            .collect()
+    }
+
+    #[allow(dead_code)]
+    pub fn lore_by_faction<'a>(&'a self, faction: &str) -> Vec<&'a LoreSnippet> {
+        self.lore
+            .iter()
+            .filter(|ls| ls.faction == faction)
+            .collect()
     }
 
     /// Bake all spells into ECS-ready components.
@@ -543,8 +795,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_nonexistent_file_returns_err() {
-        let result = Content::load_from_path("this_file_does_not_exist_xyz.json");
+    fn test_load_nonexistent_dir_returns_err() {
+        let result = Content::load_from_dir(std::path::Path::new("this_dir_does_not_exist_xyz/"));
         assert!(result.is_err());
     }
 
@@ -563,6 +815,120 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("Amulet of the Ancients"));
+    }
+
+    #[test]
+    fn test_features_by_tag_loads_from_dir() {
+        let content =
+            Content::load_from_dir(std::path::Path::new("content/")).expect("content/ must load");
+        assert!(
+            !content.features.is_empty(),
+            "features should load from YAML"
+        );
+        let doors = content.features_by_tag("door", "Main");
+        assert!(!doors.is_empty(), "should find door-tagged features");
+        // Branch filtering: trap in Gardens should not appear for Main
+        let main_traps = content.features_by_tag("trap", "Main");
+        let garden_traps = content.features_by_tag("trap", "Gardens");
+        assert!(!main_traps.is_empty(), "Main traps should exist");
+        assert!(!garden_traps.is_empty(), "Garden traps should exist");
+        // The garden poison spore should not appear in Main
+        assert!(main_traps.iter().all(|f| f.name != "Poison Spore"));
+        assert!(garden_traps.iter().all(|f| f.name == "Poison Spore"));
+    }
+
+    #[test]
+    fn test_monsters_by_tag_filters_correctly() {
+        let content =
+            Content::load_from_dir(std::path::Path::new("content/")).expect("content/ must load");
+        let biome = crate::components::Biome::Dungeon;
+        let melee = content.monsters_by_tag("melee", 1, "Main", &biome);
+        assert!(!melee.is_empty(), "should find melee-tagged monsters");
+        assert!(melee.iter().all(|m| m.tags.contains(&"melee".to_string())));
+    }
+
+    #[test]
+    fn test_lore_loads_and_filters_by_faction() {
+        let content =
+            Content::load_from_dir(std::path::Path::new("content/")).expect("content/ must load");
+        assert!(!content.lore.is_empty(), "lore snippets should load");
+        let nihil = content.lore_by_faction("Nihil");
+        assert!(!nihil.is_empty(), "Nihil lore should exist");
+        assert!(nihil.iter().all(|l| l.faction == "Nihil"));
+    }
+
+    #[test]
+    fn test_player_defaults_load() {
+        let content =
+            Content::load_from_dir(std::path::Path::new("content/")).expect("content/ must load");
+        let d = content.player_defaults();
+        assert_eq!(d.max_hp, 30);
+        assert_eq!(d.viewshed, 8);
+        assert_eq!(d.aegis, 5);
+    }
+
+    #[test]
+    fn test_duplicate_player_section_is_error() {
+        use std::fs;
+        use tempfile::TempDir;
+        let dir = TempDir::new().unwrap();
+        let yaml_a = r#"
+player:
+  max_hp: 30
+  defense: 2
+  power: 5
+  viewshed: 8
+  hearing_range: 15
+  light_range: 2
+  aegis: 5
+  str: 10
+  dex: 10
+  con: 10
+  int: 10
+  wis: 10
+  cha: 10
+items:
+  - name: "Amulet of the Ancients"
+    glyph: '"'
+    color: [255, 215, 0]
+    price: 5000
+    spawn_chance: 0.0
+    min_floor: 10
+    max_floor: 10
+    ammo: false
+    consumable: false
+monsters: []
+spells: []
+lore: []
+"#;
+        let yaml_b = r#"
+player:
+  max_hp: 99
+  defense: 0
+  power: 0
+  viewshed: 1
+  hearing_range: 1
+  light_range: 1
+  aegis: 1
+  str: 1
+  dex: 1
+  con: 1
+  int: 1
+  wis: 1
+  cha: 1
+monsters: []
+items: []
+spells: []
+lore: []
+"#;
+        fs::write(dir.path().join("a.yaml"), yaml_a).unwrap();
+        fs::write(dir.path().join("b.yaml"), yaml_b).unwrap();
+        let result = Content::load_from_dir(dir.path());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("duplicate [player]"));
     }
 
     fn firebolt_raw() -> RawSpell {
@@ -655,9 +1021,108 @@ mod tests {
     }
 
     #[test]
+    fn test_load_from_dir_merges_files() {
+        use std::fs;
+        use tempfile::TempDir;
+        let dir = TempDir::new().unwrap();
+        let amulet_yaml = r#"
+items:
+  - name: "Amulet of the Ancients"
+    glyph: '"'
+    color: [255, 215, 0]
+    price: 5000
+    spawn_chance: 0.0
+    min_floor: 10
+    max_floor: 10
+    ammo: false
+    consumable: false
+monsters: []
+spells: []
+"#;
+        let extra_yaml = r#"
+monsters:
+  - name: "Test Rat"
+    glyph: r
+    color: [100, 100, 100]
+    hp: 3
+    defense: 0
+    power: 1
+    viewshed: 5
+    spawn_chance: 1.0
+    min_floor: 1
+    max_floor: 99
+    personality: Brave
+    faction: Animals
+    xp_reward: 1
+items: []
+spells: []
+"#;
+        fs::write(dir.path().join("base.yaml"), amulet_yaml).unwrap();
+        fs::write(dir.path().join("extra.yaml"), extra_yaml).unwrap();
+        let content = Content::load_from_dir(dir.path()).expect("load_from_dir failed");
+        assert_eq!(content.items.len(), 1);
+        assert_eq!(content.monsters.len(), 1);
+        assert_eq!(content.items[0].name, "Amulet of the Ancients");
+        assert_eq!(content.monsters[0].name, "Test Rat");
+    }
+
+    #[test]
+    fn test_load_from_dir_duplicate_name_is_error() {
+        use std::fs;
+        use tempfile::TempDir;
+        let dir = TempDir::new().unwrap();
+        let yaml_a = r#"
+items:
+  - name: "Amulet of the Ancients"
+    glyph: '"'
+    color: [255, 215, 0]
+    price: 5000
+    spawn_chance: 0.0
+    min_floor: 10
+    max_floor: 10
+    ammo: false
+    consumable: false
+  - name: "Duplicate Item"
+    glyph: '!'
+    color: [255, 0, 0]
+    price: 1
+    spawn_chance: 0.1
+    min_floor: 1
+    max_floor: 5
+    ammo: false
+    consumable: true
+monsters: []
+spells: []
+"#;
+        let yaml_b = r#"
+items:
+  - name: "Duplicate Item"
+    glyph: '!'
+    color: [0, 255, 0]
+    price: 2
+    spawn_chance: 0.2
+    min_floor: 1
+    max_floor: 5
+    ammo: false
+    consumable: true
+monsters: []
+spells: []
+"#;
+        fs::write(dir.path().join("a.yaml"), yaml_a).unwrap();
+        fs::write(dir.path().join("b.yaml"), yaml_b).unwrap();
+        let result = Content::load_from_dir(dir.path());
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("duplicate") || msg.contains("Duplicate Item"),
+            "error: {msg}"
+        );
+    }
+
+    #[test]
     fn test_live_content_spells_bake() {
-        let content =
-            Content::load_from_path("content.json").expect("content.json must load cleanly");
+        let content = Content::load_from_dir(std::path::Path::new("content/"))
+            .expect("content/ must load cleanly");
         for raw in &content.spells {
             raw.bake()
                 .unwrap_or_else(|e| panic!("spell '{}' failed to bake: {}", raw.title, e));
@@ -681,8 +1146,8 @@ mod tests {
     #[test]
     fn test_live_content_v09_weapons() {
         use crate::components::WeaponPowerSource;
-        let content =
-            Content::load_from_path("content.json").expect("content.json must load cleanly");
+        let content = Content::load_from_dir(std::path::Path::new("content/"))
+            .expect("content/ must load cleanly");
         let find = |name: &str| {
             content
                 .items

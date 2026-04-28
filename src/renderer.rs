@@ -312,6 +312,18 @@ fn draw_map(
             }
         }
     }
+
+    if app.state == RunState::Look {
+        let (camera_x, camera_y) = camera;
+        let sx = app.targeting_cursor.0 as i32 - camera_x;
+        let sy = app.targeting_cursor.1 as i32 - camera_y;
+        let view_w = area.width as i32;
+        let view_h = area.height as i32;
+        if sx >= 0 && sx < view_w && sy >= 0 && sy < view_h {
+            let cell = buffer.get_mut(area.x + sx as u16, area.y + sy as u16);
+            cell.set_bg(Color::White).set_fg(Color::Black);
+        }
+    }
 }
 
 fn draw_aoe_preview(
@@ -739,6 +751,8 @@ pub fn render(app: &App, frame: &mut Frame) {
         render_bestiary(app, frame);
     } else if app.state == RunState::Victory {
         render_victory_screen(app, frame);
+    } else if app.state == RunState::Look {
+        render_look_panel(app, frame);
     }
 }
 
@@ -1688,6 +1702,91 @@ fn render_victory_screen(app: &App, frame: &mut Frame) {
     );
 }
 
+fn render_look_panel(app: &App, frame: &mut Frame) {
+    let (cx, cy) = app.targeting_cursor;
+    let idx = cy as usize * app.map.width as usize + cx as usize;
+    let in_fov = app.map.visible.get(idx).copied().unwrap_or(false);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    if in_fov {
+        let mut found = false;
+        for (_, (pos, name)) in app.world.query::<(&Position, &Name)>().iter() {
+            if pos.x == cx && pos.y == cy {
+                found = true;
+                lines.push(Line::from(Span::styled(
+                    name.0.clone(),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )));
+                if let Some((_, (_, cs))) = app
+                    .world
+                    .query::<(&Position, &CombatStats)>()
+                    .iter()
+                    .find(|(_, (p, _))| p.x == cx && p.y == cy)
+                {
+                    lines.push(Line::from(format!(
+                        "HP: {}/{}  ATK: {}  DEF: {}",
+                        cs.hp, cs.max_hp, cs.power, cs.defense
+                    )));
+                }
+                let entity_name = &name.0;
+                if let Some(raw_m) = app.content.monsters.iter().find(|m| &m.name == entity_name) {
+                    if !raw_m.description.is_empty() {
+                        lines.push(Line::from(Span::styled(
+                            raw_m.description.clone(),
+                            Style::default().fg(Color::Indexed(245)),
+                        )));
+                    }
+                } else if let Some(raw_i) =
+                    app.content.items.iter().find(|i| &i.name == entity_name)
+                {
+                    if !raw_i.description.is_empty() {
+                        lines.push(Line::from(Span::styled(
+                            raw_i.description.clone(),
+                            Style::default().fg(Color::Indexed(245)),
+                        )));
+                    }
+                }
+                break;
+            }
+        }
+        if !found {
+            lines.push(Line::from("Nothing of note here."));
+        }
+    } else {
+        lines.push(Line::from(Span::styled(
+            "Out of sight.",
+            Style::default().fg(Color::Indexed(245)),
+        )));
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "[Esc] or [l] to close",
+        Style::default().fg(Color::Indexed(245)),
+    )));
+
+    let height = (lines.len() as u16 + 2).max(5);
+    let area = centered_rect(40, 0, frame.size());
+    let area = RatatuiRect::new(
+        area.x,
+        frame.size().height.saturating_sub(height + 2),
+        area.width,
+        height,
+    );
+    frame.render_widget(Clear, area);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Look ")
+        .border_style(Style::default().fg(Color::Cyan));
+    let paragraph = Paragraph::new(lines)
+        .block(block)
+        .wrap(Wrap { trim: false });
+    frame.render_widget(paragraph, area);
+}
+
 fn centered_rect(percent_x: u16, percent_y: u16, r: RatatuiRect) -> RatatuiRect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -1763,7 +1862,7 @@ mod tests {
     fn test_render_basic() {
         use ratatui::backend::TestBackend;
         use ratatui::Terminal;
-        let mut app = App::new_random().expect("content.json must be present for tests");
+        let mut app = App::new_random().expect("content/ must be present for tests");
         app.map = crate::map::Map::new(80, 50);
         app.world.spawn((
             Position { x: 10, y: 10 },
@@ -1785,7 +1884,7 @@ mod tests {
     fn test_render_states() {
         use ratatui::backend::TestBackend;
         use ratatui::Terminal;
-        let mut app = App::new_random().expect("content.json must be present for tests");
+        let mut app = App::new_random().expect("content/ must be present for tests");
         app.map = crate::map::Map::new(80, 50);
         app.world.spawn((Position { x: 10, y: 10 }, Player));
 
@@ -1802,6 +1901,7 @@ mod tests {
             RunState::ShowBestiary,
             RunState::ShowIdentify,
             RunState::ShowAlchemy,
+            RunState::Look,
             RunState::Dead,
             RunState::Victory,
         ];

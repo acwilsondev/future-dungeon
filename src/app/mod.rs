@@ -26,6 +26,7 @@ mod items_use_ranged;
 mod level_gen;
 mod level_gen_helpers;
 mod level_transition;
+mod lore;
 mod mana_regen;
 mod monster;
 mod monster_ai_calc;
@@ -120,6 +121,7 @@ pub struct App {
     // Persistence/State
     pub identified_items: std::collections::HashSet<String>,
     pub encountered_monsters: std::collections::HashSet<String>,
+    pub unlocked_lore: std::collections::HashSet<String>,
     pub bestiary_cursor: usize,
     pub monsters_killed: i32,
     pub turn_count: u32,
@@ -186,6 +188,7 @@ impl App {
             god_mode: false,
             identified_items: std::collections::HashSet::new(),
             encountered_monsters: std::collections::HashSet::new(),
+            unlocked_lore: std::collections::HashSet::new(),
             bestiary_cursor: 0,
             monsters_killed: 0,
             turn_count: 0,

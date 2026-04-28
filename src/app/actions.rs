@@ -60,6 +60,7 @@ impl App {
             RunState::ShowAlchemy => self.handle_alchemy_input(action),
             RunState::ShowResetShrine => self.handle_respec_input(action),
             RunState::ShowDebugConsole => self.handle_debug_console_input(action),
+            RunState::Look => self.handle_look_input(action),
             RunState::Dead | RunState::Victory => {
                 if let Action::Quit | Action::CloseMenu = action {
                     self.exit = true;
@@ -304,6 +305,26 @@ impl App {
                 self.state = RunState::ShowDebugConsole;
                 self.debug_console_buffer.clear();
             }
+            Action::OpenLook => {
+                if let Some(pos) = self.get_player_pos() {
+                    self.targeting_cursor = (pos.x, pos.y);
+                }
+                self.state = RunState::Look;
+            }
+            _ => {}
+        }
+    }
+
+    pub fn handle_look_input(&mut self, action: Action) {
+        match action {
+            Action::CloseMenu => self.state = RunState::AwaitingInput,
+            Action::MovePlayer(dx, dy) => {
+                let new_x = (self.targeting_cursor.0 as i16 + dx)
+                    .clamp(0, self.map.width as i16 - 1) as u16;
+                let new_y = (self.targeting_cursor.1 as i16 + dy)
+                    .clamp(0, self.map.height as i16 - 1) as u16;
+                self.targeting_cursor = (new_x, new_y);
+            }
             _ => {}
         }
     }
@@ -340,9 +361,22 @@ impl App {
         match parts[0] {
             "help" => {
                 self.log.push(
-                    "Debug Commands: spawn [name], teleport [lvl], heal, reveal, levelup, god"
+                    "Debug Commands: spawn [name], teleport [lvl], heal, reveal, levelup, god, reload_content"
                         .to_string(),
                 );
+            }
+            "reload_content" => {
+                match crate::content::Content::load_from_dir(std::path::Path::new("content/")) {
+                    Ok(new_content) => {
+                        self.content = new_content;
+                        self.log
+                            .push("Debug: Content reloaded from content/".to_string());
+                    }
+                    Err(e) => {
+                        self.log
+                            .push(format!("Debug: Content reload failed: {}", e));
+                    }
+                }
             }
             "spawn" => {
                 if parts.len() > 1 {

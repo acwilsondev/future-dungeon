@@ -1,0 +1,19 @@
+player:
+  max_hp: 30
+  defense: 2
+  power: 5
+  viewshed: 8
+  hearing_range: 15
+  light_range: 2
+  aegis: 5
+  str: 10
+  dex: 10
+  con: 10
+  int: 10
+  wis: 10
+  cha: 10
+
+monsters: []
+items: []
+spells: []
+lore: []

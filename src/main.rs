@@ -18,6 +18,18 @@ use engine::Engine;
 use std::time::{Duration, Instant};
 
 fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--check-content") {
+        let content = content::Content::load_from_dir(std::path::Path::new("content/"))?;
+        println!(
+            "Content OK: {} monsters, {} items, {} spells",
+            content.monsters.len(),
+            content.items.len(),
+            content.spells.len()
+        );
+        return Ok(());
+    }
+
     let mut engine = Engine::new()?;
 
     // Always start at the Main Menu

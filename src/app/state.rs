@@ -21,6 +21,7 @@ pub enum RunState {
     ShowShrine,
     ShowStudyTome,
     ShowDebugConsole,
+    Look,
     Dead,
     Victory,
 }

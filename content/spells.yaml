@@ -1,0 +1,47 @@
+spells:
+  - title: Magic Missile
+    description: A dart of arcane force that unerringly strikes a single foe.
+    mana_cost:
+      orange: 1
+      purple: 0
+    targeting:
+      range: 6
+      selection: entity
+    effects:
+      - type: DealDamage
+        damageType: Bludgeoning
+        magnitude: 1d6+2
+        shape: point
+
+  - title: Fireball
+    description: A roaring explosion that engulfs a chosen location.
+    mana_cost:
+      orange: 2
+      purple: 0
+    targeting:
+      range: 6
+      selection: location
+    effects:
+      - type: DealDamage
+        damageType: Fire
+        magnitude: 2d6
+        application_save: DEX
+        shape: circle
+        radius: 3
+
+  - title: Venom Dart
+    description: A fanged needle of shadow that injects lingering venom.
+    mana_cost:
+      orange: 0
+      purple: 1
+    targeting:
+      range: 6
+      selection: entity
+    effects:
+      - type: GrantStatus
+        shape: point
+        application_save: CON
+        status:
+          type: Poisoned
+          duration: 6
+          magnitude: "2"
