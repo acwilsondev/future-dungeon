@@ -148,6 +148,7 @@ mod tests {
             guaranteed_loot: None,
             branches: None,
             biomes: None,
+            tags: Vec::new(),
         });
 
         let boss = app.world.spawn((

@@ -7,9 +7,16 @@ This document outlines planned initiatives.
 e = enhancement
 t = tech debt
 
-- (e) Content Pass & Content Manifests
-  - Audit the codebase to make sure we have minimal hardcoding
+- (e) v0.10 Content Pass & Content Manifests [Plan](v0.10-content-pass/overview.md)
+  - Content files are migrated to yaml
+  - Audit the codebase to make sure we have minimal hardcoding. If it can be
+    defined in a content yaml, it should be
+  - Content is located in a content directory
+  - Content can live in any yaml file within that directory
+  - **New "Look" action (key: 'l') to inspect entities and lore.**
+  - **Remove vim `hjkl` movement keys.**
   - Define new content with growing lore base
+    - Should not develop new features or logic. ONLY modify content files here.
 - (t) Improved Abstractions
 - (e) Advanced AI/Goal-Action-Planning
 - (t) Systems unification
@@ -47,7 +54,6 @@ These features are good ideas but not on the roadmap yet.
   - "Gold" -> "Glint"
   - Money should just be a thing in the inventory, not a stat
   - Money should not be picked up automatically
-- Inspect items/creatures with a Look action.
 - Game should log when you step on an item or dungeon feature.
 - Combat log should be state when an offhand attack is made.
 - Healing potion effect should be randomized (1d8 vs 8)
