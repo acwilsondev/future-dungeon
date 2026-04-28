@@ -72,6 +72,7 @@ impl App {
         let mut to_despawn = Vec::new();
         let mut total_xp: i32 = 0;
         let mut drops: Vec<(Position, crate::content::RawItem)> = Vec::new();
+        let mut lore_keys: Vec<String> = Vec::new();
         for (id, (stats, _)) in self.world.query::<(&CombatStats, &Monster)>().iter() {
             if stats.hp <= 0 {
                 to_despawn.push(id);
@@ -81,13 +82,14 @@ impl App {
                     .map(|n| n.0.clone())
                     .unwrap_or("Monster".to_string());
                 self.log.push(format!("{} dies!", name));
-                if self.world.get::<&LastHitByPlayer>(id).is_ok() {
+                let killed_by_player = self.world.get::<&LastHitByPlayer>(id).is_ok();
+                if killed_by_player {
                     if let Ok(exp) = self.world.get::<&Experience>(id) {
                         total_xp = total_xp.saturating_add(exp.xp_reward);
                     }
                 }
 
-                // Collect drop info
+                // Collect drop info and unlock lore for bosses
                 if let Ok(name) = self.world.get::<&Name>(id) {
                     if let Ok(pos) = self.world.get::<&Position>(id) {
                         let boss_raw = self.content.monsters.iter().find(|m| m.name == name.0);
@@ -98,6 +100,10 @@ impl App {
                                 {
                                     drops.push((*pos, item_raw.clone()));
                                 }
+                            }
+                            if raw.is_boss == Some(true) && killed_by_player {
+                                let key = name.0.to_lowercase().replace(' ', "_");
+                                lore_keys.push(format!("{}_slain", key));
                             }
                         }
                     }
@@ -119,6 +125,9 @@ impl App {
 
         if total_xp > 0 {
             self.add_player_xp(total_xp);
+        }
+        for key in lore_keys {
+            self.unlock_lore(&key);
         }
     }
 }
@@ -210,6 +219,7 @@ mod tests {
             guaranteed_loot: Some("Amulet".to_string()),
             branches: None,
             biomes: None,
+            tags: Vec::new(),
         };
         let item_raw = crate::content::RawItem {
             name: "Amulet".to_string(),
@@ -242,5 +252,57 @@ mod tests {
         let mut loot_query = app.world.query::<(&Name, &Item)>();
         let loot = loot_query.iter().find(|(_, (name, _))| name.0 == "Amulet");
         assert!(loot.is_some());
+    }
+
+    #[test]
+    fn test_boss_kill_unlocks_lore() {
+        let mut app = setup_test_app();
+        let player = app.world.spawn((Player, Position { x: 0, y: 0 }));
+
+        let monster_raw = crate::content::RawMonster {
+            name: "Orc Warchief".to_string(),
+            description: String::new(),
+            glyph: 'O',
+            color: (255, 0, 0),
+            hp: 50,
+            defense: 5,
+            power: 10,
+            viewshed: 8,
+            spawn_chance: 0.0,
+            min_floor: 1,
+            max_floor: 10,
+            personality: Personality::Brave,
+            faction: FactionKind::Orcs,
+            xp_reward: 200,
+            ranged: None,
+            confusion: None,
+            poison: None,
+            is_boss: Some(true),
+            phases: None,
+            guaranteed_loot: None,
+            branches: None,
+            biomes: None,
+            tags: Vec::new(),
+        };
+        app.content.monsters = vec![monster_raw];
+        app.content.items = vec![];
+
+        let boss = app.world.spawn((
+            Monster,
+            Name("Orc Warchief".to_string()),
+            Position { x: 5, y: 5 },
+            CombatStats {
+                hp: 0,
+                max_hp: 50,
+                defense: 5,
+                power: 10,
+            },
+            LastHitByPlayer,
+        ));
+        let _ = (boss, player);
+
+        assert!(!app.has_unlocked("orc_warchief_slain"));
+        app.cleanup_dead_entities();
+        assert!(app.has_unlocked("orc_warchief_slain"));
     }
 }

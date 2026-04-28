@@ -133,13 +133,30 @@ impl App {
         }
     }
 
-    fn spawn_environmental_features(&mut self, mb: &MapBuilder) {
+    fn spawn_environmental_features(&mut self, mb: &MapBuilder, branch_str: &str) {
+        let door_features: Vec<crate::content::RawFeature> = self
+            .content
+            .features_by_tag("door", branch_str)
+            .into_iter()
+            .cloned()
+            .collect();
         for pos in &mb.door_spawns {
-            crate::spawner::spawn_door(&mut self.world, pos.0, pos.1);
+            if let Some(raw) = door_features.first() {
+                crate::spawner::spawn_feature(&mut self.world, pos.0, pos.1, raw);
+            } else {
+                crate::spawner::spawn_door(&mut self.world, pos.0, pos.1);
+            }
         }
+
+        let trap_features: Vec<crate::content::RawFeature> = self
+            .content
+            .features_by_tag("trap", branch_str)
+            .into_iter()
+            .cloned()
+            .collect();
         for pos in &mb.trap_spawns {
-            if self.current_branch == Branch::Gardens {
-                crate::spawner::spawn_spore(&mut self.world, pos.0, pos.1);
+            if let Some(raw) = trap_features.first() {
+                crate::spawner::spawn_feature(&mut self.world, pos.0, pos.1, raw);
             } else {
                 crate::spawner::spawn_trap(&mut self.world, pos.0, pos.1);
             }
@@ -259,8 +276,13 @@ impl App {
         if !traveling_entities.is_empty() {
             self.handle_traveling_entities(traveling_entities, mb.player_start);
         } else {
-            let _player_id =
-                crate::spawner::spawn_player(&mut self.world, mb.player_start.0, mb.player_start.1);
+            let defaults = self.content.player_defaults().into_owned();
+            crate::spawner::spawn_player(
+                &mut self.world,
+                mb.player_start.0,
+                mb.player_start.1,
+                &defaults,
+            );
         }
 
         self.spawn_ambient_features(&mb);
@@ -288,7 +310,7 @@ impl App {
 
         let items_ref: Vec<&crate::content::RawItem> = available_items.iter().collect();
         self.spawn_room_features(&mb, &items_ref);
-        self.spawn_environmental_features(&mb);
+        self.spawn_environmental_features(&mb, branch_str);
 
         if self.dungeon_level % 10 == 5 {
             // Haven floors are safe
@@ -299,21 +321,22 @@ impl App {
 
         let available_monsters: Vec<crate::content::RawMonster> = self
             .content
-            .monsters
-            .iter()
-            .filter(|m| self.dungeon_level >= m.min_floor && self.dungeon_level <= m.max_floor)
-            .filter(|m| {
-                m.branches
-                    .as_ref()
-                    .is_none_or(|b| b.iter().any(|s| s == branch_str))
-            })
-            .filter(|m| m.biomes.as_ref().is_none_or(|b| b.contains(&mb.biome)))
+            .monsters_by_tag("monster", self.dungeon_level, branch_str, &mb.biome)
+            .into_iter()
             .cloned()
             .collect();
-
         let monsters_ref: Vec<&crate::content::RawMonster> = available_monsters.iter().collect();
         self.spawn_monsters(&mb, &monsters_ref);
         self.spawn_items(&mb, &items_ref);
+
+        log::debug!(
+            "Level {} generated. Spawns: {} monsters, {} items, {} monster_slots, {} item_slots.",
+            self.dungeon_level,
+            monsters_ref.len(),
+            items_ref.len(),
+            mb.monster_spawns.len(),
+            mb.item_spawns.len(),
+        );
 
         self.update_blocked_and_opaque();
         self.update_fov();

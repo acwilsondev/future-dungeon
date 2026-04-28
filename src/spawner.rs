@@ -1,9 +1,9 @@
 use crate::components::*;
-use crate::content::{RawItem, RawMonster};
+use crate::content::{RawFeature, RawFeatureKind, RawItem, RawMonster, RawPlayerDefaults};
 use hecs::World;
 use ratatui::prelude::Color;
 
-pub fn spawn_player(world: &mut World, x: u16, y: u16) -> hecs::Entity {
+pub fn spawn_player(world: &mut World, x: u16, y: u16, d: &RawPlayerDefaults) -> hecs::Entity {
     world.spawn((
         Position { x, y },
         Renderable {
@@ -13,29 +13,33 @@ pub fn spawn_player(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         RenderOrder::Player,
         Player,
         Faction(FactionKind::Player),
-        Viewshed { visible_tiles: 8 },
-        Hearing { range: 15 },
+        Viewshed {
+            visible_tiles: d.viewshed,
+        },
+        Hearing {
+            range: d.hearing_range,
+        },
         LightSource {
-            range: 2,
-            base_range: 2,
+            range: d.light_range,
+            base_range: d.light_range,
             color: (150, 150, 100),
             remaining_turns: None,
             flicker: false,
         },
         Name("Player".to_string()),
         Attributes {
-            strength: 10,
-            dexterity: 10,
-            constitution: 10,
-            intelligence: 10,
-            wisdom: 10,
-            charisma: 10,
+            strength: d.str,
+            dexterity: d.dex,
+            constitution: d.con,
+            intelligence: d.int,
+            wisdom: d.wis,
+            charisma: d.cha,
         },
         CombatStats {
-            max_hp: 30,
-            hp: 30,
-            defense: 2,
-            power: 5,
+            max_hp: d.max_hp,
+            hp: d.max_hp,
+            defense: d.defense,
+            power: d.power,
         },
         Experience {
             level: 1,
@@ -45,7 +49,10 @@ pub fn spawn_player(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         },
         Perks { traits: Vec::new() },
         Gold { amount: 0 },
-        Aegis { current: 5, max: 5 },
+        Aegis {
+            current: d.aegis,
+            max: d.aegis,
+        },
     ))
 }
 
@@ -291,6 +298,62 @@ pub fn spawn_stairs(
     }
 }
 
+pub fn spawn_feature(world: &mut World, x: u16, y: u16, raw: &RawFeature) -> hecs::Entity {
+    let fg = Color::Rgb(raw.color.0, raw.color.1, raw.color.2);
+    match &raw.kind {
+        RawFeatureKind::Door => world.spawn((
+            Position { x, y },
+            Renderable {
+                glyph: raw.glyph,
+                fg,
+            },
+            RenderOrder::Map,
+            Door { open: false },
+            Name(raw.name.clone()),
+        )),
+        RawFeatureKind::Trap { damage } => world.spawn((
+            Position { x, y },
+            Renderable {
+                glyph: raw.glyph,
+                fg,
+            },
+            RenderOrder::Trap,
+            Trap {
+                damage: *damage,
+                revealed: false,
+            },
+            Name(raw.name.clone()),
+        )),
+        RawFeatureKind::PoisonTrap { damage, turns } => world.spawn((
+            Position { x, y },
+            Renderable {
+                glyph: raw.glyph,
+                fg,
+            },
+            RenderOrder::Trap,
+            Trap {
+                damage: 0,
+                revealed: true,
+            },
+            Poison {
+                damage: *damage,
+                turns: *turns,
+            },
+            Name(raw.name.clone()),
+        )),
+        RawFeatureKind::Cover => world.spawn((
+            Position { x, y },
+            Renderable {
+                glyph: raw.glyph,
+                fg,
+            },
+            RenderOrder::Map,
+            PartialCover,
+            Name(raw.name.clone()),
+        )),
+    }
+}
+
 pub fn spawn_door(world: &mut World, x: u16, y: u16) -> hecs::Entity {
     world.spawn((
         Position { x, y },
@@ -301,26 +364,6 @@ pub fn spawn_door(world: &mut World, x: u16, y: u16) -> hecs::Entity {
         RenderOrder::Map,
         Door { open: false },
         Name("Door".to_string()),
-    ))
-}
-
-pub fn spawn_spore(world: &mut World, x: u16, y: u16) -> hecs::Entity {
-    world.spawn((
-        Position { x, y },
-        Renderable {
-            glyph: ',',
-            fg: Color::Rgb(0, 255, 0),
-        },
-        RenderOrder::Trap,
-        Trap {
-            damage: 0,
-            revealed: true,
-        },
-        Poison {
-            damage: 2,
-            turns: 5,
-        },
-        Name("Poison Spore".to_string()),
     ))
 }
 

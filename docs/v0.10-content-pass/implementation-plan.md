@@ -128,11 +128,11 @@ lore-driven entries.
 - [x] Add `serde_yml` to `Cargo.toml`.
 - [x] Implement `Content::load_from_dir(path: &Path)`.
 - [x] Migrate `content.json` to `content/base.yaml`.
-- [ ] Implement `RawFeature` with component composition and update `spawner.rs`.
+- [x] Implement `RawFeature` with component composition and update `spawner.rs`.
 - [x] Update `src/content.rs` tests to use directory-based loading.
-- [ ] Externalize `spawn_player` stats.
-- [ ] Refactor `level_gen.rs` to use role-based `spawn_by_tag` and floor archetypes.
+- [x] Externalize `spawn_player` stats.
+- [x] Refactor `level_gen.rs` to use role-based `spawn_by_tag` and floor archetypes.
 - [x] Implement `RunState::Look` (leveraging targeting logic) and rebind `l`.
-- [ ] Add lore snippet support with key-based unlock triggers.
+- [x] Add lore snippet support with key-based unlock triggers.
 - [x] Add initial content batch with mandatory descriptions and lore tags.
 - [x] Implement debug console commands (`reload_content`) and `--check-content` CLI flag.

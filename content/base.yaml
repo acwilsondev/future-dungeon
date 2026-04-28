@@ -14,6 +14,7 @@ monsters:
     min_floor: 1
     max_floor: 999
     biomes: [Dungeon]
+    tags: [monster, melee, humanoid]
 
   - name: Goblin
     description: Wiry and cowardly, goblins flee when the odds turn against them.
@@ -30,6 +31,7 @@ monsters:
     min_floor: 1
     max_floor: 10
     biomes: [Dungeon]
+    tags: [monster, melee, humanoid]
 
   - name: Goblin Archer
     description: A goblin that prefers distance, loosing crude arrows from the shadows.
@@ -47,6 +49,7 @@ monsters:
     min_floor: 2
     max_floor: 15
     biomes: [Dungeon]
+    tags: [monster, ranged, humanoid]
 
   - name: Spider
     description: Eight legs, eight eyes, and venom enough to make you regret exploring caves.
@@ -63,6 +66,7 @@ monsters:
     min_floor: 1
     max_floor: 999
     biomes: [Caves]
+    tags: [monster, melee, beast]
 
   - name: Garden Snake
     description: Deceptively docile-looking. Its bite carries a slow-acting venom.
@@ -80,6 +84,7 @@ monsters:
     min_floor: 2
     max_floor: 999
     biomes: [Caves]
+    tags: [monster, melee, beast, poison]
 
   - name: Skeleton
     description: Animated bones held together by necrotic will. It does not tire.
@@ -96,6 +101,7 @@ monsters:
     min_floor: 1
     max_floor: 999
     biomes: [Crypt]
+    tags: [monster, melee, undead]
 
   - name: Zombie
     description: Bloated with rot and relentless hunger. It feels no pain.
@@ -112,6 +118,7 @@ monsters:
     min_floor: 1
     max_floor: 999
     biomes: [Crypt]
+    tags: [monster, melee, undead]
 
   - name: Temple Priest
     description: A zealot who channels divine light as a weapon. Calls for aid.
@@ -129,6 +136,7 @@ monsters:
     min_floor: 1
     max_floor: 999
     biomes: [Temple]
+    tags: [monster, ranged, humanoid, caster]
 
   - name: Imp
     description: A minor demon, quick and spiteful. Hurls blasts of infernal fire.
@@ -146,6 +154,7 @@ monsters:
     min_floor: 1
     max_floor: 999
     biomes: [Hell]
+    tags: [monster, ranged, demon]
 
   - name: Ice Elemental
     description: A crystalline spirit of pure cold. Moves silently, strikes hard.
@@ -162,6 +171,7 @@ monsters:
     min_floor: 2
     max_floor: 999
     branches: [Vaults]
+    tags: [monster, melee, elemental]
 
   - name: The Broodmother
     description: An ancient spider queen whose egg sacs line entire chambers. She calls her children.
@@ -182,6 +192,7 @@ monsters:
       - hp_threshold_pct: 0.5
         action: SummonMinions
     guaranteed_loot: Venomous Dagger
+    tags: [monster, melee, beast, boss]
 
   - name: Ancient Guardian
     description: A colossal construct of the old world, sealed here to protect what was stolen.
@@ -202,6 +213,7 @@ monsters:
       - hp_threshold_pct: 0.5
         action: SummonMinions
     guaranteed_loot: Amulet of the Ancients
+    tags: [monster, melee, construct, boss]
 
   - name: The Goblin King
     description: Fat with stolen gold and vicious cunning. His rage is legendary.
@@ -224,6 +236,7 @@ monsters:
       - hp_threshold_pct: 0.3
         action: Enrage
     guaranteed_loot: King's Armor
+    tags: [monster, melee, humanoid, boss]
 
 items:
   - name: Health Potion
@@ -799,3 +812,41 @@ spells:
           type: Poisoned
           duration: 6
           magnitude: "2"
+
+features:
+  - name: Door
+    description: A wooden door, worn but functional.
+    glyph: "+"
+    color: [139, 90, 43]
+    kind: door
+    tags: [door]
+    spawn_chance: 1.0
+
+  - name: Trap
+    description: A hidden pressure plate connected to a sharp mechanism.
+    glyph: "^"
+    color: [255, 0, 0]
+    kind: trap
+    damage: 5
+    tags: [trap]
+    branches: [Main, Vaults]
+    spawn_chance: 1.0
+
+  - name: Poison Spore
+    description: A cluster of toxic fungi that bursts underfoot.
+    glyph: ","
+    color: [0, 255, 0]
+    kind: poison_trap
+    damage: 2
+    turns: 5
+    tags: [trap]
+    branches: [Gardens]
+    spawn_chance: 1.0
+
+  - name: Debris
+    description: Scattered rubble that provides partial cover.
+    glyph: "."
+    color: [150, 120, 80]
+    kind: cover
+    tags: [cover]
+    spawn_chance: 1.0
