@@ -8,10 +8,13 @@ e = enhancement
 t = tech debt
 
 - (t) Improved Abstractions
-- (e) Advanced AI/Goal-Action-Planning
 - (t) Systems unification
   - In particular, we want all creatures to leverage the general set of
     components that the player gets.
+  - Potions should be modeled using Effects
+- (e) Advanced AI/Goal-Action-Planning
+  - State-based logic
+  - Bravery check
 - (e) Lore
   - Solari/Nihil lore is dropped when the player gains a mana pip for the
     respective faction. It takes the form of a narrative, biased story.
