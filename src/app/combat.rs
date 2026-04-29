@@ -136,15 +136,6 @@ impl App {
         }
 
         // 2. Attack Roll (1d20 + mod)
-        let mut rolls = Vec::new();
-        for _ in 0..=disadvantage_count {
-            rolls.push(self.rng.random_range(1..=20));
-        }
-        let roll = *rolls.iter().min().expect("rolls is never empty");
-
-        let mut hit = false;
-        let mut critical = false;
-
         // Target Dodge DC (10 + capped DEX mod, +2 if ranged and partial cover intervenes)
         let target_dex_mod = self.get_dex_modifier(target);
         let mut dodge_dc = 10 + target_dex_mod;
@@ -152,14 +143,7 @@ impl App {
             dodge_dc += 2;
         }
 
-        if roll == 20 {
-            hit = true;
-            critical = true;
-        } else if roll == 1 {
-            hit = false;
-        } else if roll + attr_mod >= dodge_dc {
-            hit = true;
-        }
+        let (roll, hit, critical) = self.roll_hit(attr_mod, dodge_dc, disadvantage_count);
 
         // 3. Damage Calculation (raw — mitigation happens in apply_damage)
         let mut damage = 0;
@@ -184,13 +168,8 @@ impl App {
                 }
             }
 
-            let mut n_dice = damage_dice.0;
-            if critical {
-                n_dice *= 2;
-            }
-            for _ in 0..n_dice {
-                weapon_roll += self.rng.random_range(1..=damage_dice.1);
-            }
+            let n_dice = damage_dice.0 * if critical { 2 } else { 1 };
+            weapon_roll = self.roll_damage(n_dice, damage_dice.1);
 
             target_av = self.get_target_av(target);
             damage = (weapon_roll + attr_mod + power_bonus).max(0);
@@ -492,7 +471,10 @@ impl App {
                 .push("Debug: Player is in God Mode! No damage taken.".to_string());
         }
 
-        // Apply status effects
+        self.apply_hit_effects(target, res);
+    }
+
+    fn apply_hit_effects(&mut self, target: hecs::Entity, res: &AttackResult) {
         if let Some(poison) = res.poison {
             if self.world.get::<&Poison>(target).is_err() {
                 let is_player = self.world.get::<&Player>(target).is_ok();
@@ -519,6 +501,33 @@ impl App {
                 }
             }
         }
+    }
+
+    fn roll_hit(
+        &mut self,
+        attr_mod: i32,
+        dodge_dc: i32,
+        disadvantage_count: u32,
+    ) -> (i32, bool, bool) {
+        let mut rolls = Vec::new();
+        for _ in 0..=disadvantage_count {
+            rolls.push(self.rng.random_range(1..=20));
+        }
+        let roll = *rolls.iter().min().expect("rolls is never empty");
+        let (hit, critical) = if roll == 20 {
+            (true, true)
+        } else if roll == 1 {
+            (false, false)
+        } else {
+            (roll + attr_mod >= dodge_dc, false)
+        };
+        (roll, hit, critical)
+    }
+
+    fn roll_damage(&mut self, n_dice: i32, die_sides: i32) -> i32 {
+        (0..n_dice)
+            .map(|_| self.rng.random_range(1..=die_sides))
+            .sum()
     }
 }
 

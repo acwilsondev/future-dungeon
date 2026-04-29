@@ -1,5 +1,5 @@
 use crate::components::*;
-use crate::content::{RawFeature, RawFeatureKind, RawItem, RawMonster, RawPlayerDefaults};
+use crate::content::{RawFeature, RawItem, RawMonster, RawPlayerDefaults};
 use hecs::World;
 use ratatui::prelude::Color;
 
@@ -76,6 +76,7 @@ pub fn spawn_monster(
     cb.add(Monster);
     cb.add(Faction(raw.faction));
     cb.add(AIPersonality(raw.personality));
+    cb.add(AIThresholds::from_personality(raw.personality));
     cb.add(Viewshed {
         visible_tiles: raw.viewshed,
     });
@@ -300,58 +301,59 @@ pub fn spawn_stairs(
 
 pub fn spawn_feature(world: &mut World, x: u16, y: u16, raw: &RawFeature) -> hecs::Entity {
     let fg = Color::Rgb(raw.color.0, raw.color.1, raw.color.2);
-    match &raw.kind {
-        RawFeatureKind::Door => world.spawn((
-            Position { x, y },
-            Renderable {
-                glyph: raw.glyph,
-                fg,
-            },
-            RenderOrder::Map,
-            Door { open: false },
-            Name(raw.name.clone()),
-        )),
-        RawFeatureKind::Trap { damage } => world.spawn((
-            Position { x, y },
-            Renderable {
-                glyph: raw.glyph,
-                fg,
-            },
-            RenderOrder::Trap,
+    let render_order = if raw.trap_damage.is_some() || raw.poison_damage.is_some() {
+        RenderOrder::Trap
+    } else {
+        RenderOrder::Map
+    };
+
+    let entity = world.spawn((
+        Position { x, y },
+        Renderable {
+            glyph: raw.glyph,
+            fg,
+        },
+        render_order,
+        Name(raw.name.clone()),
+    ));
+
+    if raw.door {
+        let _ = world.insert_one(entity, Door { open: false });
+    }
+    if raw.cover {
+        let _ = world.insert_one(entity, PartialCover);
+    }
+    if let Some(damage) = raw.trap_damage {
+        let _ = world.insert_one(
+            entity,
             Trap {
-                damage: *damage,
+                damage,
                 revealed: false,
             },
-            Name(raw.name.clone()),
-        )),
-        RawFeatureKind::PoisonTrap { damage, turns } => world.spawn((
-            Position { x, y },
-            Renderable {
-                glyph: raw.glyph,
-                fg,
-            },
-            RenderOrder::Trap,
-            Trap {
-                damage: 0,
-                revealed: true,
-            },
-            Poison {
-                damage: *damage,
-                turns: *turns,
-            },
-            Name(raw.name.clone()),
-        )),
-        RawFeatureKind::Cover => world.spawn((
-            Position { x, y },
-            Renderable {
-                glyph: raw.glyph,
-                fg,
-            },
-            RenderOrder::Map,
-            PartialCover,
-            Name(raw.name.clone()),
-        )),
+        );
     }
+    if let Some(poison_damage) = raw.poison_damage {
+        let turns = raw.poison_turns.unwrap_or(5);
+        let _ = world.insert_one(
+            entity,
+            Poison {
+                damage: poison_damage,
+                turns,
+            },
+        );
+        // A poison-only feature is a visible hazard, not a hidden spike trap.
+        if raw.trap_damage.is_none() {
+            let _ = world.insert_one(
+                entity,
+                Trap {
+                    damage: 0,
+                    revealed: true,
+                },
+            );
+        }
+    }
+
+    entity
 }
 
 pub fn spawn_door(world: &mut World, x: u16, y: u16) -> hecs::Entity {

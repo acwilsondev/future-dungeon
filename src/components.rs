@@ -385,6 +385,33 @@ pub enum Personality {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AIPersonality(pub Personality);
 
+/// Explicit behaviour thresholds for a monster, derived from its personality at spawn.
+/// Storing these as a component keeps magic numbers in data (content YAML) rather
+/// than scattered across AI logic.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
+pub struct AIThresholds {
+    /// Flee when hp / max_hp drops below this fraction (e.g. 0.5 = 50%).
+    pub flee_below_hp_pct: Option<f32>,
+    /// Flee when the target's distance drops below this (melee avoidance).
+    pub flee_below_dist: Option<f32>,
+}
+
+impl AIThresholds {
+    pub fn from_personality(p: Personality) -> Self {
+        match p {
+            Personality::Brave => Self::default(),
+            Personality::Cowardly => AIThresholds {
+                flee_below_hp_pct: Some(0.5),
+                flee_below_dist: None,
+            },
+            Personality::Tactical => AIThresholds {
+                flee_below_hp_pct: None,
+                flee_below_dist: Some(4.0),
+            },
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Viewshed {
     pub visible_tiles: i32,

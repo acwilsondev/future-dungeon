@@ -1,0 +1,12 @@
+floor_events:
+  # Every 10th floor offset by 5 (floors 5, 15, 25, ...) is a safe merchant haven.
+  - trigger: { every: 10, offset: 5 }
+    kind: merchant_haven
+
+  # Every 20th floor has a hidden Reset Shrine.
+  - trigger: { every: 20 }
+    kind: reset_shrine
+
+  # Floor 10 contains the Amulet of the Ancients (win condition).
+  - trigger: { at: 10 }
+    kind: amulet_spawn

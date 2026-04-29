@@ -15,144 +15,22 @@ impl App {
             .map(|n| n.0.clone())
             .unwrap_or("Item".to_string());
 
-        if real_name == "Identification Scroll" {
-            self.state = RunState::ShowIdentify;
-            self.targeting_item = Some(item_id);
-            self.inventory_cursor = 0;
-            self.log.push("Select an item to identify...".to_string());
+        if self.use_item_as_identify_scroll(item_id, &real_name) {
             return;
         }
-
-        let tome_info = self
-            .world
-            .get::<&Tome>(item_id)
-            .ok()
-            .map(|t| (t.spell_name.clone(), t.level));
-        if let Some((_spell_name, level)) = tome_info {
-            if !self.identified_items.contains(&real_name) {
-                let cha_mod = self
-                    .world
-                    .get::<&Attributes>(player_id)
-                    .map(|a| Attributes::get_modifier(a.charisma))
-                    .unwrap_or(0);
-                let dc = 10 + level as i32;
-                let roll = self.rng.random_range(1..=20);
-                if roll + cha_mod >= dc {
-                    self.identified_items.insert(real_name.clone());
-                    self.log
-                        .push(format!("You decipher the Tome: {}.", real_name));
-                    self.begin_study_tome(item_id);
-                } else {
-                    self.log
-                        .push("The Tome's script eludes you for now.".to_string());
-                }
-            } else {
-                self.begin_study_tome(item_id);
-            }
+        if self.use_item_as_tome(item_id, player_id, &real_name) {
             return;
         }
-
-        let player_pos = self
-            .world
-            .get::<&Position>(player_id)
-            .ok()
-            .map(|p| *p)
-            .unwrap_or(Position { x: 0, y: 0 });
+        if self.use_item_as_ranged(item_id, player_id, &item_name) {
+            return;
+        }
 
         let mut handled = false;
-
-        let potion_heal = self
-            .world
-            .get::<&Potion>(item_id)
-            .ok()
-            .map(|p| p.heal_amount);
-        if let Some(heal_amount) = potion_heal {
-            if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
-                stats.hp = (stats.hp + heal_amount).min(stats.max_hp);
-            }
-            self.log.push(format!(
-                "You drink the {}, healing for {} HP.",
-                item_name, heal_amount
-            ));
-            self.generate_noise(player_pos.x, player_pos.y, 1.0);
-            handled = true;
-        }
-
-        let poison_effect = self.world.get::<&Poison>(item_id).ok().map(|p| *p);
-        if let Some(poison) = poison_effect {
-            let _ = self.world.insert_one(player_id, poison);
-            self.log
-                .push(format!("You are poisoned by the {}!", item_name));
-            handled = true;
-        }
-
-        let strength_effect = self.world.get::<&Strength>(item_id).ok().map(|s| *s);
-        if let Some(strength) = strength_effect {
-            let _ = self.world.insert_one(player_id, strength);
-            if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
-                stats.power += strength.amount;
-            }
-            self.log
-                .push(format!("The {} makes you feel much stronger!", item_name));
-            handled = true;
-        }
-
-        let speed_effect = self.world.get::<&Speed>(item_id).ok().map(|s| *s);
-        if let Some(speed) = speed_effect {
-            let _ = self.world.insert_one(player_id, speed);
-            self.log
-                .push(format!("The {} makes you feel incredibly fast!", item_name));
-            handled = true;
-        }
-
-        if self.world.get::<&Ranged>(item_id).is_ok()
-            || (self.world.get::<&RangedWeapon>(item_id).is_ok()
-                && self.world.get::<&Equipped>(item_id).is_ok())
-        {
-            if let Ok(rw) = self.world.get::<&RangedWeapon>(item_id) {
-                // Check for correct ammo type based on power source
-                let has_ammo = match rw.power_source {
-                    WeaponPowerSource::Ammo => self
-                        .world
-                        .query::<(&Ammunition, &InBackpack)>()
-                        .iter()
-                        .any(|(_, (_, backpack))| backpack.owner == player_id),
-                    WeaponPowerSource::HeavyAmmo => self
-                        .world
-                        .query::<(&HeavyAmmo, &InBackpack)>()
-                        .iter()
-                        .any(|(_, (_, backpack))| backpack.owner == player_id),
-                    WeaponPowerSource::Heat => true, // Heat based weapons don't need inventory ammo
-                };
-
-                if !has_ammo {
-                    let msg = match rw.power_source {
-                        WeaponPowerSource::HeavyAmmo => {
-                            format!("You have no heavy ammunition for your {}!", item_name)
-                        }
-                        _ => format!("You have no ammunition for your {}!", item_name),
-                    };
-                    self.log.push(msg);
-                    return;
-                }
-            }
-            if let Ok(player_pos) = self.world.get::<&Position>(player_id) {
-                self.targeting_cursor = (player_pos.x, player_pos.y);
-                self.targeting_item = Some(item_id);
-                self.state = RunState::ShowTargeting;
-                self.log.push(format!("Select target for {}...", item_name));
-            }
-            return;
-        }
-
-        if self.world.get::<&Equippable>(item_id).is_ok() {
-            if self.world.get::<&Equipped>(item_id).is_ok() {
-                self.unequip_item(item_id);
-            } else {
-                self.equip_item(item_id);
-            }
-            handled = true;
-        }
+        handled |= self.apply_potion_effect(item_id, player_id, &item_name);
+        handled |= self.apply_poison_effect(item_id, player_id, &item_name);
+        handled |= self.apply_strength_effect(item_id, player_id, &item_name);
+        handled |= self.apply_speed_effect(item_id, player_id, &item_name);
+        handled |= self.apply_equippable_effect(item_id);
 
         if handled {
             self.identify_item(item_id);
@@ -163,6 +41,199 @@ impl App {
                 self.state = RunState::MonsterTurn;
             }
         }
+    }
+
+    fn use_item_as_identify_scroll(&mut self, item_id: hecs::Entity, real_name: &str) -> bool {
+        if real_name != "Identification Scroll" {
+            return false;
+        }
+        self.state = RunState::ShowIdentify;
+        self.targeting_item = Some(item_id);
+        self.inventory_cursor = 0;
+        self.log.push("Select an item to identify...".to_string());
+        true
+    }
+
+    fn use_item_as_tome(
+        &mut self,
+        item_id: hecs::Entity,
+        player_id: hecs::Entity,
+        real_name: &str,
+    ) -> bool {
+        let tome_info = self
+            .world
+            .get::<&Tome>(item_id)
+            .ok()
+            .map(|t| (t.spell_name.clone(), t.level));
+        let Some((_spell_name, level)) = tome_info else {
+            return false;
+        };
+        if !self.identified_items.contains(real_name) {
+            let cha_mod = self
+                .world
+                .get::<&Attributes>(player_id)
+                .map(|a| Attributes::get_modifier(a.charisma))
+                .unwrap_or(0);
+            let dc = 10 + level as i32;
+            let roll = self.rng.random_range(1..=20);
+            if roll + cha_mod >= dc {
+                self.identified_items.insert(real_name.to_string());
+                self.log
+                    .push(format!("You decipher the Tome: {}.", real_name));
+                self.begin_study_tome(item_id);
+            } else {
+                self.log
+                    .push("The Tome's script eludes you for now.".to_string());
+            }
+        } else {
+            self.begin_study_tome(item_id);
+        }
+        true
+    }
+
+    fn use_item_as_ranged(
+        &mut self,
+        item_id: hecs::Entity,
+        player_id: hecs::Entity,
+        item_name: &str,
+    ) -> bool {
+        let is_ranged = self.world.get::<&Ranged>(item_id).is_ok()
+            || (self.world.get::<&RangedWeapon>(item_id).is_ok()
+                && self.world.get::<&Equipped>(item_id).is_ok());
+        if !is_ranged {
+            return false;
+        }
+
+        let power_source = self
+            .world
+            .get::<&RangedWeapon>(item_id)
+            .ok()
+            .map(|rw| rw.power_source);
+        if let Some(power_source) = power_source {
+            let has_ammo = match power_source {
+                WeaponPowerSource::Ammo => self
+                    .world
+                    .query::<(&Ammunition, &InBackpack)>()
+                    .iter()
+                    .any(|(_, (_, backpack))| backpack.owner == player_id),
+                WeaponPowerSource::HeavyAmmo => self
+                    .world
+                    .query::<(&HeavyAmmo, &InBackpack)>()
+                    .iter()
+                    .any(|(_, (_, backpack))| backpack.owner == player_id),
+                WeaponPowerSource::Heat => true,
+            };
+            if !has_ammo {
+                let msg = match power_source {
+                    WeaponPowerSource::HeavyAmmo => {
+                        format!("You have no heavy ammunition for your {}!", item_name)
+                    }
+                    _ => format!("You have no ammunition for your {}!", item_name),
+                };
+                self.log.push(msg);
+                return true;
+            }
+        }
+
+        let player_pos = self.world.get::<&Position>(player_id).ok().map(|p| *p);
+        if let Some(pos) = player_pos {
+            self.targeting_cursor = (pos.x, pos.y);
+            self.targeting_item = Some(item_id);
+            self.state = RunState::ShowTargeting;
+            self.log.push(format!("Select target for {}...", item_name));
+        }
+        true
+    }
+
+    fn apply_potion_effect(
+        &mut self,
+        item_id: hecs::Entity,
+        player_id: hecs::Entity,
+        item_name: &str,
+    ) -> bool {
+        let Some(heal_amount) = self
+            .world
+            .get::<&Potion>(item_id)
+            .ok()
+            .map(|p| p.heal_amount)
+        else {
+            return false;
+        };
+        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
+            stats.hp = (stats.hp + heal_amount).min(stats.max_hp);
+        }
+        let player_pos = self
+            .world
+            .get::<&Position>(player_id)
+            .ok()
+            .map(|p| *p)
+            .unwrap_or(Position { x: 0, y: 0 });
+        self.log.push(format!(
+            "You drink the {}, healing for {} HP.",
+            item_name, heal_amount
+        ));
+        self.generate_noise(player_pos.x, player_pos.y, 1.0);
+        true
+    }
+
+    fn apply_poison_effect(
+        &mut self,
+        item_id: hecs::Entity,
+        player_id: hecs::Entity,
+        item_name: &str,
+    ) -> bool {
+        let Some(poison) = self.world.get::<&Poison>(item_id).ok().map(|p| *p) else {
+            return false;
+        };
+        let _ = self.world.insert_one(player_id, poison);
+        self.log
+            .push(format!("You are poisoned by the {}!", item_name));
+        true
+    }
+
+    fn apply_strength_effect(
+        &mut self,
+        item_id: hecs::Entity,
+        player_id: hecs::Entity,
+        item_name: &str,
+    ) -> bool {
+        let Some(strength) = self.world.get::<&Strength>(item_id).ok().map(|s| *s) else {
+            return false;
+        };
+        let _ = self.world.insert_one(player_id, strength);
+        if let Ok(mut stats) = self.world.get::<&mut CombatStats>(player_id) {
+            stats.power += strength.amount;
+        }
+        self.log
+            .push(format!("The {} makes you feel much stronger!", item_name));
+        true
+    }
+
+    fn apply_speed_effect(
+        &mut self,
+        item_id: hecs::Entity,
+        player_id: hecs::Entity,
+        item_name: &str,
+    ) -> bool {
+        let Some(speed) = self.world.get::<&Speed>(item_id).ok().map(|s| *s) else {
+            return false;
+        };
+        let _ = self.world.insert_one(player_id, speed);
+        self.log
+            .push(format!("The {} makes you feel incredibly fast!", item_name));
+        true
+    }
+
+    fn apply_equippable_effect(&mut self, item_id: hecs::Entity) -> bool {
+        if self.world.get::<&Equippable>(item_id).is_err() {
+            return false;
+        }
+        if self.world.get::<&Equipped>(item_id).is_ok() {
+            self.unequip_item(item_id);
+        } else {
+            self.equip_item(item_id);
+        }
+        true
     }
 }
 

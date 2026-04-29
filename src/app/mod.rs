@@ -10,8 +10,11 @@ use crate::map::Map;
 
 mod actions;
 mod actions_alchemy;
+mod actions_class_select;
+mod actions_debug;
 mod actions_item;
 mod actions_levelup;
+mod actions_menu;
 mod actions_respec;
 mod actions_shop;
 mod actions_spells;

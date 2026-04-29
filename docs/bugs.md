@@ -1,3 +1,3 @@
 # Bugs
 
-(no known bugs)
+- [ ] Release name should be "voidstar," not "rustlike"

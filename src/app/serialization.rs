@@ -26,6 +26,7 @@ impl App {
             let faction = self.world.get::<&Faction>(id).ok().map(|f| *f);
             let viewshed = self.world.get::<&Viewshed>(id).ok().map(|v| *v);
             let personality = self.world.get::<&AIPersonality>(id).ok().map(|p| *p);
+            let ai_thresholds = self.world.get::<&AIThresholds>(id).ok().map(|t| *t);
             let experience = self.world.get::<&Experience>(id).ok().map(|e| *e);
             let perks = self.world.get::<&Perks>(id).ok().map(|p| (*p).clone());
             let alert_state = self.world.get::<&AlertState>(id).ok().map(|a| *a);
@@ -72,6 +73,7 @@ impl App {
                 faction,
                 viewshed,
                 personality,
+                ai_thresholds,
                 experience,
                 perks,
                 alert_state,
@@ -141,6 +143,12 @@ impl App {
         }
         if let Some(personality) = e.personality {
             cb.add(personality);
+        }
+        if let Some(thresholds) = e.ai_thresholds {
+            cb.add(thresholds);
+        } else if let Some(personality) = e.personality {
+            // Backwards-compat: saves that predate AIThresholds derive from personality.
+            cb.add(AIThresholds::from_personality(personality.0));
         }
         if let Some(experience) = e.experience {
             cb.add(experience);
