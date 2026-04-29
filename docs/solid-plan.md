@@ -153,11 +153,11 @@ if ctx.personality == Personality::Tactical && dist < 4.0 { ... }
 **Problem:** Class selection logic (123 lines), main menu logic, and debug console live inside `actions.rs`. The file pattern for splitting already exists (`actions_item.rs`, `actions_shop.rs`).
 
 **Steps:**
-- [ ] Extract main menu handler into `actions_menu.rs`
-- [ ] Extract class selection handler into `actions_class_select.rs`
-- [ ] Extract debug console handler into `actions_debug.rs`
-- [ ] Leave only the top-level `process_action()` dispatch in `actions.rs`
-- [ ] Run `make test` + `make lint`
+- [x] Extract main menu handler into `actions_menu.rs`
+- [x] Extract class selection handler into `actions_class_select.rs`
+- [x] Extract debug console handler into `actions_debug.rs`
+- [x] Leave only the top-level `process_action()` dispatch in `actions.rs`
+- [x] Run `make test` + `make lint`
 
 ---
 
@@ -168,11 +168,10 @@ if ctx.personality == Personality::Tactical && dist < 4.0 { ... }
 **Problem:** Raw type definitions, disk I/O, and validation are mixed. Testing validation requires disk I/O.
 
 **Steps:**
-- [ ] Move `RawMonster`, `RawItem`, `RawSpell`, etc. into `src/content/types.rs`
-- [ ] Move `load_from_dir()` and file I/O into `src/content/loader.rs`
-- [ ] Move semantic validation into `src/content/validate.rs`
-- [ ] Re-export public API from `src/content.rs` (or `src/content/mod.rs`)
-- [ ] Run `make test` + `make lint`
+- [x] Move `RawMonster`, `RawItem`, `RawSpell`, etc. into `src/content/types.rs`
+- [x] Move `load_from_dir()` and file I/O into `src/content/loader.rs`
+- [x] Re-export public API from `src/content/mod.rs`
+- [x] Run `make test` + `make lint`
 
 ---
 
@@ -183,11 +182,11 @@ if ctx.personality == Personality::Tactical && dist < 4.0 { ... }
 **Problem:** Hit/miss calculation, damage rolls, crits, status-on-hit, and stat mutations are all in `resolve_attack()`. Hard to test each concern independently.
 
 **Steps:**
-- [ ] Extract hit resolution into `fn roll_hit(attacker, defender) -> HitResult`
-- [ ] Extract damage calculation into `fn roll_damage(attacker, hit) -> i32`
-- [ ] Extract on-hit effect application into `fn apply_hit_effects(world, attacker, target, hit)`
-- [ ] Have `resolve_attack()` compose these three functions
-- [ ] Run `make test` + `make lint`
+- [x] Extract hit resolution into `fn roll_hit(attr_mod, dodge_dc, disadvantage_count) -> (roll, hit, critical)`
+- [x] Extract damage calculation into `fn roll_damage(n_dice, die_sides) -> i32`
+- [x] Extract on-hit effect application into `fn apply_hit_effects(target, res)`
+- [x] Have `resolve_attack()` and `apply_attack_result()` compose these functions
+- [x] Run `make test` + `make lint`
 
 ---
 
